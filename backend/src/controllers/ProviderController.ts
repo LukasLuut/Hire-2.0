@@ -7,41 +7,34 @@ function toBoolean(value: any): boolean {
   return value === true || value === "true" || value === "1" || value === 1;
 }
 
+const BOOLEAN_FIELDS = [
+  "attendsOnline", "attendsPresent", "personalizedProposals", "approximateLocation",
+  "publicReviews", "pricesOnPage", "whatsNotification", "emailNotification",
+];
+
+// Campos de multipart chegam como texto: converte booleanos e a disponibilidade (JSON)
+function normalizeBody(raw: any) {
+  const body: any = { ...raw };
+  for (const key of BOOLEAN_FIELDS) {
+    if (key in body) body[key] = toBoolean(body[key]);
+  }
+  if (typeof body.availabilities === "string") {
+    body.availabilities = body.availabilities ? JSON.parse(body.availabilities) : undefined;
+  }
+  return body;
+}
+
 export class ProviderController {
   create = async (req: Request, res: Response) => {
     try {
-      const {
-        attendsOnline,
-        attendsPresent,
-        personalizedProposals,
-        approximateLocation,
-        publicReviews,
-        pricesOnPage,
-        whatsNotification,
-        emailNotification,
-        availabilities
-      } = req.body;
-
-      const body = {
-        ...req.body,
-        attendsOnline: toBoolean(attendsOnline),
-        attendsPresent: toBoolean(attendsPresent),
-        personalizedProposals: toBoolean(personalizedProposals),
-        approximateLocation: toBoolean(approximateLocation),
-        publicReviews: toBoolean(publicReviews),
-        pricesOnPage: toBoolean(pricesOnPage),
-        whatsNotification: toBoolean(whatsNotification),
-        emailNotification: toBoolean(emailNotification),
-        availabilities: availabilities ? JSON.parse(availabilities) : undefined
-      };
       const provider = await providerService.create(
         (req as any).user.id,
-        body,
+        normalizeBody(req.body),
         req.file
       );
       res.status(201).json(provider);
     } catch (err: any) {
-      res.status(400).json({ messages: err.message });
+      res.status(400).json({ message: err.message });
     }
   };
 
@@ -84,12 +77,12 @@ export class ProviderController {
 
   update = async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const category = await providerService.update(
+      const provider = await providerService.update(
         (req as any).user.id,
-        req.body
+        normalizeBody(req.body),
+        req.file
       );
-      res.json(category);
+      res.json(provider);
     } catch (e: any) {
       res.status(400).json({ message: e.message });
     }

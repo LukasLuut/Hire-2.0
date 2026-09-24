@@ -8,7 +8,7 @@ const controller = new ProviderController()
 
 providerRouter.post('/', authMiddleware, upload.single("image"), controller.create.bind(controller))
 providerRouter.get('/', authMiddleware, controller.getById.bind(controller))
-providerRouter.put('/', authMiddleware, controller.update.bind(controller))
+providerRouter.put('/', authMiddleware, upload.single("image"), controller.update.bind(controller))
 providerRouter.delete('/', authMiddleware, controller.delete.bind(controller))
 
 providerRouter.get('/services', authMiddleware, controller.getServices.bind(controller))
