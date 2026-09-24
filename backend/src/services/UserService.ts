@@ -83,12 +83,13 @@ export class UserService {
       }
     }});
 
-    const hire = await this.hireRepository.findOne({ where: [
-      { status: StatusEnum.EM_ANDAMENTO, user: { id: id }},
-      { status: StatusEnum.EM_ANDAMENTO, provider: { id: provider?.id }},
-      { status: StatusEnum.PENDENTE, user: { id: id }},
-      { status: StatusEnum.PENDENTE, provider: { id: provider?.id}}
-    ]});
+    // Sem prestador, as condições por provider seriam ignoradas pelo TypeORM (id undefined) e
+    // bloqueariam a exclusão por contratações de outras pessoas; só as incluímos quando existe prestador.
+    const pending = [StatusEnum.EM_ANDAMENTO, StatusEnum.PENDENTE];
+    const where: any[] = pending.map((status) => ({ status, user: { id } }));
+    if (provider) where.push(...pending.map((status) => ({ status, provider: { id: provider.id } })));
+
+    const hire = await this.hireRepository.findOne({ where });
     if(hire) throw new Error("Usuário não pode ser excluído. Serviço contratado/prestado não foi concluído.");
     
     await this.repo.remove(user);

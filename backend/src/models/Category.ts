@@ -20,8 +20,8 @@ export class Category {
   @Column({ length: 400, nullable: false })
   description: string;
 
-  @OneToOne(() => ServiceProvider, (provider) => provider.category)
-  provider: ServiceProvider;
+  @OneToMany(() => ServiceProvider, (provider) => provider.category)
+  providers: ServiceProvider[];
 
   @OneToMany(() => Service, (service) => service.category)
   services: Service[];

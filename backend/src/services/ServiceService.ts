@@ -54,11 +54,12 @@ export class ServiceService {
   }
 
   async getById(id: number) {
-    const service = await this.serviceRepository.findOne({ where: { id: id }, relations: { category: true, provider: true, hire: true }});
+    const service = await this.serviceRepository.findOne({ where: { id: id }, relations: { category: true, provider: true }});
+    if (!service) throw new Error("Serviço não encontrado");
     return service;
   }
 
-  async update(id: number, data: Partial<Service>, file?: Express.Multer.File) {
+  async update(id: number, data: Partial<Service> & { categoryId?: string | number }, file?: Express.Multer.File) {
   const service = await this.serviceRepository.findOne({
     where: { id },
   });
@@ -67,11 +68,18 @@ export class ServiceService {
     throw new Error('Serviço não encontrado');
   }
 
-  if (file) {
-    data.imageUrl = `/uploads/${file.filename}`;
-  }
+  // Campos de formulário que não são colunas do serviço
+  const { categoryId, provider: _provider, category: _category, ...rest } = data as any;
+  delete rest.providerId;
+  delete rest.image;
 
-  Object.assign(service, data);
+  if (file) {
+    rest.imageUrl = `/uploads/${file.filename}`;
+  }
+  if (rest.price !== undefined) rest.price = Number(rest.price);
+
+  Object.assign(service, rest);
+  if (categoryId) service.category = { id: Number(categoryId) } as any;
   return await this.serviceRepository.save(service);
 }
 

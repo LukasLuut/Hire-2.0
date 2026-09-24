@@ -3,7 +3,7 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
-  OneToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from "typeorm";
 import { ServiceProvider } from "./ServiceProvider";
@@ -27,7 +27,7 @@ export class Service {
   @Column()
   requiresScheduling: boolean;
 
-  @Column({ nullable: false })
+  @Column({ type: "double", nullable: false })
   price: number;
 
   @Column({ length: 100, nullable: false })
@@ -55,6 +55,6 @@ export class Service {
   category: Category;
 
 
-  @OneToOne(() => Hire, (hire) => hire.service)
-  hire: Hire;
+  @OneToMany(() => Hire, (hire) => hire.service)
+  hires: Hire[];
 }

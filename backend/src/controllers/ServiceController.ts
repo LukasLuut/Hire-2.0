@@ -64,7 +64,7 @@ export class ServiceController {
                 };
 
                 const { id } = req.params;
-                const service = await serviceService.update(Number(id), body)
+                const service = await serviceService.update(Number(id), body, req.file)
                 res.json(service)
             } catch (e: any) {
                 res.status(400).json({ message: e.message })

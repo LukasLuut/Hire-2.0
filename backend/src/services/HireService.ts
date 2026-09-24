@@ -1,9 +1,11 @@
 import { AppDataSource } from "../config/data-source";
-import { Category } from "../models/Category";
-import { Hire } from "../models/Hire";
+import { Hire, StatusEnum } from "../models/Hire";
 
 export class HireService {
     private hireRepository = AppDataSource.getRepository(Hire);
+
+    // Relações necessárias para exibir uma contratação completa no frontend
+    private readonly fullRelations = { user: true, provider: true, service: { category: true, provider: true } };
 
     async create(data: { price: number, description_service: string, firstContact: Date, providerId: string, userId: string, serviceId: string }) {
         const { price, description_service, firstContact, providerId, userId, serviceId } = data;
@@ -21,14 +23,22 @@ export class HireService {
     }
 
     async list() {
+        return await this.hireRepository.find({ relations: this.fullRelations, order: { id: "DESC" } });
+    }
+
+    async getById(id: number) {
+        const hire = await this.hireRepository.findOne({ where: { id }, relations: this.fullRelations });
+        if (!hire) throw new Error("Contratação não encontrada");
+        return hire;
     }
 
     async update(id: number, data: Partial<Hire>) {
         const hire = await this.hireRepository.findOne({ where: { id } });
         if (!hire) throw new Error("Serviço não encontrado");
 
-        if(data.status) {
-            if(hire.status_provider !== "CONCLUIDO") throw new Error("O prestador do serviço precisa concluir o serviço primeiro. Entre em contato com seu prestador.");
+        // O cliente só confirma a conclusão depois que o prestador concluir
+        if (data.status === StatusEnum.CONCLUIDO && hire.status_provider !== StatusEnum.CONCLUIDO) {
+            throw new Error("O prestador do serviço precisa concluir o serviço primeiro. Entre em contato com seu prestador.");
         }
 
         const { ...rest } = data
@@ -47,8 +57,14 @@ export class HireService {
     }
 
     async getListByProviderId(id: number) {
-        return await this.hireRepository.find({ relations: { user: true, provider: true, service: { category: true } }, where: {
+        return await this.hireRepository.find({ relations: this.fullRelations, where: {
             provider: {id: id}
-        }});
+        }, order: { id: "DESC" }});
+    }
+
+    async getListByUserId(userId: number) {
+        return await this.hireRepository.find({ relations: this.fullRelations, where: {
+            user: { id: userId }
+        }, order: { id: "DESC" }});
     }
 }

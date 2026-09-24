@@ -59,7 +59,7 @@ export class Hire {
   @ManyToOne(() => ServiceProvider, (provider) => provider.hires)
   provider: ServiceProvider;
 
-  @OneToOne(() => Service, (service) => service.hire)
+  @ManyToOne(() => Service, (service) => service.hires, { onDelete: "CASCADE" })
   @JoinColumn()
   service: Service;
 

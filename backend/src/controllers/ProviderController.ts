@@ -32,7 +32,7 @@ export class ProviderController {
         pricesOnPage: toBoolean(pricesOnPage),
         whatsNotification: toBoolean(whatsNotification),
         emailNotification: toBoolean(emailNotification),
-        availabilities: availabilities ? JSON.parse(availabilities) : ""
+        availabilities: availabilities ? JSON.parse(availabilities) : undefined
       };
       const provider = await providerService.create(
         (req as any).user.id,
@@ -48,16 +48,16 @@ export class ProviderController {
   getById = async (req: Request, res: Response) => {
     try {
       const provider = await providerService.getById((req as any).user.id);
-      res.status(201).json(provider);
+      res.json(provider);
     } catch (err: any) {
-      res.status(400).json({ messages: err.message });
+      res.status(404).json({ message: err.message });
     }
   };
 
   getServices = async (req: Request, res: Response) => {
     try {
       const services = await providerService.getServices((req as any).user.id);
-      res.status(201).json(services);
+      res.json(services);
 
     } catch (err: any) {
       res.status(400).json({ messages: err.message });

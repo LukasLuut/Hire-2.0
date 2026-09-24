@@ -1,3 +1,9 @@
 node_modules/
 
 .env
+
+# arquivos enviados pelos usuários
+uploads/
+
+# build
+dist/

@@ -1,4 +1,3 @@
-import { AnyARecord } from "dns";
 import { AppDataSource } from "../config/data-source";
 import { ServiceProvider } from "../models/ServiceProvider";
 import { User } from "../models/User";
@@ -17,6 +16,7 @@ export class ProviderService {
     idUser: number,
     data: {
       companyName: string;
+      categoryId?: string;
       subcategories?: string;
       links?: string;
       availabilities?: {
@@ -37,47 +37,38 @@ export class ProviderService {
     if (!user) throw new Error("Usuário não existente");
     if (user.provider) throw new Error("Prestador de serviços já existente");
 
-    const newData: any = { ...data, user, profileImageUrl };
+    // Valida os campos em JSON antes de salvar, para não deixar um prestador incompleto no banco
+    const subcategories = parseJsonList(data.subcategories);
+    const links = parseJsonList(data.links);
+
+    const { categoryId, subcategories: _s, links: _l, availabilities: _a, ...fields } = data as any;
+    const newData: any = {
+      ...fields,
+      user,
+      profileImageUrl,
+      category: categoryId ? { id: Number(categoryId) } : null,
+    };
 
     const providerSaved = await this.providerRepository.save(
       this.providerRepository.create(newData)
-    );
+    ) as unknown as ServiceProvider;
 
-    const subcategories = JSON.parse(
-      data.subcategories ? data.subcategories : ""
-    );
-    const links = JSON.parse(data.links ? data.links : "");
-
-    // Caso tenha subcategorias...
-    if (Array.isArray(subcategories)) {
-      var categoryList: Array<Object> = [];
-
-      subcategories.forEach((element) => {
-        categoryList.push({ name: element, provider: providerSaved });
-      });
-
-      this.subcategoryRepository.save(
-        this.subcategoryRepository.create(categoryList)
+    if (subcategories.length > 0) {
+      await this.subcategoryRepository.save(
+        subcategories.map((name) => this.subcategoryRepository.create({ name, provider: providerSaved }))
       );
     }
 
-    // Caso tenha subcategorias...
-    if (Array.isArray(links)) {
-      var linksList: Array<Object> = [];
-
-      links.forEach((element) => {
-        linksList.push({ name: element, provider: providerSaved });
-      });
-
-      this.linkRepository.save(
-        this.linkRepository.create(linksList)
+    if (links.length > 0) {
+      await this.linkRepository.save(
+        links.map((name) => this.linkRepository.create({ name, provider: providerSaved }))
       );
     }
 
     if (data.availabilities) {
       
        const availabilities = Object.entries(data.availabilities)
-        .filter(([, value]) => value !== null)
+        .filter(([, value]) => value != null)
         .map(([day, { start, end }]) =>
           this.availabilityRepository.create({
             day,
@@ -101,6 +92,7 @@ export class ProviderService {
         subcategories: true,
         links: true,
         category: true,
+        availabilities: true,
       },
       where: {
         user: {
@@ -109,7 +101,7 @@ export class ProviderService {
       },
     });
 
-    if (!provider) throw new Error("Provedor não encontrado");
+    if (!provider) throw new Error("Prestador não encontrado");
 
     return provider;
   }
@@ -158,7 +150,7 @@ export class ProviderService {
     });
   }
 
-  async update(id: number, data: Partial<ServiceProvider>) {
+  async update(id: number, data: Partial<ServiceProvider> & { categoryId?: number | string }) {
     const user = await this.userRepository.findOne({
       where: { id: id },
       relations: { provider: true },
@@ -171,8 +163,21 @@ export class ProviderService {
     });
     if (!provider) throw new Error("Provedor não encontrado");
 
-    Object.assign(provider, data);
+    const { categoryId, ...rest } = data;
+    Object.assign(provider, rest);
+    if (categoryId) provider.category = { id: Number(categoryId) } as any;
 
     return await this.providerRepository.save(provider);
+  }
+}
+
+// Converte um campo de formulário (string JSON) em lista de strings; vazio ou inválido vira lista vazia
+function parseJsonList(value?: string): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((v) => typeof v === "string" && v.trim() !== "") : [];
+  } catch {
+    throw new Error("Formato inválido em subcategorias ou links");
   }
 }

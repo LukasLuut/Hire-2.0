@@ -3,7 +3,7 @@ import {
   Column,
   Entity,
   JoinColumn,
-  ManyToMany,
+  ManyToOne,
   OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
@@ -69,7 +69,7 @@ export class ServiceProvider {
   @Column({ default: "available"})
   status?: string;
 
-  @Column({ length: 400 })
+  @Column({ length: 400, nullable: true })
   onlineLink?: string
 
   @Column({ length: 255, nullable: true })
@@ -93,7 +93,7 @@ export class ServiceProvider {
   @OneToMany(() => Contract, (contract) => contract.provider)
   contracts: Contract[];
 
-  @OneToOne(() => Category, (category) => category.provider)
+  @ManyToOne(() => Category, (category) => category.providers, { nullable: true })
   @JoinColumn()
   category: Category;
 

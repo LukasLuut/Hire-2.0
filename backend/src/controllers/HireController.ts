@@ -27,6 +27,27 @@ export class HireController {
         }
     }
 
+    getById = async (req: Request, res: Response) => {
+        try {
+            const { id } = req.params;
+            const hire = await hireService.getById(Number(id));
+            res.json(hire);
+        }
+        catch(err: any) {
+            res.status(404).json({ message: err.message })
+        }
+    }
+
+    getMine = async (req: Request, res: Response) => {
+        try {
+            const hires = await hireService.getListByUserId((req as any).user.id);
+            res.json(hires);
+        }
+        catch(err: any) {
+            res.status(400).json({ message: err.message })
+        }
+    }
+
     getByProviderId = async(req: Request, res: Response) => {
         try {
             const { id } = req.params;
