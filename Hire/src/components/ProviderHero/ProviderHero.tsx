@@ -2,7 +2,7 @@
 // Dados reais do prestador: nota, avaliações, nível, status e disponibilidade.
 // ------------------------------------------------------
 
-import React, { useEffect, useState } from "react";
+import React, { lazy, Suspense, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import type {
   DayKey,
@@ -17,7 +17,8 @@ import {
   Edit3,
 } from "lucide-react";
 import ServiceGallery from "../ServiceGallery/ServiceGallery/ServiceGallery";
-import ProviderRegistrationContainer from "../ProviderRegistration/ProviderRegistration/Principal/ProviderRegistrationContainer";
+// o cadastro de prestador traz o mapa (leaflet): só é baixado quando o formulário abre
+const ProviderRegistrationContainer = lazy(() => import("../ProviderRegistration/ProviderRegistration/Principal/ProviderRegistrationContainer"));
 import type { ProviderEntity } from "../../interfaces/Entities";
 import type { ServiceData } from "../../api/ServiceAPI";
 import { avatarFor } from "../../utils/avatar";
@@ -224,7 +225,7 @@ export default function ProviderHero({ provider, readOnly = false, services }: P
           </div>
         )}
       </div>
-       {isEditing&&(<div className=""><ProviderRegistrationContainer isOpen={isEditing} existing={provider} onClose={()=>setIsEditing(false)}/></div>)}
+       {isEditing&&(<div className=""><Suspense fallback={null}><ProviderRegistrationContainer isOpen={isEditing} existing={provider} onClose={()=>setIsEditing(false)}/></Suspense></div>)}
       {!isEditing && (readOnly
         ? <ServiceGallery services={services ?? []} noEdit title="Serviços" />
         : <ServiceGallery />)}

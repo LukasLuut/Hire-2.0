@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
-import bgImage from "../assets/bg-login.png";
-import hirePng from "../assets/Hire..png"
+import bgImage from "../assets/bg-login.webp";
+import hirePng from "../assets/hire-logo.webp";
 import { userAPI, type UserAPI, type UserLoginAPI } from "../api/UserAPI";
 import { useNavigate } from 'react-router-dom';
 import UseTerms from "../components/Terms/UseTerms";
@@ -127,7 +127,7 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
     <div
       className="min-h-screen flex  items-center bg-[linear-gradient(135deg,_#000_0%,_#000_50%,_#000_75%,_var(--primary)_100%)] justify-center lg:justify-around gap-10 px-4 sm:px-8 lg:px-20 xl:px-40 pt-20 pb-10"
     >
-      <img src={hirePng} className="hidden lg:block max-w-120" alt="logo hire" />
+      <img src={hirePng} width={480} height={679} className="hidden lg:block max-w-120 h-auto" alt="logo hire" />
       <div
         className="relative w-full max-w-md h-[620px] md:h-[590px] rounded-3xl overflow-hidden shadow-[0_0_40px_10px_var(--primary)]"
         style={{

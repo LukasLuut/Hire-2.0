@@ -7,8 +7,6 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 import { contractAPI, type ContractEntity } from "../api/ContractAPI";
 import { reaisPorExtenso } from "../utils/extenso";
 import { getErrorMessage } from "../utils/errors";
@@ -158,6 +156,9 @@ export const ContractDocument: React.FC<{
    * ---------------------------------------------------------------------- */
   const handleExportPDF = async () => {
     if (!contractRef.current) return;
+
+    // bibliotecas pesadas do PDF só são baixadas quando alguém exporta
+    const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
 
     enableCompatibilityMode(); // força modo compatível (sem oklch)
     await new Promise((r) => setTimeout(r, 50)); // pequena espera para re-renderizar

@@ -7,9 +7,10 @@
  *  - Cadastro de empresa (prestador), Chat (negociações)
  *  - Busca de serviços e avaliações recebidas como cliente
  * -------------------------------------------------------------------------- */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { Star, Edit3, MessageSquare, Check } from "lucide-react";
-import ProviderRegistrationContainer from "../components/ProviderRegistration/ProviderRegistration/Principal/ProviderRegistrationContainer";
+// o cadastro de prestador traz o mapa (leaflet): só é baixado quando o formulário abre
+const ProviderRegistrationContainer = lazy(() => import("../components/ProviderRegistration/ProviderRegistration/Principal/ProviderRegistrationContainer"));
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { userAPI } from "../api/UserAPI";
 import { reviewAPI } from "../api/ReviewAPI";
@@ -246,11 +247,11 @@ export default function ProfilePage() {
        * SEÇÃO DE REGISTRO E GALERIA DE SERVIÇOS
        * =============================================================== */}
          {registration&&(
-           <ProviderRegistrationContainer
+           <Suspense fallback={null}><ProviderRegistrationContainer
              isOpen={registration}
              onClose={closeRegistration}
              onDone={() => navigate("/business")}
-           />
+           /></Suspense>
          )}
 
           <div className="flex flex-col items-center justify-center min-h-50 bg-[var(--bg-dark)] border-b-1  border-[var(--border)] text-[var(--text)]">
