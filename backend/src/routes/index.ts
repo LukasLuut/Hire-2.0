@@ -10,6 +10,7 @@ import paymentRouter from './paymentRoutes'
 import contractRouter from './contractRoutes'
 import reviewRouter from './reviewRoutes'
 import conversationRouter from './conversationRoutes'
+import notificationRouter from './notificationRoutes';
 
 const router = Router()
 
@@ -23,5 +24,6 @@ router.use('/payments', paymentRouter);
 router.use('/contracts', contractRouter);
 router.use('/reviews', reviewRouter);
 router.use('/conversations', conversationRouter);
+router.use('/notifications', notificationRouter);
 
 export default router

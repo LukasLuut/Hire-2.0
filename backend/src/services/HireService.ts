@@ -4,6 +4,8 @@ import { ServiceProvider } from "../models/ServiceProvider";
 import { Service } from "../models/Service";
 import { fitsSchedule, parseLocalDateTime } from "../utils/schedule";
 import { MoreThan, Not } from "typeorm";
+import { notificationService } from "./NotificationService";
+import { User } from "../models/User";
 
 /** Erro com status HTTP, usado pelo controller para responder 403/404. */
 export class HttpError extends Error {
@@ -26,7 +28,7 @@ export class HireService {
     private async loadWithRole(id: number, requesterId: number): Promise<{ hire: Hire; role: Role }> {
         const hire = await this.hireRepository.findOne({
             where: { id },
-            relations: { user: true, provider: { user: true } },
+            relations: { user: true, provider: { user: true }, service: true },
         });
         if (!hire) throw new HttpError(404, "Contratação não encontrada");
         if (hire.user?.id === requesterId) return { hire, role: "client" };
@@ -69,7 +71,15 @@ export class HireService {
             service: { id: service.id }
         });
 
-        return await this.hireRepository.save(hire);
+        const saved = await this.hireRepository.save(hire);
+        const client = await AppDataSource.getRepository(User).findOne({ where: { id: userId } });
+        await notificationService.notify(service.provider?.user?.id, {
+            type: "hire.requested",
+            title: `Novo pedido: ${service.title}`,
+            body: `${client?.name ?? "Um cliente"} contratou seu serviço${scheduledAt ? ` para ${scheduledAt.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}` : ""}.`,
+            link: "/progress",
+        });
+        return saved;
     }
 
     async getById(id: number, requesterId: number) {
@@ -122,7 +132,31 @@ export class HireService {
             hire.status_provider = next;
         }
         await this.hireRepository.save(hire);
+        await this.notifyUpdate(hire, role, next);
         return await this.hireRepository.findOne({ where: { id }, relations: this.fullRelations });
+    }
+
+    /** Avisa a outra parte sobre a mudança de etapa. */
+    private async notifyUpdate(hire: Hire, role: Role, next: StatusEnum) {
+        const title = hire.service?.title ?? hire.description_service;
+        const clientId = hire.user?.id;
+        const providerUserId = hire.provider?.user?.id;
+        const providerName = hire.provider?.companyName || hire.provider?.professionalName || "O prestador";
+        if (next === StatusEnum.CANCELADO) {
+            const target = role === "client" ? providerUserId : clientId;
+            await notificationService.notify(target, {
+                type: "hire.cancelled",
+                title: `Pedido cancelado: ${title}`,
+                body: role === "client" ? `${hire.user?.name ?? "O cliente"} cancelou o pedido.` : `${providerName} recusou ou cancelou o pedido.`,
+                link: role === "client" ? "/progress" : "/hires",
+            });
+        } else if (role === "provider" && next === StatusEnum.EM_ANDAMENTO) {
+            await notificationService.notify(clientId, { type: "hire.started", title: `Serviço iniciado: ${title}`, body: `${providerName} começou o serviço.`, link: "/hires" });
+        } else if (role === "provider" && next === StatusEnum.CONCLUIDO) {
+            await notificationService.notify(clientId, { type: "hire.delivered", title: `Confirme a conclusão: ${title}`, body: `${providerName} marcou o serviço como entregue.`, link: "/hires" });
+        } else if (role === "client" && next === StatusEnum.CONCLUIDO) {
+            await notificationService.notify(providerUserId, { type: "hire.done", title: `Serviço concluído: ${title}`, body: `${hire.user?.name ?? "O cliente"} confirmou a conclusão. Avalie o cliente.`, link: "/progress" });
+        }
     }
 
     async remove(id: number, requesterId: number) {

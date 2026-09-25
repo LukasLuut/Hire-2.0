@@ -2,6 +2,7 @@ import { AppDataSource } from "../config/data-source";
 import { Contract, ContractSignature } from "../models/Contract";
 import { Conversation } from "../models/Conversation";
 import { HttpError } from "./HireService";
+import { notificationService } from "./NotificationService";
 
 export class ContractService {
     private contractRepository = AppDataSource.getRepository(Contract);
@@ -88,6 +89,13 @@ export class ContractService {
         if (isClient) contract.clientSignature = signature;
         else contract.providerSignature = signature;
         await this.contractRepository.save(contract);
+        const bothSigned = !!(contract.clientSignature && contract.providerSignature);
+        await notificationService.notify(isClient ? contract.provider?.user?.id : contract.user?.id, {
+            type: bothSigned ? "contract.signed" : "contract.sign",
+            title: bothSigned ? `Contrato ${contract.code} assinado pelas duas partes` : `${signature.name} assinou o contrato ${contract.code}`,
+            body: bothSigned ? "O contrato está completo." : "Falta a sua assinatura.",
+            link: `/contract/${contract.id}`,
+        });
         return this.getById(id, requesterId);
     }
 }

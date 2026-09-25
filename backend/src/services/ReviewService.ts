@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { notificationService } from "./NotificationService";
 import { Review, ReviewDirection } from "../models/Review";
 import { ReviewPhoto } from "../models/ReviewPhoto";
 import { Hire, StatusEnum } from "../models/Hire";
@@ -63,6 +64,12 @@ export class ReviewService {
       photos: files.map((f) => Object.assign(new ReviewPhoto(), { url: `/uploads/${f.filename}` })),
     });
     const saved = await this.reviewRepository.save(review);
+    await notificationService.notify(isClient ? hire.provider.user.id : hire.user.id, {
+      type: "review.received",
+      title: `Nova avaliação: ${rating}★`,
+      body: data.comment?.trim()?.slice(0, 140) || "Você recebeu uma avaliação.",
+      link: isClient ? "/business" : "/home",
+    });
     const full = await this.reviewRepository.findOne({ where: { id: saved.id }, relations: this.listRelations });
     return this.present(full!);
   }

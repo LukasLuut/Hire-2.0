@@ -1,6 +1,7 @@
 import { AppDataSource } from "../config/data-source";
 import { Conversation, ConversationStatus, NegotiationTopic, QuoteRequest, RequestStatus } from "../models/Conversation";
 import { HttpError } from "./HireService";
+import { notificationService } from "./NotificationService";
 import { Message, MessageRole } from "../models/Message";
 import { ServiceProvider } from "../models/ServiceProvider";
 import { Service } from "../models/Service";
@@ -80,6 +81,15 @@ export class ConversationService {
     if (!conv) throw new HttpError(404, "Conversa não encontrada");
     if (!this.roleOf(conv, userId)) throw new HttpError(403, "Você não participa desta conversa");
     return conv;
+  }
+
+  /** id do usuário da outra parte */
+  private otherUserId(conv: Conversation, userId: number) {
+    return conv.client?.id === userId ? conv.provider?.user?.id : conv.client?.id;
+  }
+
+  private nameOf(conv: Conversation, userId: number) {
+    return conv.client?.id === userId ? conv.client?.name ?? "O cliente" : conv.provider?.companyName || conv.provider?.professionalName || "O prestador";
   }
 
   private async system(conv: Conversation, text: string) {
@@ -177,6 +187,11 @@ export class ConversationService {
       })
     );
     await this.conversationRepository.update(conv.id, { updatedAt: new Date() });
+    await notificationService.notify(
+      this.otherUserId(conv, userId),
+      { type: "message", title: `Nova mensagem de ${this.nameOf(conv, userId)}`, body: message.text.slice(0, 140), link: `/negotiation/${conv.id}` },
+      30
+    );
     return message.id;
   }
 
@@ -222,6 +237,11 @@ export class ConversationService {
       await this.messageRepository.save(
         this.messageRepository.create({ conversation: conv, sender: { id: userId }, role: role as MessageRole, text: note.slice(0, 1000) })
       );
+      await notificationService.notify(
+        this.otherUserId(conv, userId),
+        { type: "topics.changed", title: `Atualização na negociação: ${conv.service?.title ?? "serviço"}`, body: note.slice(0, 200), link: `/negotiation/${conv.id}` },
+        10
+      );
     }
     return this.present(conv, userId);
   }
@@ -252,9 +272,24 @@ export class ConversationService {
     await this.conversationRepository.save(conv);
 
     if (!conv.clientAcceptedAt || !conv.providerAcceptedAt) {
+      await notificationService.notify(this.otherUserId(conv, userId), {
+        type: "agreement.accepted",
+        title: `${this.nameOf(conv, userId)} aceitou o acordo`,
+        body: `Falta o seu aceite em "${conv.service?.title ?? "negociação"}" para gerar o contrato.`,
+        link: `/negotiation/${conv.id}`,
+      });
       return { formalized: false as const, waitingFor: conv.clientAcceptedAt ? "prestador" : "cliente" };
     }
-    return { formalized: true as const, ...(await this.formalize(conv, topics, price)) };
+    const result = await this.formalize(conv, topics, price);
+    for (const target of [conv.client?.id, conv.provider?.user?.id]) {
+      await notificationService.notify(target, {
+        type: "contract.ready",
+        title: `Contrato ${result.code} gerado`,
+        body: `O acordo de "${conv.service?.title ?? "serviço"}" foi fechado. Assine o contrato.`,
+        link: `/contract/${result.contractId}`,
+      });
+    }
+    return { formalized: true as const, ...result };
   }
 
   /** Cria a contratação e o contrato a partir dos tópicos acordados. */
@@ -343,6 +378,12 @@ export class ConversationService {
     await this.conversationRepository.save(conv);
 
     await this.system(conv, "Pedido de orçamento enviado ao prestador.");
+    await notificationService.notify(conv.provider?.user?.id, {
+      type: "quote.requested",
+      title: `Pedido de orçamento: ${conv.service?.title ?? "serviço"}`,
+      body: `${conv.client?.name ?? "Um cliente"}: ${request.description.slice(0, 120)} (orçamento ${request.budget})`,
+      link: "/business",
+    });
     if (request.notes) {
       await this.messageRepository.save(
         this.messageRepository.create({ conversation: conv, sender: { id: userId }, role: MessageRole.CLIENT, text: request.notes })
@@ -381,6 +422,12 @@ export class ConversationService {
       this.messageRepository.create({ conversation: conv, sender: { id: userId }, role: MessageRole.PROVIDER, text: lines.join("\n").slice(0, 1000) })
     );
     await this.attach(conv, userId, MessageRole.PROVIDER, files);
+    await notificationService.notify(conv.client?.id, {
+      type: "quote.responded",
+      title: `Proposta recebida: ${conv.service?.title ?? "serviço"}`,
+      body: `${this.nameOf(conv, userId)} respondeu: ${price}${deadline ? ` · ${deadline}` : ""}`,
+      link: `/negotiation/${conv.id}`,
+    });
     return this.present(conv, userId);
   }
 
@@ -395,6 +442,12 @@ export class ConversationService {
     conv.status = ConversationStatus.CLOSED;
     await this.conversationRepository.save(conv);
     await this.system(conv, `Pedido recusado pelo prestador.${clean ? ` Motivo: ${clean}` : ""}`);
+    await notificationService.notify(conv.client?.id, {
+      type: "quote.rejected",
+      title: `Pedido recusado: ${conv.service?.title ?? "serviço"}`,
+      body: clean ? `Motivo: ${clean}` : `${this.nameOf(conv, userId)} não pode atender este pedido.`,
+      link: `/negotiation/${conv.id}`,
+    });
     return this.present(conv, userId);
   }
 
@@ -404,6 +457,12 @@ export class ConversationService {
     conv.status = ConversationStatus.CLOSED;
     await this.conversationRepository.save(conv);
     await this.system(conv, "Negociação encerrada ✖️");
+    await notificationService.notify(this.otherUserId(conv, userId), {
+      type: "negotiation.closed",
+      title: `Negociação encerrada: ${conv.service?.title ?? "serviço"}`,
+      body: `${this.nameOf(conv, userId)} encerrou a negociação.`,
+      link: `/negotiation/${conv.id}`,
+    });
     return this.present(conv, userId);
   }
 }

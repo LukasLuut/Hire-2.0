@@ -12,6 +12,7 @@ const AuthPage = lazy(() => import("./pages/AuthPage"));
 const ApresentationPage = lazy(() => import("./pages/ApresentationPage"));
 const NegotiationsPage = lazy(() => import("./pages/NegotiationsPage"));
 const ServicePage = lazy(() => import("./pages/ServicePage"));
+const PendingPage = lazy(() => import("./pages/PendingPage"));
 const ProviderPublicPage = lazy(() => import("./pages/ProviderPublicPage"));
 const ContractPreview = lazy(() => import("./components/ContractPreview").then((m) => ({ default: m.ContractPreview })));
 const NegotiationRoom = lazy(() => import("./components/Negotiation/NegotiationRoom"));
@@ -89,6 +90,7 @@ export default function App() {
 
           {/* Negociação e agendamento */}
           <Route path="/negotiations" element={<RequireAuth><NegotiationsPage /></RequireAuth>} />
+          <Route path="/pendencias" element={<RequireAuth><PendingPage /></RequireAuth>} />
           <Route path="/negotiation/:id" element={<RequireAuth><NegotiationRoom /></RequireAuth>} />
 
           {/* Rota fallback */}

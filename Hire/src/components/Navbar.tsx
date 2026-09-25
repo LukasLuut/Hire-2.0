@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Sun, Moon, LogOut } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useSession } from "../context/SessionContext";
+import NotificationBell from "./NotificationBell";
 
 export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (t: "dark"|"light") => void }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -15,6 +16,7 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
         { label: "Home", to: "/home" },
         { label: "Contratações", to: "/hires" },
         { label: "Negociações", to: "/negotiations" },
+        { label: "Pendências", to: "/pendencias" },
         ...(provider ? [{ label: "Business", to: "/business" }] : []),
       ]
     : [];
@@ -42,6 +44,8 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
             </NavLink>
           ))}
 
+          {token && <NotificationBell />}
+
           {/* Toggle Theme */}
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -67,6 +71,7 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
 
         {/* Mobile Menu Button */}
         <div className="md:hidden flex items-center gap-2">
+          {token && <NotificationBell onNavigate={() => setMobileOpen(false)} />}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
