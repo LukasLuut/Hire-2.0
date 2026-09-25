@@ -5,9 +5,11 @@ import { authMiddleware } from '../middlewares/authMidlleware';
 const hireRouter = Router()
 const controller = new HireController()
 
+// Todas as rotas exigem login: contratações expõem dados pessoais das partes
+hireRouter.use(authMiddleware);
+
 hireRouter.post('/', controller.create.bind(controller));
-hireRouter.get('/', controller.list.bind(controller));
-hireRouter.get('/me', authMiddleware, controller.getMine.bind(controller));
+hireRouter.get('/me', controller.getMine.bind(controller));
 hireRouter.get('/provider/:id', controller.getByProviderId.bind(controller));
 hireRouter.get('/:id', controller.getById.bind(controller));
 hireRouter.put('/:id', controller.update.bind(controller));

@@ -42,6 +42,7 @@ export function Toast({ message, type }: ToastProps) {
 
   return (
     <motion.div
+      role={type === 'error' ? 'alert' : 'status'}
       initial={{ opacity: 0, x: 16, scale: 0.98 }}
       animate={{ opacity: 1, x: 0, scale: 1 }}
       exit={{ opacity: 0, x: 16, scale: 0.97 }}

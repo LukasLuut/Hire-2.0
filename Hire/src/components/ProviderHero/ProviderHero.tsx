@@ -1,13 +1,14 @@
 // ProviderHero.tsx — Hero institucional refatorado (responsivo)
+// Dados reais do prestador: nota, avaliações, nível, status e disponibilidade.
 // ------------------------------------------------------
 
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import type {
   DayKey,
+  DayAvailability,
 } from "../ProviderRegistration/ProviderRegistration/helpers/types-and-helpers";
 import {
-  Building2,
   Briefcase,
   Globe,
   Map,
@@ -16,34 +17,38 @@ import {
   Edit3,
 } from "lucide-react";
 import ServiceGallery from "../ServiceGallery/ServiceGallery/ServiceGallery";
-import { useNavigate } from "react-router-dom";
-import { LOCAL_PORT } from "../../api/ApiClient";
-import { userAPI } from "../../api/UserAPI";
 import ProviderRegistrationContainer from "../ProviderRegistration/ProviderRegistration/Principal/ProviderRegistrationContainer";
+import type { ProviderEntity } from "../../interfaces/Entities";
+import type { ServiceData } from "../../api/ServiceAPI";
+import { avatarFor } from "../../utils/avatar";
 
 interface ProviderHeroProps {
-  provider: any | null;
+  provider: ProviderEntity;
+  /** Perfil público: sem edição; a galeria mostra os serviços recebidos */
+  readOnly?: boolean;
+  services?: ServiceData[];
 }
 
-export default function ProviderHero({ provider }: ProviderHeroProps) {
+export default function ProviderHero({ provider, readOnly = false, services }: ProviderHeroProps) {
   const [isEditing, setIsEditing] = useState(false);
 
-  const navigate = useNavigate();
-  const imageLink = provider.profileImageUrl
-    ? LOCAL_PORT + provider.profileImageUrl
-    : null;
-
+  // Fecha com ESC
   useEffect(() => {
-    if (!provider) {
-      navigate("/home", { replace: true });
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") setIsEditing(false);
     }
-  }, [provider, navigate]);
 
-  if (!provider) {
-    return null; // não renderiza nada
-  }
+    if (isEditing) window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isEditing]);
 
-  const availability = provider.availability;
+  const name = provider.companyName || provider.professionalName;
+  const imageLink = avatarFor(provider.profileImageUrl, name);
+  const rating = provider.rating ?? { average: 0, count: 0 };
+
+  // disponibilidade vem da API como lista; o layout usa um mapa por dia
+  const availability: Partial<Record<DayKey, DayAvailability>> = {};
+  for (const a of provider.availabilities ?? []) availability[a.day as DayKey] = { start: a.start, end: a.end };
 
   const days: [DayKey, string][] = [
     ["monday", "Segunda"],
@@ -57,59 +62,11 @@ export default function ProviderHero({ provider }: ProviderHeroProps) {
 
   const availabilityList = days.filter(([key]) => availability?.[key]);
 
-  // Fecha com ESC
-  useEffect(() => {
-    function handleEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") setIsEditing(false);
-    }
-
-    if (isEditing) window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, [isEditing]);
-
   /* ------------------------------------------------------------------------
    * FUNÇÕES DE EDIÇÃO
    * ------------------------------------------------------------------------ */
   const handleEditToggle = () => {
     setIsEditing((prev) => !prev);
-    ;
-  };
-
-  /* ------------------------------------------------------------------------
-   * FUNÇÃO PARA ABERTURA DO MODAL DE UPDATE
-   * ------------------------------------------------------------------------ */
-  const handleUpdate = async () => {
-    if (!isEditing) return;
-
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    try {
-      const res = await userAPI.update(
-        { name: provider?.name, about: provider?.about },
-        token
-      );
-      const updateEmail = await userAPI.updateUser(token, provider.email);
-      alert("Informações editadas com sucesso!");
-      return { res, updateEmail };
-    } catch (err: any) {
-      console.error(err);
-    }
-  };
-
-  const handleDelete = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    try {
-      const res = await userAPI.deleteUser(token);
-      alert("Usuário deletado com sucesso!");
-      localStorage.removeItem("token");
-      navigate("/auth");
-      return res;
-    } catch (err: any) {
-      console.error(err);
-    }
   };
 
   return (
@@ -125,34 +82,34 @@ export default function ProviderHero({ provider }: ProviderHeroProps) {
           <div className="relative">
             {/* Avatar / Logo */}
             <div className="w-72 h-72 sm:w-40 sm:h-40   md:ml-40 lg:w-72 lg:h-72 rounded-full bg-[var(--bg)] border-4 border-[var(--primary)] flex items-center justify-center shrink-0 mx-auto sm:mx-0">
-              {imageLink ? (
-                <img
-                  src={imageLink}
-                  className="w-70 h-70 sm:w-16 sm:h-16 lg:w-70 lg:h-70 rounded-full text-[var(--primary)]"
-                />
-              ) : (
-                <Building2 className="w-12 h-12 sm:w-16 sm:h-16 lg:w-24 lg:h-24 text-[var(--primary)]" />
-              )}
+              <img
+                src={imageLink}
+                alt={`Foto de ${name}`}
+                className="w-full h-full rounded-full object-cover text-[var(--primary)]"
+              />
             </div>
             {/* BOTÃO DE EDIÇÃO */}
+            {!readOnly && (
             <button
               onClick={handleEditToggle}
+              aria-label="Editar perfil de prestador"
               className="absolute bottom-1 right-3 md:right-0 bg-[var(--primary)] text-white rounded-full p-2"
               title="Editar perfil"            >
               <Edit3 size={18} />
-            </button>           
+            </button>
+            )}           
           </div>
           {/* Info principal */}
           <div className="flex items-center md:items-start  flex-col gap-2">
             <div className="flex flex-col md:flex-row sm:items-center gap-2 sm:gap-3">
               <h2 className="text-4xl sm:text-4xl font-semibold leading-tight">
-                {provider.companyName || provider.name}
+                {name}
               </h2>
               <div className="flex items-center gap-1 text-yellow-400 text-sm">
-                <Star size={16} fill="currentColor" />
-                <span className="font-semibold">4.8</span>
+                <Star size={16} fill={rating.count > 0 ? "currentColor" : "none"} />
+                <span className="font-semibold">{rating.count > 0 ? rating.average.toFixed(1) : "Novo"}</span>
                 <span className="text-[var(--text-muted)]">
-                  (35 avaliações)
+                  ({rating.count} {rating.count === 1 ? "avaliação" : "avaliações"})
                 </span>
               </div>
             </div>
@@ -175,9 +132,9 @@ export default function ProviderHero({ provider }: ProviderHeroProps) {
               </p>
             )}
 
-            {provider.subcategories?.length > 0 && (
+            {(provider.subcategories?.length ?? 0) > 0 && (
               <div className="flex md:ml-6 flex-wrap gap-2 mt-2">
-                {provider.subcategories.map(
+                {provider.subcategories!.map(
                   (sub: { id: number; name: string }, i: number) => (
                     <span
                       key={i}
@@ -204,8 +161,11 @@ export default function ProviderHero({ provider }: ProviderHeroProps) {
             {provider.status === "available" ? "Aberto" : "Agenda fechada"}
           </span>
 
-          <span className="px-3 py-1 rounded-full text-xs sm:text-sm border border-[var(--border)]">
-            Nível Iniciante
+          <span
+            className="px-3 py-1 rounded-full text-xs sm:text-sm border border-[var(--border)]"
+            title={`${provider.completedHires ?? 0} serviço(s) concluído(s)`}
+          >
+            Nível {provider.level ?? "Iniciante"}
           </span>
         </div>
       </div>
@@ -236,7 +196,7 @@ export default function ProviderHero({ provider }: ProviderHeroProps) {
 
       {/* DISPONIBILIDADE */}
       <div className="mt-6">
-        <div className="text-sm font-medium text-[var(--highlight)] mb-2">
+        <div className="text-sm font-medium text-[var(--text-highlight)] mb-2">
           Disponibilidade semanal
         </div>
 
@@ -264,8 +224,10 @@ export default function ProviderHero({ provider }: ProviderHeroProps) {
           </div>
         )}
       </div>
-       {isEditing&&(<div className=""><ProviderRegistrationContainer isOpen={isEditing} onClose={()=>setIsEditing(false)}/></div>)}
-      <ServiceGallery />
+       {isEditing&&(<div className=""><ProviderRegistrationContainer isOpen={isEditing} existing={provider} onClose={()=>setIsEditing(false)}/></div>)}
+      {!isEditing && (readOnly
+        ? <ServiceGallery services={services ?? []} noEdit title="Serviços" />
+        : <ServiceGallery />)}
     </motion.section>
   );
 }
@@ -289,12 +251,12 @@ function InfoCard({
         })}
         <span className="text-xs">{label}</span>
       </div>
-      <div className="font-medium text-[var(--highlight)] text-sm">{value}</div>
+      <div className="font-medium text-[var(--text-highlight)] text-sm">{value}</div>
     </div>
   );
 }
 
-function StatusLine({
+export function StatusLine({
   icon,
   text,
   highlight,
@@ -313,7 +275,7 @@ function StatusLine({
       <span
         className={`text-sm ${
           highlight
-            ? "font-medium text-[var(--highlight)]"
+            ? "font-medium text-[var(--text-highlight)]"
             : "text-[var(--text-muted)]"
         }`}
       >

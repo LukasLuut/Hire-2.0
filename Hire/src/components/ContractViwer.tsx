@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
@@ -97,7 +97,7 @@ export default function ContractViewer({ template, data, platformInfo, onSigned 
   const [signing, setSigning] = useState(false);
   const [signatureMeta, setSignatureMeta] = useState<any>(null);
   const [shaHash, setShaHash] = useState<string | null>(null);
-  const [geoAttempt, setGeoAttempt] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [, setGeoAttempt] = useState<{ latitude: number; longitude: number } | null>(null);
 
   // render HTML from template + data
   useEffect(() => {

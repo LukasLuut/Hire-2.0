@@ -1,146 +1,98 @@
-import { useEffect, useState } from "react";
-import { ServiceProgress, type ServiceDetails, type Step, type UserBadgeData } from "./ServiceProgress";
-import { providerApi } from "../api/ProviderAPI";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ServiceProgress } from "./ServiceProgress";
 import { hireAPI } from "../api/HireAPI";
 import { ServiceProgressSkeleton } from "../skeletons/ServiceProgressSkeleton/ServiceProgressSkeleton";
-import { useToast } from "./Toast/ToastContext";
+import { useSession } from "../context/SessionContext";
+import type { HireEntity } from "../interfaces/Entities";
+import { isOpenHire } from "../utils/hireStatus";
 
-export const demoSteps: Step[] = [
-  { id: "created", label: "Solicitação criada", date: "2025-04-20" },
-  { id: "accepted", label: "Prestador aceitou", date: "2025-04-21" },
-  { id: "started", label: "Serviço concluído", date: "2025-04-25" },
+/* --------------------------------------------------------------------------
+ * Acompanhamento de pedidos
+ * - viewFor="provider": pedidos recebidos pelo prestador (/progress)
+ * - viewFor="client": contratações feitas pelo usuário (/hires)
+ * -------------------------------------------------------------------------- */
+export function ServiceProgressContainer({ viewFor }: { viewFor: "provider" | "client" }) {
+  const [data, setData] = useState<HireEntity[] | null>(null);
+  const [error, setError] = useState(false);
+  const [showClosed, setShowClosed] = useState(false);
+  const { provider, loading: sessionLoading } = useSession();
+  const navigate = useNavigate();
 
-];
-
-export const demoProvider: UserBadgeData = {
-  id: "u1",
-  name: "Lucas William",
-  role: "Prestador",
-  avatar: null,
-};
-
-export const demoClient: UserBadgeData = {
-  id: "u2",
-  name: "Cliente Exemplo",
-  role: "Contratante",
-  avatar: null,
-};
-
-
-
-export const demoDetails: ServiceDetails = {
-  orderId: "123456",
-  title: "Renovação do banheiro",
-  price: 1000,
-  deadline: "3 dias",
-  rating: 4.9,
-  paymentMethod: "Cartão de crédito",
-};
-
-export function ServiceProgressContainer() {
-  const [data, setData] = useState<Array<any>>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const { showToast } = useToast();
+  const getData = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    setError(false);
+    try {
+      if (viewFor === "client") setData(await hireAPI.getMine(token));
+      else if (provider?.id) setData(await hireAPI.getHireByProviderId(provider.id));
+    } catch {
+      setError(true);
+    }
+  }, [viewFor, provider?.id]);
 
   useEffect(() => {
-    const getData = async () => {
-      const token = localStorage.getItem("token");
-
-      if(!token) {
-        return;
-      }
-
-      const provider = await providerApi.getByUser(token);
-      if(!provider || !provider.id) return;
-      
-      const hires: Array<any> = await hireAPI.getHireByProviderId(provider.id);
-      setData(hires);
-      setLoading(false);
-    }
+    setData(null);
     getData();
+  }, [getData]);
 
-  }, []);
+  // Pedidos recebidos são só para prestadores
+  useEffect(() => {
+    if (viewFor === "provider" && !sessionLoading && !provider) navigate("/home", { replace: true });
+  }, [viewFor, sessionLoading, provider, navigate]);
 
-    const handleIniciar = (id: number) => {
-      try {
-        const beginHire = async () => {
-          const response = await hireAPI.beginHireProvider(id);
-          if(!response) {
-            showToast("Erro ao iniciar serviço", "error");
-            return;
-          }
-
-          showToast("Serviço iniciado com sucesso", "success");
-        }
-
-        beginHire();
-      } 
-      catch (e: any) {
-        showToast(e.message, "error");
-      }
-    }
-
-
-    const handleConcluir = (id: number) => {
-      try {
-        const concludeHire = async () => {
-          const response = await hireAPI.concludeHireProvider(id);
-          if(!response) {
-            showToast("Erro ao concluir serviço", "error");
-            return;
-          }
-
-          showToast("Serviço concluído com sucesso", "success");
-        }
-
-        concludeHire();
-      } 
-      catch (e: any) {
-        showToast(e.message, "error");
-      }
-    }
-
-
-  if(data.length < 1) {
-    return <div className="bg-[var(--bg-dark)] min-h-screen md:px-120 p-4 md:p-10">
-      <div className="md:text-1xl flex justify-center italic w-full h-full p-6 mt-20 border-1 border-[var(--border)] md:p-10 bg-[var(--bg-light)] rounded-2xl text-[var(--text)] shadow-lg hover:shadow-[0_0_25px_-5px_var(--primary)/20]">
-      Nenhum serviço para mostrar</div>
-    </div> 
-  } 
+  const title = viewFor === "client" ? "Minhas contratações" : "Pedidos recebidos";
+  const list = (data ?? []).filter((h) => (showClosed ? !isOpenHire(h) : isOpenHire(h)));
 
   return (
-    <div className="bg-[var(--bg-dark)] min-h-screen md:px-120 p-4 md:p-10">
-      {loading ? (
-        <ServiceProgressSkeleton/>
-      ) : 
-      (
-        data.map((e) => (
-          <ServiceProgress
-          steps={demoSteps}
-          currentStep={"started"}
-          viewFor={"provider"}
-          data={e}
-          onAction={handleConcluir}
-          onBegin={handleIniciar}
-          />
-        ))
-      )
-      }
+    <div className="bg-[var(--bg-dark)] min-h-screen p-4 md:p-10 pt-24">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex flex-wrap items-end justify-between gap-4 mt-16">
+          <h1 className="text-3xl md:text-4xl font-bold text-[var(--text)]">{title}</h1>
+          <div className="flex rounded-full border border-[var(--border)] bg-[var(--bg-light)] p-1 text-sm" role="tablist">
+            {[
+              { label: "Em aberto", closed: false },
+              { label: "Encerradas", closed: true },
+            ].map((t) => (
+              <button
+                key={t.label}
+                role="tab"
+                aria-selected={showClosed === t.closed}
+                onClick={() => setShowClosed(t.closed)}
+                className={`px-4 py-1.5 rounded-full transition ${showClosed === t.closed ? "bg-[var(--primary)] text-white" : "text-[var(--text-muted)]"}`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-      {/* Versão para contratante também disponível para testes */}
-      {/* <div className="mt-8">
-        <ServiceProgress
-          steps={demoSteps}
-          currentStep={"started"}
-          provider={demoProvider}
-          client={demoClient}
-
-          details={demoDetails}
-          viewFor={"client"}
-          onAction={handleAction}
-          onMessage={handleMessage}
-        />
-      </div> */}
+        {error ? (
+          <div className="flex flex-col items-center italic w-full p-6 mt-20 border-1 border-[var(--border)] md:p-10 bg-[var(--bg-light)] rounded-2xl text-[var(--text)] shadow-lg">
+            Não foi possível carregar os pedidos.
+            <button onClick={getData} className="mt-3 not-italic text-[var(--primary)] underline">Tentar novamente</button>
+          </div>
+        ) : data === null ? (
+          <ServiceProgressSkeleton />
+        ) : list.length < 1 ? (
+          <div className="md:text-1xl flex flex-col items-center justify-center text-center italic w-full h-full p-6 mt-20 border-1 border-[var(--border)] md:p-10 bg-[var(--bg-light)] rounded-2xl text-[var(--text)] shadow-lg hover:shadow-[0_0_25px_-5px_var(--primary)/20]">
+            {showClosed
+              ? "Nenhum pedido encerrado ainda."
+              : viewFor === "client"
+                ? "Você não tem contratações em andamento."
+                : "Nenhum pedido em aberto. Quando um cliente contratar seus serviços, ele aparece aqui."}
+            {viewFor === "client" && !showClosed && (
+              <button onClick={() => navigate("/home")} className="mt-4 not-italic px-4 py-2 rounded-lg bg-[var(--primary)] text-white">
+                Buscar serviços
+              </button>
+            )}
+          </div>
+        ) : (
+          list.map((e) => (
+            <ServiceProgress key={e.id} viewFor={viewFor} data={e} onChanged={getData} />
+          ))
+        )}
+      </div>
     </div>
   );
 }

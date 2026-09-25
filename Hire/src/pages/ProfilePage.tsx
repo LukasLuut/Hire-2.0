@@ -1,121 +1,30 @@
 /* --------------------------------------------------------------------------
  * ProfilePage.tsx
  *
- * Página de perfil com:
- *  - Mock de dados locais (perfil e avaliações)
- *  - Estrutura de carregamento (simulação de fetch)
- *  - Edição básica de perfil (nome e bio)
- *  - Exibição de avaliações
- *  - Responsividade com estado `isMobile`
- *
- * Desenvolvido para ser fácil de entender e manter.
+ * Página de perfil (rota /home) com:
+ *  - Hero do perfil: avatar (DiceBear), nome, nota real, Sobre, ações
+ *  - Edição no próprio hero (lápis entra/salva, Esc cancela)
+ *  - Cadastro de empresa (prestador), Chat (negociações)
+ *  - Busca de serviços e avaliações recebidas como cliente
  * -------------------------------------------------------------------------- */
-
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import ServiceGalleryMagazine from "../components/ServiceGallery/ServiceGallery/ServiceGallery";
-import { Star, Edit3, MessageSquare } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Star, Edit3, MessageSquare, Check } from "lucide-react";
 import ServiceNegotiationModal from "../components/Negotiation/ServiceNegotiationModal";
 import ServiceResponseModal from "../components/Negotiation/ServiceResponseModal";
-import ServiceFormalizerModal from "../components/Negotiation/ServiceFormalizerModal";
 import ProviderRegistrationContainer from "../components/ProviderRegistration/ProviderRegistration/Principal/ProviderRegistrationContainer";
-import ServiceEditor from "../components/ServiceEditor/ServiceEditor";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { userAPI } from "../api/UserAPI";
-import { type User } from "../interfaces/UserInterface"
-import { providerApi } from "../api/ProviderAPI";
-import type { ProviderForm } from "../components/ProviderRegistration/ProviderRegistration/helpers/types-and-helpers";
+import { reviewAPI } from "../api/ReviewAPI";
 import ServiceDashboardSophisticated from "./DashboardClient";
 import ProfileCardSkeleton from "../skeletons/ProfileCardSkeleton";
 import { useToast } from "../components/Toast/ToastContext"
-
-/* --------------------------------------------------------------------------
- * MOCKS DE DADOS
- * Usados enquanto não há backend (ou caso a API falhe).
- * -------------------------------------------------------------------------- */
-
-
-const mockReviews = [
-  { id: 1, name: "João Silva", rating: 5, comment: "Excelente trabalho, muito profissional!" },
-  { id: 2, name: "Maria Oliveira", rating: 4, comment: "Ótima comunicação e entrega dentro do prazo." },
-  { id: 3, name: "Carlos Santos", rating: 5, comment: "Serviço impecável, recomendo sem dúvidas!" },
-];
-
-export const mockProvider: ProviderForm = {
-  name: "",
-  cnpj: "",
-  professionalEmail: "",
-  professionalPhone: "",
-  shortDescription:
-    "",
-  profilePhoto: null,
-
-  companyName: "",
-  category: "Tecnologia",
-  subcategories: [],
-  experienceLevel: "especialista",
-
-  portfolio: [],
-  portfolioPreviews: [
-    "/portfolio/site-1.png",
-    "/portfolio/app-2.png",
-    "/portfolio/dashboard-3.png",
-  ],
-
-  availability: {
-    monday: { start: "09:00", end: "18:00" },
-    tuesday: { start: "09:00", end: "18:00" },
-    wednesday: { start: "09:00", end: "18:00" },
-    thursday: { start: "09:00", end: "18:00" },
-    friday: { start: "09:00", end: "17:00" },
-    saturday: null,
-    sunday: null,
-  },
-
-  inPerson: true,
-  online: true,
-  onlineLink: "https://meet.google.com/lw-studio",
-
-  hasPhysicalLocation: true,
-  address: {
-    cep: "01000-000",
-    street: "Av. Paulista",
-    number: "1000",
-    neighborhood: "Bela Vista",
-    city: "São Paulo",
-    state: "SP",
-    lat: -23.561684,
-    lng: -46.656139,
-  },
-  serviceRadiusKm: 25,
-
-  idDocument: null,
-  certifications: [],
-  links: [
-    "https://lwstudio.com.br",
-    "https://github.com/lucaswilliam",
-    "https://linkedin.com/in/lucaswilliam",
-  ],
-
-  acceptsCustomProposals: true,
-  notifications: {
-    email: true,
-    whatsapp: true,
-  },
-
-  showApproxLocation: true,
-  allowReviews: true,
-  showPrices: true,
-  status: "available",
-};
-
-const mockProfile = {
-  name: "Vitor Reis",
-  bio: "Especializado em desenvolvimento web, UI/UX e soluções digitais sob medida para pequenas e médias empresas",
-  image: "https://api.dicebear.com/9.x/miniavs/svg?seed=vitorreis.svg",
-  rating: 4.8,
-  reviewsCount: 24,
-};
+import { useSession } from "../context/SessionContext";
+import ChatInbox from "../components/Chat/ChatInbox";
+import ConfirmModal from "../components/Common/ConfirmModal";
+import ReviewsSection from "../components/Reviews/ReviewsSection";
+import { defaultAvatar } from "../utils/avatar";
+import { getErrorMessage } from "../utils/errors";
+import type { RatingStats } from "../interfaces/Entities";
 
 /* --------------------------------------------------------------------------
  * COMPONENTE PRINCIPAL
@@ -124,145 +33,110 @@ export default function ProfilePage() {
   /* ------------------------------------------------------------------------
    * ESTADOS
    * ------------------------------------------------------------------------ */
-  const [profile, setProfile] = useState<typeof mockProfile | null>(null);
-  const [reviews, setReviews] = useState<typeof mockReviews | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user: sessionUser, provider, loading, refresh, logout } = useSession();
   const [isEditing, setIsEditing] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [openContratar, setOpenContratar]=useState(false)
   const [isOpenResponse, setIsOpenResponse]=useState(false)
   const [isOpenChat, setIsOpenChat]=useState(false)
-  const [isClient] = useState(true)
   const [registration, setRegistration]=useState(false)
-  const location = useLocation();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [rating, setRating] = useState<RatingStats>({ average: 0, count: 0 });
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const { showToast } = useToast();
-  const token = localStorage.getItem("token");
-  // Todas as informações do usuário
-  const [user, setUser] = useState<User>({
-    id: 0,
-    name: "",
-    email: "",
-    about: "",
-  })
-  const [provider, setProvider] = useState<boolean>(false);
 
-  /* ------------------------------------------------------------------------
-   * SIMULAÇÃO DE CARREGAMENTO DE DADOS
-   * - Tenta buscar dados de uma API (comentado por enquanto)
-   * - Caso falhe, usa os dados mockados
-   * ------------------------------------------------------------------------ */
+  // Cópia editável dos dados do usuário (a sessão guarda o valor salvo)
+  const [user, setUser] = useState({ id: 0, name: "", email: "", about: "" });
 
   useEffect(() => {
-
-    setLoading(true);
-
-    const getUser = async () => {
-      if(!token) {
-      navigate('/auth')
-      return;
+    if (sessionUser && !isEditing) {
+      setUser({ id: sessionUser.id, name: sessionUser.name ?? "", email: sessionUser.email ?? "", about: sessionUser.about ?? "" });
     }
+  }, [sessionUser, isEditing]);
 
-      const profileData = mockProfile;
-      const reviewsData = mockReviews;
-
-      setProfile(profileData);
-      setReviews(reviewsData);
-
-      const user: User | null = await userAPI.getUser(token);
-      
-      if(!user) {
-        return;
-      } else {
-        setUser(user);
-      };
-
-      setTimeout(() => {
-        setLoading(false);
-      }, 1000)
-      
-      const provider = await providerApi.getByUser(token);
-
-      if(!provider) {
-        setProvider(false);
-      } else {
-        setProvider(true);
-      }
-
-    }
-
-    getUser();  
-  }, []); 
-
-  
+  // Nota do usuário como cliente (avaliações feitas pelos prestadores)
+  const loadClientReviews = useCallback(() => reviewAPI.forClient(sessionUser!.id), [sessionUser]);
   useEffect(() => {
-    setLoading(true);
-    
-    if(provider) localStorage.setItem("provider", "1");
-    if(!provider) localStorage.setItem("provider", "0")
+    if (!sessionUser) return;
+    reviewAPI.forClient(sessionUser.id).then(({ average, count }) => setRating({ average, count })).catch(() => {});
+  }, [sessionUser]);
 
-    setTimeout(() => {
-      setLoading(false);
-    }, 1000)    
-  }, [provider])
+  // /home?prestador=1 abre direto o cadastro de empresa
+  useEffect(() => {
+    if (params.get("prestador") && !loading && !provider) setRegistration(true);
+  }, [params, loading, provider]);
 
-   // Fecha com ESC
+   // Fecha com ESC: cancela a edição e desfaz o que foi digitado
   useEffect(() => {
     function handleEsc(e: KeyboardEvent) {
       if (e.key === "Escape") {
         setIsEditing(false);
-        showToast("Informações do usuário não editadas", "error")
+        showToast("Edição cancelada", "info")
       }
     }
 
     if (isEditing) window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
-  }, [isEditing]);
+  }, [isEditing, showToast]);
 
   /* ------------------------------------------------------------------------
    * FUNÇÕES DE EDIÇÃO
+   * - 1º clique no lápis: entra em edição; 2º clique: salva
    * ------------------------------------------------------------------------ */
-  const handleEditToggle = () => {setIsEditing((prev) => !prev);
-    handleUpdate();
+  const handleEditToggle = () => {
+    if (isEditing) handleUpdate();
+    else setIsEditing(true);
   }
 
-  /* ------------------------------------------------------------------------
-   * FUNÇÃO PARA ABERTURA DO MODAL DE UPDATE
-   * ------------------------------------------------------------------------ */
   const handleUpdate = async () => {
-    if(!isEditing) return;
-
     const token = localStorage.getItem("token")
     if(!token) return;
-    
+
+    if (!user.name.trim()) return showToast("Informe seu nome", "warning");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.email)) return showToast("Informe um e-mail válido", "warning");
+
+    setSaving(true);
     try {
-      const res = await userAPI.update({name: user?.name, about: user?.about}, token);
-      const updateEmail = await userAPI.updateUser(token, user.email);
+      await userAPI.updateProfile(token, { name: user.name.trim(), about: user.about.trim(), email: user.email.trim() });
+      await refresh();
+      setIsEditing(false);
       showToast("Informações editadas com sucesso!", "success");
-      return { res, updateEmail };
-    } catch (err: any) {
-      console.error(err)
+    } catch (err) {
+      showToast(getErrorMessage(err, "Não foi possível salvar. Tente novamente."), "error");
+    } finally {
+      setSaving(false);
     }
   }
 
   const handleDelete = async () => {
-
     const token = localStorage.getItem("token")
     if(!token) return;
-    
+
+    setDeleting(true);
     try {
-      const res = await userAPI.deleteUser(token);
+      await userAPI.deleteUser(token);
       showToast("Usuário deletado com sucesso!", "success");
-      localStorage.removeItem("token");
+      logout();
       navigate('/auth')
-      return res;
-    } catch (err: any) {
-      showToast(err.message ?? "Erro inesperado", "error");
+    } catch (err) {
+      showToast(getErrorMessage(err, "Erro inesperado"), "error");
+      setConfirmDelete(false);
+    } finally {
+      setDeleting(false);
     }
   }
- 
+
+  const closeRegistration = () => {
+    setRegistration(false);
+    if (params.get("prestador")) setParams({}, { replace: true });
+  };
+
+  const aboutPlaceholder = "Fale um pouco sobre você... Por exemplo: ''Sou uma pessoa dedicada, sempre em busca de aprendizado e novas experiências. Gosto de colaborar, compartilhar conhecimento e enfrentar desafios que contribuam para meu crescimento pessoal e profissional.''";
+
   /* ------------------------------------------------------------------------
-   * RENDERIZAÇÃO PARA PRESTADOR (COM GALERIA DE SERVIÇOS)
+   * RENDERIZAÇÃO
    * ------------------------------------------------------------------------ */
   return (
     <div className="min-h-screen pt-15 sm:pt-20 bg-[var(--bg-dark)] text-[var(--text)] transition-colors duration-300">
@@ -270,24 +144,26 @@ export default function ProfilePage() {
       {/* ===============================================================
        * SEÇÃO HERO / CABEÇALHO DO PERFIL
        * =============================================================== */}
-       { loading ? 
-       <ProfileCardSkeleton/> : 
+       { loading || !sessionUser ?
+       <ProfileCardSkeleton/> :
       <section className="relative flex flex-col md:flex-row items-center justify-center gap-6 bg-[var(--bg-dark)] p-8">
         {/* IMAGEM DE PERFIL */}
         <div className="relative">
           <img
-            src={profile?.image}
-            alt="Foto de perfil"
+            src={defaultAvatar(sessionUser.email || sessionUser.name)}
+            alt={`Foto de perfil de ${user.name}`}
             className="w-70 h-70 rounded-full border-4 border-[var(--primary)] object-cover"
           />
 
           {/* BOTÃO DE EDIÇÃO */}
           <button
             onClick={handleEditToggle}
+            disabled={saving}
             className="absolute bottom-1 right-0 bg-[var(--primary)] text-white rounded-full p-2"
-            title="Editar perfil"
+            title={isEditing ? "Salvar alterações" : "Editar perfil"}
+            aria-label={isEditing ? "Salvar alterações" : "Editar perfil"}
           >
-            <Edit3 size={18}/>
+            {isEditing ? <Check size={18}/> : <Edit3 size={18}/>}
           </button>
         </div>
 
@@ -298,34 +174,30 @@ export default function ProfilePage() {
             {isEditing ? (
               <input
                 value={user.name}
-                onChange={(e) => {setUser((prev: any) => ({...prev, name: e.target.value}))
-              location.state.user.name = e.target.value
-              }}
+                aria-label="Nome"
+                onChange={(e) => setUser((prev) => ({...prev, name: e.target.value}))}
                 className="bg-[var(--bg-light)] border border-[var(--primary)] rounded-lg px-2 py-1 text-2xl"
               />
             ) : (
               <h1 className="text-4xl font-bold">{user.name}</h1>
             )}
             {isEditing && (
-              <button className="px-2 py-2 text-md bg-red-700 rounded-md" onClick={handleDelete}>Excluir Usuário</button>
+              <button className="px-2 py-2 text-md bg-red-700 rounded-md text-white" onClick={() => setConfirmDelete(true)}>Excluir Usuário</button>
             )}
 
             <div className="flex items-center md:flex-row flex-col gap-1 text-yellow-400">
               <div className="flex flex-row">
-                <Star size={20} fill="currentColor" />
+                <Star size={20} fill={rating.count > 0 ? "currentColor" : "none"} />
               <span className="font-semibold">
-                {profile?.rating ? profile.rating.toFixed(1) : "0.0"}
+                {rating.count > 0 ? rating.average.toFixed(1) : "Novo"}
               </span>
               </div>
               <span className="text-[var(--text-muted)] text-sm">
-                ({profile?.reviewsCount} avaliações)
+                ({rating.count} {rating.count === 1 ? "avaliação" : "avaliações"})
               </span>
             </div>
           </div>
 
-          {/* <p className="pl-2 text-[var(--text-muted)]">
-            Desenvolvedor Web & Designer UI/UX
-          </p> */}
           {/* CAIXA DE EDIÇÃO */}
             {/* BIO / SOBRE */}
           <section className="p-5 pb-10 flex flex-col md:px-5">
@@ -333,18 +205,20 @@ export default function ProfilePage() {
             {isEditing ? (
               <textarea
                 value={user.about}
+                aria-label="Sobre você"
                 placeholder="Fale um pouco sobre você..."
-                onChange={(e) => setUser((prev: any) => ({...prev, about: e.target.value}))}
+                onChange={(e) => setUser((prev) => ({...prev, about: e.target.value}))}
                 className="md:w-2xl w-xs bg-[var(--bg-light)] border border-[var(--primary)] rounded-lg p-2 text-[var(--text)] resize-none h-32"
               />
             ) : (
-              <p className="text-[var(--text-muted)] max-w-2xl">{!user.about ? "Fale um pouco sobre você... Por exemplo: ''Sou uma pessoa dedicada, sempre em busca de aprendizado e novas experiências. Gosto de colaborar, compartilhar conhecimento e enfrentar desafios que contribuam para meu crescimento pessoal e profissional.''" : user.about}</p>
-            )} 
+              <p className="text-[var(--text-muted)] max-w-2xl">{!user.about ? aboutPlaceholder : user.about}</p>
+            )}
             {isEditing && (
               <input
               className=" bg-[var(--bg-light)] mt-5 border border-[var(--primary)] rounded-lg p-2 text-[var(--text)] resize-none h-8"
               value={user.email}
-              onChange={(e) => setUser((prev: any) => ({...prev, email: e.target.value}))}
+              aria-label="E-mail"
+              onChange={(e) => setUser((prev) => ({...prev, email: e.target.value}))}
               placeholder="Email"
               />
             )}
@@ -356,25 +230,9 @@ export default function ProfilePage() {
               <button className="bg-[var(--primary)] rounded-xl w-55 h-15 mt-6 text-lg text-white animate-bounce "
                 onClick={()=>setRegistration(true) }>
                 Cadastre sua empresa
-              </button>              
+              </button>
             )}
-            {/* <button 
-            onClick={handleContratar}
-            className="px-2 md:px-4  py-2 bg-[var(--primary)] text-white rounded-lg hover:brightness-110 transition">
-              Contratar
-            </button> */}
-            {/* <button 
-            onClick={()=>{setIsOpenResponse(true)}}
-            className="px-2 md:px-4 py-2 border border-[var(--border)] rounded-lg hover:bg-[var(--bg-light)] transition">
-              Mensagem
-            </button> */}
-             {/* BOTÃO DO MODAL DE CRIAÇÃO DE SERVIÇO */}
-            {/* <button 
-            onClick={()=>{setOpen(true)}}
-            className="px-2 md:px-4 py-2 bg-[var(--primary)] text-white rounded-lg hover:brightness-110 transition">
-               Serviço +
-            </button> */}
-             <button 
+             <button
                 onClick={()=>{setIsOpenChat(true)}}
                 className="px-2 md:px-4 py-2 border min-h-14 bottom-0 flex gap-2 items-center border-[var(--border)] rounded-lg hover:bg-[var(--bg-light)] transition">
               <MessageSquare size={20} /> Chat
@@ -384,81 +242,58 @@ export default function ProfilePage() {
       </section>
       }
       {/* ===============================================================
-       * SEÇÃO DO CHAT
-       * =============================================================== */}      
-      <ServiceFormalizerModal service={undefined} isOpen={isOpenChat} onClose={() => setIsOpenChat(false)}/>
-
-       {/* ===============================================================
-       * SEÇÃO DE CRIAÇÃO DE SERVIÇOS
-       * =============================================================== */}      
-        <ServiceEditor serviceId={null} isOpen={open} onClose={() => setOpen(false)}  />
+       * SEÇÃO DO CHAT (conversas e negociações)
+       * =============================================================== */}
+      <ChatInbox isOpen={isOpenChat} onClose={() => setIsOpenChat(false)} />
 
        {/* ===============================================================
        * SEÇÃO DE RESPOSTA DE SERVIÇOS
-       * =============================================================== */} 
+       * =============================================================== */}
       <ServiceResponseModal isOpen={isOpenResponse} onClose={()=>{setIsOpenResponse(false)}}/>
 
        {/* ===============================================================
        * SEÇÃO DE CRIAÇÃO DE ORÇAMENTO
-       * =============================================================== */} 
+       * =============================================================== */}
       <ServiceNegotiationModal isOpen= {openContratar} onClose={()=>{setOpenContratar(false)}} />
 
         {/* ===============================================================
        * SEÇÃO DE REGISTRO E GALERIA DE SERVIÇOS
        * =============================================================== */}
-         {registration&&(<ProviderRegistrationContainer isOpen={registration} onClose={() => setRegistration(false)} />)}
+         {registration&&(
+           <ProviderRegistrationContainer
+             isOpen={registration}
+             onClose={closeRegistration}
+             onDone={() => navigate("/business")}
+           />
+         )}
 
-        {isClient ?(
           <div className="flex flex-col items-center justify-center min-h-50 bg-[var(--bg-dark)] border-b-1  border-[var(--border)] text-[var(--text)]">
-           
+
             {!registration&&(<ServiceDashboardSophisticated />)}
-            
+
           </div>
-        ):(
-          <section className="py-8 md:px-20">
-            <ServiceGalleryMagazine />
-          </section>
-        )}
-      
 
       {/* ===============================================================
-       * SEÇÃO DE AVALIAÇÕES
+       * SEÇÃO DE AVALIAÇÕES (recebidas como cliente)
        * =============================================================== */}
-      {!isClient&&(
-          <section className="p-8 md:px-20">
-        <h2 className="text-2xl font-bold mb-6">Avaliações</h2>
-
-        {/* Caso ainda não haja avaliações */}
-        {!reviews ? (
-          <div className="text-[var(--text-muted)]">Carregando avaliações...</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {reviews.map((review) => (
-              <motion.div
-                key={review.id}
-                className="bg-[var(--bg-light)]/20 backdrop-blur-lg rounded-2xl p-6 shadow-lg border border-[var(--border)] flex flex-col gap-2"
-                whileHover={{ scale: 1.02 }}
-                transition={{ duration: 0.3 }}
-              >
-                {/* Avaliação (estrelas e comentário) */}
-                <div className="text-yellow-400">
-                  {Array.from({ length: review.rating }).map((_, i) => (
-                    <span key={i}>★</span>
-                  ))}
-                </div>
-
-                <p className="text-[var(--text-muted)] flex-1">{review.comment}</p>
-
-                <span className="text-[var(--text)]/80 font-semibold mt-2">
-                  — {review.name}
-                </span>
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </section>
+      {sessionUser && !registration && (
+        <ReviewsSection
+          title="Avaliações"
+          load={loadClientReviews}
+          emptyText="Você ainda não recebeu avaliações. Depois de concluir uma contratação, o prestador pode avaliar você."
+        />
       )}
-      
+
+      <ConfirmModal
+        open={confirmDelete}
+        title="Excluir sua conta?"
+        description="Seus dados e seu perfil de prestador (se houver) serão removidos. Esta ação não pode ser desfeita."
+        confirmLabel="Excluir conta"
+        danger
+        loading={deleting}
+        onConfirm={handleDelete}
+        onClose={() => setConfirmDelete(false)}
+      />
     </div>
   );
 }

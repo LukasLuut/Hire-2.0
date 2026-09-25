@@ -1,18 +1,22 @@
 import { apiRequest } from "./ApiClient";
+import type { HireEntity } from "../interfaces/Entities";
 
+// Todas as rotas de contratação exigem login
+const auth = (token = localStorage.getItem("token")) => ({ Authorization: "Bearer " + token });
+
+const setStatus = (id: number, body: { status?: string; status_provider?: string }) =>
+  apiRequest<HireEntity>(`/hires/${id}`, { method: "PUT", headers: auth(), body: JSON.stringify(body) });
 
 export const hireAPI = {
 
-  create: async (data: {price:number, providerId: number, userId: number, serviceId: number}) => {
-
-    const response: any =  await apiRequest("/hires", {
+  /** O cliente vem do token; o prestador é o dono do serviço. */
+  create: async (data: { price: number, serviceId: number, description?: string }) => {
+    const response = await apiRequest<HireEntity>("/hires", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: auth(),
       body: JSON.stringify({
         price: data.price,
-        description_service: "Serviço realizado para o cliente",
-        userId: data.userId,
-        providerId: data.providerId,
+        description_service: data.description?.trim() || "Serviço contratado pela plataforma",
         serviceId: data.serviceId
       }),
     });
@@ -21,66 +25,25 @@ export const hireAPI = {
     return response.id;
   },
 
-  deleteHire: async (id: number) => {
-    const response = await apiRequest(`/hires/${id}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      }
-    });
-    return response;
+  getMine: async (token?: string): Promise<HireEntity[]> => {
+    const response = await apiRequest<HireEntity[]>("/hires/me", { headers: auth(token) });
+    return response ?? [];
   },
 
-  concludeHire: async (id: number) => {
-    const response = await apiRequest(`/hires/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        status: "CONCLUIDO"
-      })
-    });
-    return response;
-  },
+  deleteHire: (id: number) => apiRequest(`/hires/${id}`, { method: "DELETE", headers: auth() }),
 
-  concludeHireProvider: async (id: number) => {
-    const response = await apiRequest(`/hires/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        status_provider: "CONCLUIDO"
-      })
-    });
-    return response;
-  },
+  /** Cancela pelo lado de quem chama; o backend encerra os dois lados. */
+  cancelHire: (id: number, as: "client" | "provider" = "client") =>
+    setStatus(id, as === "client" ? { status: "CANCELADO" } : { status_provider: "CANCELADO" }),
 
-  beginHireProvider: async (id: number) => {
-    const response = await apiRequest(`/hires/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        status_provider: "EM ANDAMENTO"
-      })
-    });
-    return response;
-  },
+  concludeHire: (id: number) => setStatus(id, { status: "CONCLUIDO" }),
 
-  getHireByProviderId: async (id: number): Promise<Array<any>>  => {
-    const response = await apiRequest(`/hires/provider/${id}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json"
-      }
-    });
+  concludeHireProvider: (id: number) => setStatus(id, { status_provider: "CONCLUIDO" }),
 
-    return response as Array<any>;
+  beginHireProvider: (id: number) => setStatus(id, { status_provider: "EM ANDAMENTO" }),
+
+  getHireByProviderId: async (id: number): Promise<HireEntity[]> => {
+    return (await apiRequest<HireEntity[]>(`/hires/provider/${id}`, { headers: auth() })) ?? [];
   }
 
 };
-
-

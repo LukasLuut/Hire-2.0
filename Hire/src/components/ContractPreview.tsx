@@ -5,14 +5,19 @@
  *   → Substitui temporariamente cores OKLCH por equivalentes RGB
  * -------------------------------------------------------------------------- */
 
-import React, { useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { contractAPI, type ContractEntity } from "../api/ContractAPI";
+import { reaisPorExtenso } from "../utils/extenso";
+import { getErrorMessage } from "../utils/errors";
 
 /* --------------------------------------------------------------------------
  * 1. Interface de Tipagem
  * -------------------------------------------------------------------------- */
 interface ContractData {
+  codigo?: string;
   nome_contratante: string;
   cpf_contratante: string;
   endereco_contratante: string;
@@ -37,36 +42,88 @@ interface ContractData {
 }
 
 /* --------------------------------------------------------------------------
- * 2. Mock de Dados para Visualização
+ * 2. Dados do contrato real (gerado ao formalizar a negociação)
  * -------------------------------------------------------------------------- */
-const mockData: ContractData = {
-  nome_contratante: "João da Silva",
-  cpf_contratante: "123.456.789-00",
-  endereco_contratante: "Rua das Flores, 123, São Paulo - SP",
-  email_contratante: "joao@email.com",
-  telefone_contratante: "(11) 99999-9999",
-  nome_prestador: "Maria Oliveira",
-  cpf_prestador: "987.654.321-00",
-  endereco_prestador: "Av. Central, 456, Rio de Janeiro - RJ",
-  email_prestador: "maria@email.com",
-  telefone_prestador: "(21) 98888-8888",
-  nome_plataforma: "ServiçosJá",
-  cnpj_plataforma: "12.345.678/0001-99",
-  email_plataforma: "contato@servicosja.com",
-  descricao_servico: "Reparo elétrico residencial",
-  prazo_execucao: "5 dias úteis",
-  valor_servico: "450,00",
-  valor_extenso: "quatrocentos e cinquenta reais",
-  forma_pagamento: "via PIX através da plataforma",
-  cidade_forum: "São Paulo - SP",
-  data_assinatura: "20 de outubro de 2025",
-  cidade_assinatura: "São Paulo - SP",
-};
+const NAO_INFORMADO = "não informado";
+
+function formatCpf(v?: string | null) {
+  const d = (v ?? "").replace(/\D/g, "");
+  if (d.length === 11) return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+  if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+  return v || NAO_INFORMADO;
+}
+
+function toContractData(c: ContractEntity): ContractData {
+  const term = (key: string) => c.terms.find((t) => t.key === key)?.content?.trim() ?? "";
+  const payment = term("payment");
+  const method = payment.split("•")[1]?.trim();
+  const start = term("start");
+  const addr = c.user?.address;
+  const city = addr ? `${addr.city} - ${addr.state}` : NAO_INFORMADO;
+  const signed = new Date(c.lastContact.length === 10 ? c.lastContact + "T00:00:00" : c.lastContact);
+
+  return {
+    codigo: c.code,
+    nome_contratante: c.user?.name ?? NAO_INFORMADO,
+    cpf_contratante: formatCpf(c.user?.cpf_cnpj),
+    endereco_contratante: addr ? `${addr.street}, ${addr.num}, ${addr.neighborhood}, ${addr.city} - ${addr.state}` : NAO_INFORMADO,
+    email_contratante: c.user?.email ?? NAO_INFORMADO,
+    telefone_contratante: NAO_INFORMADO,
+    nome_prestador: c.provider?.companyName || c.provider?.professionalName || NAO_INFORMADO,
+    cpf_prestador: formatCpf(c.provider?.cnpj),
+    endereco_prestador: NAO_INFORMADO,
+    email_prestador: c.provider?.professionalEmail ?? NAO_INFORMADO,
+    telefone_prestador: c.provider?.professionalPhone ?? NAO_INFORMADO,
+    nome_plataforma: "Hire.",
+    cnpj_plataforma: NAO_INFORMADO,
+    email_plataforma: "suporte@hire.com",
+    descricao_servico: c.description_service,
+    prazo_execucao: (term("duration") || c.hire?.service?.duration || "a combinar") + (start ? `, com início em ${start.replace(/^(\d{4}-\d{2}-\d{2})T/, "$1 às ")}` : ""),
+    valor_servico: c.price.toFixed(2).replace(".", ","),
+    valor_extenso: reaisPorExtenso(c.price),
+    forma_pagamento: method ? `via ${method}` : "conforme combinado entre as partes",
+    cidade_forum: city,
+    data_assinatura: signed.toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" }),
+    cidade_assinatura: city,
+  };
+}
+
+/** Rota /contract/:id — carrega o contrato real e mostra o documento. */
+export function ContractPreview() {
+  const { id } = useParams();
+  const [data, setData] = useState<ContractData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token || !id) return;
+    contractAPI
+      .getById(Number(id), token)
+      .then((c) => setData(toContractData(c)))
+      .catch((err) => setError(getErrorMessage(err, "Contrato não encontrado.")));
+  }, [id]);
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-dark)] pt-32 text-center text-[var(--text)]">
+        <p className="text-xl font-semibold">{error}</p>
+      </div>
+    );
+  }
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-dark)] pt-32 flex justify-center">
+        <div className="max-w-4xl w-full mx-8 h-[70vh] rounded-2xl bg-[var(--bg-light)] animate-pulse" />
+      </div>
+    );
+  }
+  return <ContractDocument data={data} />;
+}
 
 /* --------------------------------------------------------------------------
  * 3. Função Principal
  * -------------------------------------------------------------------------- */
-export const ContractPreview: React.FC<{ data?: ContractData }> = ({ data = mockData }) => {
+export const ContractDocument: React.FC<{ data: ContractData }> = ({ data }) => {
   const contractRef = useRef<HTMLDivElement>(null);
 
   /* ----------------------------------------------------------------------
@@ -147,6 +204,7 @@ export const ContractPreview: React.FC<{ data?: ContractData }> = ({ data = mock
         <h1 className="text-2xl font-bold text-center mb-6">
           CONTRATO DE PRESTAÇÃO DE SERVIÇOS ENTRE PARTICULARES
         </h1>
+        {data.codigo && <p className="text-center text-sm mb-6">Contrato nº {data.codigo}</p>}
 
         {/* Identificação das Partes */}
         <section>

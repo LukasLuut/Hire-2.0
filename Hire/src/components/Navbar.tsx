@@ -1,13 +1,31 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Sun, Moon } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Menu, X, Sun, Moon, LogOut } from "lucide-react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { useSession } from "../context/SessionContext";
 
 export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (t: "dark"|"light") => void }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  const links = ["Home", "Business"];
+  const { token, provider, logout } = useSession();
   const navigate = useNavigate();
+
+  // "Business" só aparece para quem já é prestador
+  const links = token
+    ? [
+        { label: "Home", to: "/home" },
+        { label: "Contratações", to: "/hires" },
+        ...(provider ? [{ label: "Business", to: "/business" }] : []),
+      ]
+    : [];
+
+  const handleLogout = () => {
+    logout();
+    setMobileOpen(false);
+    navigate("/auth");
+  };
+
+  const linkClass = ({ isActive }: { isActive: boolean }) =>
+    `transition hover:text-[var(--text-highlight)] ${isActive ? "text-[var(--primary)]" : "text-[var(--text)]"}`;
 
   return (
     <nav className="fixed w-full z-50 bg-[var(--bg-dark)]/70 backdrop-blur-md border-b border-[var(--border)]">
@@ -18,32 +36,40 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
         {/* Desktop Links */}
         <div className="hidden md:flex gap-6 items-center">
           {links.map((link) => (
-            
-            <a
-              onClick={()=>navigate(link.toLowerCase())}
-              key={link}
-              href={`${link.toLowerCase()}`}
-              className="text-[var(--text)] hover:text-[var(--highlight)] transition"
-            >
-              {link}
-            </a>
+            <NavLink key={link.to} to={link.to} className={linkClass}>
+              {link.label}
+            </NavLink>
           ))}
 
           {/* Toggle Theme */}
           <button
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-           className="fixed top-3 right-40 z-50 p-2 rounded-full border border-[var(--border)] 
-                 bg-[var(--bg-light)] text-[var(--text)] transition hover:text-[var(--text)] 
+            aria-label={theme === "dark" ? "Usar modo claro" : "Usar modo escuro"}
+            className="p-2 rounded-full border border-[var(--border)]
+                 bg-[var(--bg-light)] text-[var(--text)] transition hover:text-[var(--text)]
                  hover:border-[var(--highlight)] shadow-lg"
           >
             {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
           </button>
+
+          {token && (
+            <button
+              onClick={handleLogout}
+              aria-label="Sair"
+              title="Sair"
+              className="p-2 rounded-full border border-[var(--border)] bg-[var(--bg-light)] text-[var(--text)] transition hover:border-[var(--highlight)] shadow-lg"
+            >
+              <LogOut size={20} />
+            </button>
+          )}
         </div>
 
         {/* Mobile Menu Button */}
         <div className="md:hidden flex items-center gap-2">
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
+            aria-expanded={mobileOpen}
             className="p-2 rounded-full text-[var(--text)] border border-[var(--border)] bg-[var(--bg-light)] transition"
           >
             {mobileOpen ? <X size={24} /> : <Menu size={24} />}
@@ -62,14 +88,9 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
             transition={{ duration: 0.3 }}
           >
             {links.map((link) => (
-              <a
-              onClick={()=>navigate(link.toLowerCase())}
-              key={link}
-              href={`${link.toLowerCase()}`}
-              className="text-[var(--text)] hover:text-[var(--highlight)] transition"
-            >
-              {link}
-            </a>
+              <NavLink key={link.to} to={link.to} onClick={() => setMobileOpen(false)} className={linkClass}>
+                {link.label}
+              </NavLink>
             ))}
 
             {/* Toggle Theme */}
@@ -78,11 +99,21 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
                 setTheme(theme === "dark" ? "light" : "dark");
                 setMobileOpen(false);
               }}
-              className="mt-2 p-2 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-text)] transition flex items-center justify-center"
+              className="mt-2 p-2 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-light)] transition flex items-center justify-center"
             >
               {theme === "dark" ? <Sun className="ml-2 text-[var(--text)]" size={20} /> : <Moon size={20} />}
               <span className="ml-2 text-[var(--text)]">{theme === "dark" ? "Modo Claro" : "Modo Escuro"}</span>
             </button>
+
+            {token && (
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-light)] transition flex items-center justify-center text-[var(--text)]"
+              >
+                <LogOut size={20} className="ml-2" />
+                <span className="ml-2">Sair</span>
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

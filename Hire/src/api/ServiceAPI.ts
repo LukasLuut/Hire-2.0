@@ -1,28 +1,68 @@
-import type { Service } from "../interfaces/ServiceInterface";
 import { apiRequest } from "./ApiClient";
+import { uploadUrl } from "../utils/avatar";
+import type { RatingStats, ServiceEntity } from "../interfaces/Entities";
 
 
 export interface ServiceData {
   id: number,
   title: string,
   description_service: string,
-  category: {id: number, name: string, description: string},
+  category: {id: number, name: string, description?: string},
   subcategory: string,
   price: number,
   active: boolean,
   duration: string,
+  /** Nota média real do serviço (0 quando ainda não há avaliações) */
   rating: number,
-  imageUrl: string,
+  ratingCount: number,
+  negotiable: boolean,
+  requiresScheduling: boolean,
+  likesNumber: number,
+  /** URL absoluta da imagem (ou null) */
+  imageUrl: string | null,
   provider?:{
     id?: number,
     professionalName?: string,
-    profileImageUrl?: string,
-    description?: string
+    companyName?: string,
+    profileImageUrl?: string | null,
+    description?: string,
+    rating?: RatingStats,
   },
-  hire?: {
-    id?: number
-  }
 }
+
+const EMPTY_STATS: RatingStats = { average: 0, count: 0 };
+
+/** Converte o serviço da API para o formato usado pelas telas. */
+export function toServiceData(e: ServiceEntity): ServiceData {
+  return {
+    id: e.id,
+    title: e.title,
+    description_service: e.description_service ?? "",
+    category: e.category ? { id: e.category.id, name: e.category.name, description: e.category.description } : { id: 0, name: "Sem categoria" },
+    subcategory: e.subcategory && e.subcategory !== "Has no subcategory" ? e.subcategory : "",
+    price: Number(e.price),
+    active: true,
+    duration: e.duration ?? "",
+    rating: e.rating?.average ?? 0,
+    ratingCount: e.rating?.count ?? 0,
+    negotiable: !!e.negotiable,
+    requiresScheduling: !!e.requiresScheduling,
+    likesNumber: e.likesNumber ?? 0,
+    imageUrl: uploadUrl(e.imageUrl),
+    provider: e.provider
+      ? {
+          id: e.provider.id,
+          professionalName: e.provider.professionalName,
+          companyName: e.provider.companyName,
+          profileImageUrl: e.provider.profileImageUrl,
+          description: e.provider.description ?? undefined,
+          rating: e.provider.rating ?? EMPTY_STATS,
+        }
+      : undefined,
+  };
+}
+
+const auth = (token: string) => ({ Authorization: "Bearer " + token });
 
 export const serviceAPI = {
 
@@ -33,99 +73,36 @@ export const serviceAPI = {
     });
   },
 
-  getServices: async (): Promise<ServiceData[] | null> => {
-    const response: ServiceData[] = await apiRequest("/services", {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if(!response || typeof(response) == undefined) return null;
-
-    const services =
-    response.map((e) => {
-      return {
-        id: e.id,
-        title: e.title,
-        description_service: e.description_service,
-        category: e.category,
-        subcategory: e.subcategory,
-        price: e.price,
-        active: true,
-        duration: e.duration,
-        rating: 4.6,
-        imageUrl: e.imageUrl,
-        provider:{
-          id: e.provider?.id,
-          professionalName: e.provider?.professionalName,
-          profileImageUrl: e.provider?.profileImageUrl,
-          description: e.provider?.description
-        },
-        hire: {
-          id: e.hire?.id
-        }
-  
-      }
-    })
-
-    return services;
-    },
-
-  getServiceById: async (id: number): Promise<ServiceData | null> => {
-  const response: ServiceData = await apiRequest(`/services/${id}`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-
-  if(!response || typeof(response) == undefined) return null;
-
-    return {
-      id: response.id,
-      title: response.title,
-      description_service: response.description_service,
-      category: response.category,
-      subcategory: response.subcategory,
-      price: response.price,
-      active: true,
-      duration: response.duration,
-      rating: 4.6,
-      imageUrl: response.imageUrl,
-      provider:{
-        id: response.provider?.id,
-        professionalName: response.provider?.professionalName,
-        profileImageUrl: response.provider?.profileImageUrl,
-        description: response.provider?.description
-      },
-      hire: {
-        id: response.hire?.id
-      }
-
-    }
+  getServices: async (): Promise<ServiceData[]> => {
+    const response = await apiRequest<ServiceEntity[]>("/services", { method: "GET" });
+    return Array.isArray(response) ? response.map(toServiceData) : [];
   },
 
+  getServiceById: async (id: number): Promise<ServiceData | null> => {
+    const response = await apiRequest<ServiceEntity>(`/services/${id}`, { method: "GET" });
+    return response ? toServiceData(response) : null;
+  },
+
+  /** Remove um serviço (nome mantido do projeto original). */
   deleteUser: async (id: number) => {
-    const response = await apiRequest(`/services/${id}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-      }
-    })
-    return response;
+    return await apiRequest(`/services/${id}`, { method: "DELETE" });
   },
 
   update: async (
     id: number,
     data: FormData
   ) => {
-    const response = await apiRequest(`/services/${id}`, {
+    return await apiRequest(`/services/${id}`, {
       method: "PUT",
       body: data
-    })
-    return response;
+    });
+  },
+
+  toggleLike: async (id: number, token: string) => {
+    return await apiRequest<{ liked: boolean; likesNumber: number }>(`/services/${id}/like`, { method: "POST", headers: auth(token) });
+  },
+
+  likedIds: async (token: string): Promise<number[]> => {
+    return (await apiRequest<number[]>("/services/liked", { headers: auth(token) })) ?? [];
   },
 };
-
-

@@ -1,13 +1,17 @@
 // ---------------------------------
-// Container principal: gerencia estado, navegação e submit.
+// Container principal: gerencia estado, navegação e envio do cadastro de prestador.
+// Serve para criar (formulário vazio, com nome e e-mail da conta) e para editar
+// (formulário preenchido com os dados já salvos).
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import { toFiles } from "../helpers/file-helpers";
 import {
   type ProviderForm,
   type FileOrNull,
+  type Availability,
+  type DayKey,
 } from "../helpers/types-and-helpers";
 
 import StepIdentity from "../Etapa1/StepIdentity";
@@ -18,60 +22,51 @@ import StepPreferences from "../Etapa5/StepPreferences";
 import ProfilePreview from "../ProfilePreview/ProfilePreview";
 import { addressAPI } from "../../../../api/AddressAPI";
 import type { Address } from "../../../../interfaces/AddressInterface";
+import type { ProviderEntity } from "../../../../interfaces/Entities";
 import { providerApi } from "../../../../api/ProviderAPI";
 import { validateFormData } from "../../../../validate/validateFormData";
+import { useToast } from "../../../Toast/ToastContext";
+import { useSession } from "../../../../context/SessionContext";
+import { uploadUrl } from "../../../../utils/avatar";
+import { getErrorMessage } from "../../../../utils/errors";
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Prestador já salvo (modo edição). Sem ele, o formulário cria um novo. */
+  existing?: ProviderEntity | null;
+  /** Chamado depois de salvar com sucesso */
+  onDone?: () => void;
 }
 
-export default function ProviderRegistrationContainer({ isOpen, onClose }: ModalProps) {
-  const [step, setStep] = useState<number>(0);
-  const totalSteps = 5;
+const DAYS: DayKey[] = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
-   // Fecha com ESC
-  useEffect(() => {
-    function handleEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
+function buildInitialForm(existing: ProviderEntity | null | undefined, user: { name?: string; email?: string } | null): ProviderForm {
+  const availability = Object.fromEntries(DAYS.map((d) => [d, null])) as Availability;
+  for (const a of existing?.availabilities ?? []) {
+    if ((DAYS as string[]).includes(a.day)) availability[a.day as DayKey] = { start: a.start, end: a.end };
+  }
 
-    if (isOpen) window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
-  const initialForm: ProviderForm = {
+  return {
   // Identidade
-  name: "Lucas William",
-  cnpj: "",
-  professionalEmail: "lucas.william@Hire.com",
-  professionalPhone: "51984584293",
-  shortDescription:
-    "Profissional dedicado com foco em qualidade e atendimento personalizado.",
+  name: existing?.professionalName ?? user?.name ?? "",
+  cnpj: existing?.cnpj ?? "",
+  professionalEmail: existing?.professionalEmail ?? user?.email ?? "",
+  professionalPhone: existing?.professionalPhone ?? "",
+  shortDescription: existing?.description ?? "",
   profilePhoto: null,
 
   // Profissional
-  companyName: "Reformas William",
-  category: "",
-  subcategories: ["Pintura", "Elétrica", "Reparos gerais"],
-  experienceLevel: "especialista",
+  companyName: existing?.companyName ?? "",
+  category: existing?.category?.id ? String(existing.category.id) : "",
+  subcategories: (existing?.subcategories ?? []).map((s) => s.name),
+  experienceLevel: "",
   portfolio: [],
-  inPerson: true,
-  online: false,
-  onlineLink: "",
-  
-  // ✅ NOVO
-  availability: {
-    monday: null,
-    tuesday: null,
-    wednesday: null,
-    thursday: null,
-    friday: null,
-    saturday: null,
-    sunday: null,
-  },
+  inPerson: existing ? !!existing.attendsPresent : true,
+  online: !!existing?.attendsOnline,
+  onlineLink: existing?.onlineLink ?? "",
+
+  availability,
 
   // Endereço
   hasPhysicalLocation: true,
@@ -88,26 +83,43 @@ export default function ProviderRegistrationContainer({ isOpen, onClose }: Modal
   // Documentos
   idDocument: null,
   certifications: [],
-  links: [
-    "https://www.instagram.com/reformaswilliam",
-    "https://www.linkedin.com/in/lucaswilliam",
-  ],
+  links: (existing?.links ?? []).map((l) => l.name),
 
   // Preferências
-  acceptsCustomProposals: true,
-  notifications: { email: true, whatsapp: true },
-  showApproxLocation: true,
-  allowReviews: true,
-  showPrices: true,
-  status: "available",
-};
+  acceptsCustomProposals: existing ? !!existing.personalizedProposals : true,
+  notifications: { email: existing ? !!existing.emailNotification : true, whatsapp: !!existing?.whatsNotification },
+  showApproxLocation: existing ? !!existing.approximateLocation : true,
+  allowReviews: existing ? !!existing.publicReviews : true,
+  showPrices: existing ? !!existing.pricesOnPage : true,
+  status: existing?.status === "paused" ? "paused" : "available",
+  };
+}
 
+export default function ProviderRegistrationContainer({ isOpen, onClose, existing, onDone }: ModalProps) {
+  const isEdit = !!existing;
+  const { user, refresh } = useSession();
+  const { showToast } = useToast();
+  const [step, setStep] = useState<number>(0);
+  const [saving, setSaving] = useState(false);
+  const totalSteps = 5;
 
-  const [form, setForm] = useState<ProviderForm>(() => ({ ...initialForm }));
+  const [form, setForm] = useState<ProviderForm>(() => buildInitialForm(existing, user));
   const [profilePreviewUrl, setProfilePreviewUrl] = useState<string | null>(
-    null
+    uploadUrl(existing?.profileImageUrl)
   );
   const [portfolioPreviews, setPortfolioPreviews] = useState<string[]>([]);
+
+   // Fecha com ESC (exceto durante o envio)
+  useEffect(() => {
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === "Escape" && !saving) onClose();
+    }
+
+    if (isOpen) window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isOpen, onClose, saving]);
+
+  if (!isOpen) return null;
 
   /* update */
   const update = <K extends keyof ProviderForm>(
@@ -120,9 +132,7 @@ export default function ProviderRegistrationContainer({ isOpen, onClose }: Modal
   /* file handlers */
   const handleProfileFile = (f: FileOrNull) => {
     update("profilePhoto", f);
-    if (typeof f !== "string") {
-      if (f) setProfilePreviewUrl(URL.createObjectURL(f));
-    } else setProfilePreviewUrl(f);
+    if (f) setProfilePreviewUrl(URL.createObjectURL(f));
   };
 
   const handlePortfolioFiles = (files: FileList | null) => {
@@ -136,7 +146,7 @@ export default function ProviderRegistrationContainer({ isOpen, onClose }: Modal
   };
 
   const handleIdDocument = (f: File | null) => update("idDocument", f);
-  
+
   const handleCertifications = (files: FileList | File[] | null) => {
   if (!files) return;
 
@@ -159,25 +169,31 @@ export default function ProviderRegistrationContainer({ isOpen, onClose }: Modal
   const removeSubcategory = (t: string) =>
     update("subcategories", form.subcategories.filter((s) => s !== t));
 
-  function validateAddress() {
-    if (!form.address?.cep || form.address.cep.trim() === "" || form.address.cep.length !== 9) { alert("Coloque um CEP válido"); return null}
-    if (!form.address?.street || form.address.street.trim() === "") { alert("Rua é obrigatório"); return null}
-    if (!form.address?.number || form.address.number.trim() === "") { alert("Número é obrigatório"); return null}
-    if (!form.address?.neighborhood || form.address.neighborhood.trim() === "") { alert("Bairro é obrigatório"); return null}
-    if (!form.address?.city || form.address.city.trim() === "") { alert("Cidade é obrigatório"); return null}
-    if (!form.address?.state || form.address.state.trim() === "") { alert("Estado é obrigatório"); return null}
+  const addressTouched = () =>
+    Object.values(form.address ?? {}).some((v) => typeof v === "string" && v.trim() !== "");
 
-    return true;
+  // Endereço obrigatório no cadastro; na edição só é validado se a pessoa preencher algo
+  function validateAddress(): string | null {
+    if (isEdit && !addressTouched()) return null;
+    const a = form.address ?? {};
+    if (!a.cep || a.cep.replace(/\D/g, "").length !== 8) return "Coloque um CEP válido";
+    if (!a.street || a.street.trim() === "") return "Rua é obrigatório";
+    if (!a.number || a.number.trim() === "") return "Número é obrigatório";
+    if (!/^\d+$/.test(a.number.trim())) return "O número deve conter apenas dígitos";
+    if (!a.neighborhood || a.neighborhood.trim() === "") return "Bairro é obrigatório";
+    if (!a.city || a.city.trim() === "") return "Cidade é obrigatório";
+    if (!a.state || a.state.trim() === "") return "Estado é obrigatório";
+    return null;
   }
+
+  const validateStep = (s: number) => validateFormData(form, s) ?? (s === 2 ? validateAddress() : null);
+
   /* navigation */
   const next = () => {
-
-    if(!validateFormData(form, step)) {
+    const problem = validateStep(step);
+    if (problem) {
+      showToast(problem, "warning");
       return;
-    }
-
-    if(step == 2) {
-      if (!validateAddress()) return;
     }
     setStep((s) => Math.min(s + 1, totalSteps - 1))
   };
@@ -185,6 +201,14 @@ export default function ProviderRegistrationContainer({ isOpen, onClose }: Modal
 
   /* submit */
   const handleFinish = async () => {
+    for (let s = 0; s < totalSteps; s++) {
+      const problem = validateStep(s);
+      if (problem) {
+        setStep(s);
+        showToast(problem, "warning");
+        return;
+      }
+    }
 
     const token = localStorage.getItem("token");
     if(!token) return;
@@ -197,6 +221,7 @@ export default function ProviderRegistrationContainer({ isOpen, onClose }: Modal
     formData.append("professionalPhone", form.professionalPhone);
     formData.append("description", form.shortDescription);
     formData.append("cnpj", form.cnpj ? form.cnpj : "");
+    formData.append("categoryId", form.category);
     formData.append("subcategories", JSON.stringify(form.subcategories));
     formData.append("attendsPresent", JSON.stringify(form.inPerson));
     formData.append("attendsOnline", JSON.stringify(form.online));
@@ -210,41 +235,60 @@ export default function ProviderRegistrationContainer({ isOpen, onClose }: Modal
     formData.append("onlineLink", form.onlineLink);
     formData.append("links", JSON.stringify(form.links));
     formData.append("availabilities", JSON.stringify(form.availability));
-    formData.append("image", form.profilePhoto ? form.profilePhoto : "");
+    if (form.profilePhoto) formData.append("image", form.profilePhoto);
 
-    providerApi.create(formData, token);
+    setSaving(true);
+    try {
+      if (isEdit) await providerApi.update(formData, token);
+      else await providerApi.create(formData, token);
 
-    const address: Address = {
-      id: 0,
-      num: form.address?.number,
-      street: form.address?.street,
-      neighborhood: form.address?.neighborhood,
-      city: form.address?.city,
-      state: form.address?.state,
-      country: "Brazi",
-      postalCode: form.address?.cep
+      if (!isEdit || addressTouched()) {
+        const address: Address = {
+          id: 0,
+          num: form.address?.number,
+          street: form.address?.street,
+          neighborhood: form.address?.neighborhood,
+          city: form.address?.city,
+          state: form.address?.state,
+          country: "Brasil",
+          postalCode: form.address?.cep
+        }
+        try {
+          await addressAPI.create(address, token);
+        } catch {
+          showToast("Perfil salvo, mas não foi possível salvar o endereço.", "warning");
+        }
+      }
+
+      await refresh();
+      showToast(isEdit ? "Perfil de prestador atualizado!" : "Empresa cadastrada! Agora publique seu primeiro serviço.", "success");
+      onDone?.();
+      onClose();
+    } catch (err) {
+      showToast(getErrorMessage(err, "Não foi possível salvar o cadastro."), "error");
+    } finally {
+      setSaving(false);
     }
-   addressAPI.create(address, token);
-
-    console.log("Submitting: ", form);
-    alert("Simulação: formulário enviado. Ver console.");
-    onClose();
   };
-
-  useEffect(() => {
-    console.log(form)
-  }, [form])
 
   return (
     <div className="min-h-auto bg-[var(--bg-dark)] text-[var(--text)] p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         <header className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-extrabold">Cadastro de Prestador</h1>
+            <h1 className="text-3xl font-extrabold">{isEdit ? "Editar perfil de prestador" : "Cadastro de Prestador"}</h1>
             <p className="text-sm text-[var(--text-muted)]">
               Monte sua vitrine profissional em poucos passos
             </p>
           </div>
+          <button
+            onClick={onClose}
+            disabled={saving}
+            aria-label="Cancelar cadastro"
+            className="p-2 rounded-full border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--bg-light)] transition"
+          >
+            <X size={20} />
+          </button>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -376,16 +420,17 @@ export default function ProviderRegistrationContainer({ isOpen, onClose }: Modal
                   {step < totalSteps - 1 ? (
                     <button
                       onClick={next}
-                      className="px-4 py-2 rounded bg-[var(--primary)] text-[var(--white)] flex items-center gap-2"
+                      className="px-4 py-2 rounded bg-[var(--primary)] text-white flex items-center gap-2"
                     >
                       Próximo <ArrowRight size={16} />
                     </button>
                   ) : (
                     <button
                       onClick={handleFinish}
-                      className="px-4 py-2 rounded bg-[var(--primary)] text-[var(--white)] flex items-center gap-2"
+                      disabled={saving}
+                      className="px-4 py-2 rounded bg-[var(--primary)] text-white flex items-center gap-2 disabled:opacity-70"
                     >
-                      Salvar & Publicar
+                      {saving ? "Salvando..." : isEdit ? "Salvar alterações" : "Salvar & Publicar"}
                     </button>
                   )}
                 </div>

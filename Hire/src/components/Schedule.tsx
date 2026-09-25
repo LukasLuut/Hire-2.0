@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Minus, Calendar, Clock } from 'lucide-react';
 
@@ -13,7 +13,7 @@ import { Plus, Minus, Calendar, Clock } from 'lucide-react';
 */
 
 type Slot = { time: string; available: boolean; };
-type Day = { name: string; slots: Slot[]; };
+export type Day = { name: string; slots: Slot[]; };
 
 const units = ['min', 'h', 'd', 'sem'];
 const unitMultipliers = [1, 60, 60*24, 60*24*7];

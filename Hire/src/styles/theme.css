@@ -5,6 +5,12 @@
   
 }
 
+/* Fundo da página segue o tema (evita faixas brancas atrás do conteúdo) */
+body {
+  background-color: var(--bg-dark);
+  color: var(--text);
+}
+
 :root {
   
   /* hsl (fallback color) */
@@ -37,6 +43,8 @@
   --warning: oklch(0.7 0.05 100);
   --success: oklch(0.7 0.05 160);
   --info: oklch(0.7 0.05 260);
+  /* Texto em destaque discreto (preços, durações). Mantém o cinza do design e passa AA */
+  --text-highlight: oklch(0.72 0 250);
 
   
 
@@ -74,6 +82,7 @@ body.light {
   --success: oklch(0.5 0.05 160);
   --info: oklch(0.5 0.05 260);
   --teste:hsl(211, 100%, 45%);
+  --text-highlight: oklch(0.42 0 250);
 }
 
 /* --------------------------------------------------------------------------
@@ -205,6 +214,12 @@ body.light {
    .a11y-focus-outline :focus { outline: 3px solid #ffd54f; outline-offset: 2px; }
 
    .a11y-reduce-motion * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+
+   /* Foco visível para navegação por teclado (fora de @layer para vencer outline-none) */
+   :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+   @media (prefers-reduced-motion: reduce) {
+     *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+   }
 
    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
    .sr-only:focus { position: static; width: auto; height: auto; margin: 0; clip: auto; }

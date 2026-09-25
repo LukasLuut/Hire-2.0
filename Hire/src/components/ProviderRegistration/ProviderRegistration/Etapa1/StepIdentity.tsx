@@ -2,7 +2,6 @@
 // -----------------
 // Etapa 1 — Identidade & Conta (UI refinada + UX aprimorada)
 
-import React from "react";
 import type { ProviderForm, FileOrNull } from "../helpers/types-and-helpers";
 import { Camera, Upload } from "lucide-react";
 

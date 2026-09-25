@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import ProviderHero from "../components/ProviderHero/ProviderHero";
 import {
@@ -10,241 +10,71 @@ import {
   ChevronUp,
 } from "lucide-react";
 import ServiceEditor from "../components/ServiceEditor/ServiceEditor";
-import { providerApi } from "../api/ProviderAPI";
-import type { ProviderForm } from "../components/ProviderRegistration/ProviderRegistration/helpers/types-and-helpers";
 import { useNavigate } from "react-router-dom";
-import ServiceFormalizerModal from "../components/Negotiation/ServiceFormalizerModal";
+import ChatInbox from "../components/Chat/ChatInbox";
 import { ProviderProfileSkeleton } from "../skeletons/ProviderProfileSkeleton/ProviderProfileSkeleton";
-import { ServicesGallerySkeleton } from "../skeletons/ServiceGallerySkeleton/ServicesGallerySkeleton";
+import { useSession } from "../context/SessionContext";
+import { hireAPI } from "../api/HireAPI";
+import { reviewAPI } from "../api/ReviewAPI";
+import { conversationAPI } from "../api/ConversationAPI";
+import type { ConversationSummary, HireEntity, ReviewEntity } from "../interfaces/Entities";
+import { HIRE_STAGE_LABEL_PROVIDER, getHireStage } from "../utils/hireStatus";
+import { formatCurrency, formatDate } from "../utils/format";
+import { uploadUrl } from "../utils/avatar";
 
-
-/* ---------------------------
-   Types & Mock data (same as antes)
-   --------------------------- */
-type Service = {
-  id: number;
-  title: string;
-  shortDescription: string;
-  description: string;
-  category: string;
-  images: string[];
-  rating: number;
-  price: string;
-  duration: string;
-  active: boolean;
-  createdAt: string;
-};
-
-type Booking = {
-  id: number;
-  serviceId: number;
-  clientName: string;
-  date: string;
-  status: "scheduled" | "in-progress" | "completed" | "cancelled";
-  price: string;
-};
-
-type Review = {
-  id: number;
-  serviceId: number;
-  author: string;
-  rating: number;
-  comment: string;
-  date: string;
-};
-
-const MOCK_SERVICES: Service[] = [
-  {
-    id: 1,
-    title: "Design de Interfaces Premium",
-    shortDescription:
-      "UI/UX para produtos digitais — protótipos interativos e guidelines.",
-    description:
-      "Design completo de interfaces, protótipos interativos, tests de usabilidade e guidelines. Inclui 2 rodadas de revisão e entregáveis prontos para dev.",
-    category: "Design",
-    images: [
-      "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1400&q=60&auto=format&fit=crop",
-    ],
-    rating: 4.92,
-    price: "R$ 2.400",
-    duration: "7 dias",
-    active: true,
-    createdAt: "2025-09-01",
-  },
-  {
-    id: 2,
-    title: "Desenvolvimento Web Fullstack",
-    shortDescription: "Aplicações modernas com React/Node — deploy incl.",
-    description:
-      "Fullstack com React, Node, banco e deploy. Entrega com testes e documentação. Opção de suporte mensal.",
-    category: "Tecnologia",
-    images: [
-      "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1400&q=60&auto=format&fit=crop",
-    ],
-    rating: 4.85,
-    price: "R$ 5.000",
-    duration: "14 dias",
-    active: true,
-    createdAt: "2025-07-15",
-  },
-  {
-    id: 3,
-    title: "Consultoria em Performance",
-    shortDescription: "Diagnóstico e plano de otimização para apps.",
-    description:
-      "Auditoria, diagnóstico de verbosidade, recomendações e execução de melhorias de performance no front-end e infra.",
-    category: "Consultoria",
-    images: [
-      "https://images.unsplash.com/photo-1503602642458-232111445657?w=1400&q=60&auto=format&fit=crop",
-    ],
-    rating: 4.78,
-    price: "R$ 900",
-    duration: "3 dias",
-    active: false,
-    createdAt: "2024-11-02",
-  },
-  {
-    id: 4,
-    title: "Consultoria em Performance",
-    shortDescription: "Diagnóstico e plano de otimização para apps.",
-    description:
-      "Auditoria, diagnóstico de verbosidade, recomendações e execução de melhorias de performance no front-end e infra.",
-    category: "Consultoria",
-    images: [
-      "https://images.unsplash.com/photo-1503602642458-232111445657?w=1400&q=60&auto=format&fit=crop",
-    ],
-    rating: 4.78,
-    price: "R$ 900",
-    duration: "3 dias",
-    active: false,
-    createdAt: "2024-11-02",
-  },
-  {
-    id: 5,
-    title: "Consultoria em Performance",
-    shortDescription: "Diagnóstico e plano de otimização para apps.",
-    description:
-      "Auditoria, diagnóstico de verbosidade, recomendações e execução de melhorias de performance no front-end e infra.",
-    category: "Consultoria",
-    images: [
-      "https://images.unsplash.com/photo-1503602642458-232111445657?w=1400&q=60&auto=format&fit=crop",
-    ],
-    rating: 4.78,
-    price: "R$ 900",
-    duration: "3 dias",
-    active: false,
-    createdAt: "2024-11-02",
-  },
-];
-
-const MOCK_BOOKINGS: Booking[] = [
-  {
-    id: 101,
-    serviceId: 1,
-    clientName: "João Silva",
-    date: "2025-10-20T10:00:00Z",
-    status: "scheduled",
-    price: "R$ 2.400",
-  },
-  {
-    id: 102,
-    serviceId: 2,
-    clientName: "Maria Oliveira",
-    date: "2025-10-22T14:30:00Z",
-    status: "in-progress",
-    price: "R$ 5.000",
-  },
-  {
-    id: 103,
-    serviceId: 1,
-    clientName: "Carlos Santos",
-    date: "2025-09-30T09:00:00Z",
-    status: "completed",
-    price: "R$ 2.400",
-  },
-   {
-    id: 104,
-    serviceId: 1,
-    clientName: "Carlos Santos",
-    date: "2025-09-30T09:00:00Z",
-    status: "completed",
-    price: "R$ 2.400",
-  },
-   {
-    id: 105,
-    serviceId: 1,
-    clientName: "Carlos Santos",
-    date: "2025-09-30T09:00:00Z",
-    status: "completed",
-    price: "R$ 2.400",
-  },
-];
-
-const MOCK_REVIEWS: Review[] = [
-  {
-    id: 201,
-    serviceId: 1,
-    author: "Ana",
-    rating: 5,
-    comment: "Trabalho impecável e muito atencioso no briefing.",
-    date: "2025-10-02",
-  },
-  {
-    id: 202,
-    serviceId: 2,
-    author: "Pedro",
-    rating: 4.5,
-    comment: "Entrega rápida e clara. Recomendo.",
-    date: "2025-09-18",
-  },
-];
+type Notification = { id: string; text: string; date: number };
 
 /* ---------------------------
    Component
    --------------------------- */
 export default function DashboardPrestador() {
-  // data
-  const [services] = useState<Service[] | null>(null);
-  const [bookings] = useState<Booking[] | null>(null);
-  const [reviews] = useState<Review[] | null>(null);
-  const [isOpenChat, setIsOpenChat]=useState(false);
-  const [loading, setLoading] = useState<boolean>(false);
+  const { provider, loading: sessionLoading } = useSession();
+  const navigate = useNavigate();
 
- 
+  // data (tudo vem da API)
+  const [bookings, setBookings] = useState<HireEntity[] | null>(null);
+  const [reviews, setReviews] = useState<ReviewEntity[] | null>(null);
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [isOpenChat, setIsOpenChat]=useState(false);
+  const [galleryKey, setGalleryKey] = useState(0);
 
   // mobile accordion (drawer alternative per sua escolha 'b')
   const [panelOpen, setPanelOpen] = useState(false);
 
-   /* AQUI COMEÇA A BRINCADEIRA */ 
-  const [provider, setProvider] = useState<ProviderForm | null>(null);
+  const load = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token || !provider?.id) return;
+    const [hs, rv, cv] = await Promise.all([
+      hireAPI.getHireByProviderId(provider.id).catch(() => []),
+      reviewAPI.forProvider(provider.id).catch(() => null),
+      conversationAPI.list(token).catch(() => []),
+    ]);
+    setBookings(hs);
+    setReviews(rv?.reviews ?? []);
+    setConversations(cv.filter((c) => c.myRole === "prestador"));
+  }, [provider?.id]);
 
   useEffect(() => {
-    setLoading(true);
-    const getProvider = async () => {
-      const token = localStorage.getItem("token");
-      if(!token) return;
+    load();
+  }, [load]);
 
-      const providerData: ProviderForm | null = await providerApi.getByUser(token);
+  // Quem ainda não é prestador volta para o perfil (onde pode cadastrar a empresa)
+  useEffect(() => {
+    if (!sessionLoading && !provider) navigate("/home", { replace: true });
+  }, [sessionLoading, provider, navigate]);
 
-      if(!providerData) {
-        alert("Não existe um prestador de serviços");
-        return;
-      } else {
-        setProvider(providerData);
-      }
-
-      setProvider(providerData);
-
-      setTimeout(() => {
-        setLoading(false);
-      }, 1000)
-    };
-
-    getProvider();
-  }, [])
-  
-  /* fetch resources (with fallback mocks) */
-  
+  // Notificações recentes: novos pedidos, avaliações e mensagens de clientes
+  const notifications: Notification[] = [
+    ...(bookings ?? [])
+      .filter((b) => getHireStage(b) === "requested")
+      .map((b) => ({ id: `h${b.id}`, text: `Novo pedido — ${b.user?.name ?? "Cliente"} (${b.service?.title ?? "serviço"})`, date: new Date(b.firstContact).getTime() })),
+    ...(reviews ?? []).map((r) => ({ id: `r${r.id}`, text: `Nova avaliação recebida — ${r.author?.name ?? "Cliente"} (${r.rating}★)`, date: new Date(r.createdAt).getTime() })),
+    ...conversations
+      .filter((c) => c.lastMessage && c.lastMessage.role === "cliente")
+      .map((c) => ({ id: `c${c.id}`, text: `Mensagem de ${c.client?.name ?? "cliente"} — ${c.lastMessage!.text}`, date: new Date(c.lastMessage!.createdAt).getTime() })),
+  ]
+    .sort((a, b) => b.date - a.date)
+    .slice(0, 4);
 
   // UI motion variants
   const panelVariant = { closed: { height: 0, opacity: 0 }, open: { height: "auto", opacity: 1 } };
@@ -253,18 +83,8 @@ export default function DashboardPrestador() {
   /* ---------------------------
      Render
      --------------------------- */
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const localProvider = localStorage.getItem("provider")
-  if (localProvider == "0") {
-    navigate("/home");
-  }
-  }, [provider, navigate]);
-
-  if (localStorage.getItem("provider") == "0") {
-    return null; // impede o carregamento do componente
-  }
+  if (!sessionLoading && !provider) return null;
+  const loading = sessionLoading || !provider;
 
   return (
     <LayoutGroup>
@@ -274,7 +94,7 @@ export default function DashboardPrestador() {
         {/* header */}        
         <div className="max-w-[90%] mx-auto flex flex-col lg:flex-row gap-6">
           {/* aside (desktop) visible at right; on mobile it will be an accordion below header */}
-          {provider && <ProviderHero provider={provider} />}
+          {provider && <ProviderHero key={galleryKey} provider={provider} />}
           <aside className="w-full mt-6 lg:w-80">
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className=" lg:block hidden md:flex mb-4 bg-[var(--bg-light)]/40 backdrop-blur-xl rounded-2xl p-4 border border-[var(--border)] shadow-md">
               <div className="flex items-center justify-between mb-3">
@@ -297,8 +117,10 @@ export default function DashboardPrestador() {
               <div className="mt-4">
                 <h4 className="text-sm font-medium mb-2">Notificações recentes</h4>
                 <div className="flex flex-col gap-2">
-                  <div className="text-xs text-[var(--text-muted)]">• Nova avaliação recebida — Ana (5★)</div>
-                  <div className="text-xs text-[var(--text-muted)]">• Reserva confirmada — João (20/10)</div>
+                  {notifications.length === 0 && <div className="text-xs text-[var(--text-muted)]">Nenhuma novidade por enquanto.</div>}
+                  {notifications.map((n) => (
+                    <div key={n.id} className="text-xs text-[var(--text-muted)] line-clamp-2">• {n.text}</div>
+                  ))}
                 </div>
               </div>
             </motion.div>
@@ -352,8 +174,10 @@ export default function DashboardPrestador() {
                       <div className="mt-4">
                         <h4 className="text-sm font-medium mb-2">Notificações recentes</h4>
                         <div className="flex flex-col gap-2 text-xs text-[var(--text-muted)]">
-                          <div>• Nova avaliação recebida — Ana (5★)</div>
-                          <div>• Reserva confirmada — João (20/10)</div>
+                          {notifications.length === 0 && <div>Nenhuma novidade por enquanto.</div>}
+                          {notifications.map((n) => (
+                            <div key={n.id} className="line-clamp-2">• {n.text}</div>
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -363,7 +187,7 @@ export default function DashboardPrestador() {
             </div>
             <div >
 
-            {openCreateService&&( <div className="fixed inset-0 z-20 "><ServiceEditor serviceId={null} isOpen={openCreateService} onClose={() => setOpenCreateService(false)} /></div>)}
+            {openCreateService&&( <div className="fixed inset-0 z-20 "><ServiceEditor serviceId={null} isOpen={openCreateService} onClose={() => setOpenCreateService(false)} onSaved={() => setGalleryKey((k) => k + 1)} /></div>)}
             </div>
             {/* right column inside main (bookings + reviews) */}
             <aside className="lg:col-span-1">
@@ -374,21 +198,26 @@ export default function DashboardPrestador() {
                 </div>
                 
                 <div className="flex flex-col gap-3">
-                  {(bookings || MOCK_BOOKINGS).slice(0, 4).map((b) => {
-                    const svc = (services || MOCK_SERVICES).find((s) => s.id === b.serviceId);
+                  {bookings === null && <div className="h-16 rounded-lg bg-[var(--bg)]/40 animate-pulse" />}
+                  {bookings?.length === 0 && (
+                    <div className="text-xs text-[var(--text-muted)]">Nenhuma reserva ainda. Quando um cliente contratar seus serviços, ela aparece aqui.</div>
+                  )}
+                  {(bookings ?? []).slice(0, 4).map((b) => {
+                    const svc = b.service;
+                    const img = uploadUrl(svc?.imageUrl) ?? `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(svc?.title ?? "servico")}`;
                     return (
                       <div key={b.id} className="flex items-start gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)]">
                         <div className="w-10 h-10 rounded-md overflow-hidden">
-                          <img src={svc?.images[0]} alt={svc?.title} className="w-full h-full object-cover" />
+                          <img src={img} alt={svc?.title} className="w-full h-full object-cover" />
                         </div>
                         <div className="flex-1 text-sm">
-                          <div className="font-medium">{b.clientName}</div>
-                          <div className="text-[var(--text-muted)] text-xs">{new Date(b.date).toLocaleString()}</div>
+                          <div className="font-medium">{b.user?.name ?? "Cliente"}</div>
+                          <div className="text-[var(--text-muted)] text-xs">{formatDate(b.firstContact)}</div>
                           <div className="text-xs mt-1">{svc?.title}</div>
                         </div>
                         <div className="text-right text-xs">
-                          <div className="font-semibold">{b.price}</div>
-                          <div className="text-[var(--text-muted)]">{b.status}</div>
+                          <div className="font-semibold">{formatCurrency(b.price)}</div>
+                          <div className="text-[var(--text-muted)]">{HIRE_STAGE_LABEL_PROVIDER[getHireStage(b)]}</div>
                         </div>
                       </div>
                     );
@@ -407,13 +236,23 @@ export default function DashboardPrestador() {
                 </div>
 
                 <div className="flex flex-col  gap-3">
-                  {(reviews || MOCK_REVIEWS).slice(0, 3).map((r) => (
+                  {reviews?.length === 0 && (
+                    <div className="text-xs text-[var(--text-muted)]">Você ainda não recebeu avaliações.</div>
+                  )}
+                  {(reviews ?? []).slice(0, 3).map((r) => (
                     <div key={r.id} className="p-3 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)]">
                       <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium">{r.author}</div>
-                        <div className="text-yellow-400 text-sm"><Star size={14} /> {r.rating.toFixed(1)}</div>
+                        <div className="text-sm font-medium">{r.author?.name ?? "Cliente"}</div>
+                        <div className="text-yellow-400 text-sm flex items-center gap-1"><Star size={14} fill="currentColor" /> {r.rating.toFixed(1)}</div>
                       </div>
-                      <div className="text-xs text-[var(--text-muted)] mt-2">{r.comment}</div>
+                      {r.comment && <div className="text-xs text-[var(--text-muted)] mt-2">{r.comment}</div>}
+                      {r.photos.length > 0 && (
+                        <div className="flex gap-1 mt-2">
+                          {r.photos.slice(0, 4).map((ph) => (
+                            <img key={ph.id} src={uploadUrl(ph.url)!} alt="" className="w-10 h-10 rounded object-cover border border-[var(--border)]" />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -423,7 +262,7 @@ export default function DashboardPrestador() {
         </div>
 
         {/* CHAT */}
-        <ServiceFormalizerModal service={undefined} isOpen={isOpenChat} onClose={() => setIsOpenChat(false)}/>
+        <ChatInbox isOpen={isOpenChat} onClose={() => { setIsOpenChat(false); load(); }} />
         {/* main content: services + bookings */}
         
       </div>

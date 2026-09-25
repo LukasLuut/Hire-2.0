@@ -26,7 +26,7 @@ export const userAPI = {
       },
     });
 
-    if(!response || typeof(response) == undefined) return null;
+    if (!response) return null;
     return response;
   },
 
@@ -76,6 +76,18 @@ export const userAPI = {
       }),
     })
     return response;
+  },
+
+  /** Atualiza nome, sobre e e-mail em uma única requisição. */
+  updateProfile: async (token: string, data: { name: string; about: string; email: string }) => {
+    return await apiRequest("/users/me", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token,
+      },
+      body: JSON.stringify(data),
+    });
   },
 
   deleteUser: async (token: string) => {

@@ -11,7 +11,6 @@ import {
   FolderOpen,
   X,
 } from "lucide-react";
-import ServiceResponseModal from "./ServiceResponseModal";
 
 /* --------------------------------------------------------------------------
  * ServiceNegotiationModal.tsx
@@ -65,7 +64,7 @@ export default function ServiceNegotiationModal({
   const [isClosing, setIsClosing] = useState(false);
 
   // abertura temporária do modal de resposta de solicitação de serviço
-  const[isOpenResponse, setIsOpenResponse]=useState(false)
+  const[, setIsOpenResponse]=useState(false)
 
   // chave no localStorage para rascunhos
   const DRAFT_KEY = "serviceDraft_v1";

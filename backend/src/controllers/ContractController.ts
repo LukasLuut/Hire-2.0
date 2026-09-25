@@ -50,10 +50,10 @@ export class ContractController {
     getById = async (req: Request, res: Response) => {
         try {
             const { id } = req.params;
-            const category = await contractService.getById(Number(id));
-            res.json(category);
+            const contract = await contractService.getById(Number(id), (req as any).user.id);
+            res.json(contract);
         } catch (e: any) {
-            res.status(400).json({ message: e.message})
+            res.status(404).json({ message: e.message})
         }
     }
 }

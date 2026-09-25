@@ -1,5 +1,6 @@
 import { AppDataSource } from "../config/data-source";
 import { Contract } from "../models/Contract";
+import { Conversation } from "../models/Conversation";
 
 interface ContractInterface {
     code: string;
@@ -60,11 +61,38 @@ export class ContractService {
         return { message: "Categoria removida com sucesso" };
     }
 
-    async getById(id: number) {
-        const contract = await this.contractRepository.findOne({ where: { id }, relations: { provider: true, hire: true, user: true } });
+    async getById(id: number, requesterId?: number) {
+        const contract = await this.contractRepository.findOne({
+            where: { id },
+            relations: { provider: { user: true }, hire: { service: true }, user: { address: true } },
+        });
 
         if (!contract) throw new Error("Contrato não encontrado");
 
-        return contract;
+        // Contrato tem dados pessoais: só o cliente e o prestador podem ver
+        if (requesterId !== undefined && contract.user?.id !== requesterId && contract.provider?.user?.id !== requesterId) {
+            throw new Error("Contrato não encontrado");
+        }
+
+        // Termos combinados na negociação que gerou o contrato (pagamento, início, duração)
+        const conversation = await AppDataSource.getRepository(Conversation).findOne({ where: { contract: { id } } });
+
+        const { provider, user, ...rest } = contract;
+        return {
+            ...rest,
+            user: user ? { id: user.id, name: user.name, email: user.email, cpf_cnpj: user.cpf_cnpj, address: user.address ?? null } : null,
+            provider: provider
+                ? {
+                    id: provider.id,
+                    companyName: provider.companyName,
+                    professionalName: provider.professionalName,
+                    professionalEmail: provider.professionalEmail,
+                    professionalPhone: provider.professionalPhone,
+                    cnpj: provider.cnpj,
+                    userId: provider.user?.id,
+                }
+                : null,
+            terms: conversation?.topics ?? [],
+        };
     }
 }

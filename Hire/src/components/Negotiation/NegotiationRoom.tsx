@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle,
@@ -291,7 +291,7 @@ function Step1ServicePreview({ service, onNext }: { service: typeof mockService;
   );
 }
 
-function Step2Negotiation({ messages, onSend, provider, client, cards, proposeChange, acceptCard, onBack, onNext }: {
+function Step2Negotiation({ messages, onSend, cards, proposeChange, acceptCard, onBack, onNext }: {
   messages: Message[];
   onSend: (text: string) => void;
   provider: Party;

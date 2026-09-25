@@ -5,17 +5,17 @@ import {
   Filter,
   Star,
   Clock,
-  DollarSign,
-  User,
-  X,
   ChevronLeft,
   ChevronRight,
   HandCoins,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { serviceAPI, type ServiceData } from "../api/ServiceAPI";
-import { LOCAL_PORT } from "../api/ApiClient";
+import { providerApi } from "../api/ProviderAPI";
 import ServiceDetail from "../components/ServiceGallery/ServiceDetail/ServiceDetail";
 import { ServicesPageSkeleton } from "../skeletons/ServiceSkeleton/ServicesPageSkeleton";
+import { avatarFor } from "../utils/avatar";
+import { formatCurrency } from "../utils/format";
 
 /**
  * ServiceDashboardSophisticated.tsx
@@ -25,7 +25,7 @@ import { ServicesPageSkeleton } from "../skeletons/ServiceSkeleton/ServicesPageS
  *  - Framer Motion
  *  - Lucide icons
  *
- * Observação: este componente tenta buscar dados via fetch e cai em mock se houver falha/timeout.
+ * Dados reais da API: serviços (com nota e curtidas) e ranking de prestadores.
  */
 
 type Service = {
@@ -36,14 +36,18 @@ type Service = {
   category: string;
   images: string[];
   rating: number;
-  price: string;
+  ratingCount: number;
+  price: number;
   duration: string;
   location?: string;
+  data: ServiceData; // serviço completo (para o modal de detalhes)
   provider?: {
     professionalName?: string;
-    profileImageUrl?: string;
+    profileImageUrl?: string | null;
     description?: string;
     id: number;
+    rating: number;
+    ratingCount: number;
   };
 };
 
@@ -52,131 +56,36 @@ type Provider = {
   name: string;
   avatar: string;
   rating: number;
+  ratingCount: number;
   specialty: string;
 };
 
-const MOCK_SERVICES: Service[] = [
-  {
-    id: 1,
-    title: "Design de Interfaces Premium",
-    shortDescription:
-      "UI/UX para produtos digitais com entrega aposta e protótipos",
-    description:
-      "Design completo de interfaces, protótipos interativos e guidelines de estilo. Inclui 2 rodadas de revisão e entrega em Figma/Sketch.",
-    category: "Design",
-    images: [
-      "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&q=80&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1503602642458-232111445657?w=1200&q=80&auto=format&fit=crop",
-    ],
-    rating: 4.92,
-    price: "R$ 2.400",
-    duration: "7 dias",
-    location: "Remoto",
-  },
-  {
-    id: 2,
-    title: "Desenvolvimento Web Fullstack",
-    shortDescription: "Apps modernos com React, Node e deploy completo",
-    description:
-      "Desenvolvimento de aplicações web com API, autenticação, e painel administrativo. Entrega com testes e documentação.",
-    category: "Tecnologia",
-    images: [
-      "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&q=80&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1526378725139-7a9d8f08b20f?w=1200&q=80&auto=format&fit=crop",
-    ],
-    rating: 4.85,
-    price: "R$ 5.000",
-    duration: "14 dias",
-    location: "Remoto / Presencial (SP)",
-  },
-  {
-    id: 3,
-    title: "Serviço de Pintura de Interiores",
-    shortDescription: "Pintura profissional com tinta premium e limpeza final",
-    description:
-      "Pintura de cômodos, preparação de superfícies e acabamento de alta qualidade. Orçamento por m².",
-    category: "Construção",
-    images: [
-      "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=1200&q=80&auto=format&fit=crop",
-    ],
-    rating: 4.7,
-    price: "R$ 350 / cômodo",
-    duration: "1–3 dias",
-    location: "Presencial",
-  },
-  {
-    id: 4,
-    title: "Limpeza Profissional Residencial",
-    shortDescription: "Limpeza profunda com produtos eco-friendly",
-    description:
-      "Limpeza completa de residências, incluindo higienização de estofados e remoção de manchas. Equipe treinada.",
-    category: "Serviços",
-    images: [
-      "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&q=80&auto=format&fit=crop",
-    ],
-    rating: 4.65,
-    price: "R$ 180",
-    duration: "3 horas",
-    location: "Presencial",
-  },
-];
-
-const MOCK_PROVIDERS: Provider[] = [
-  {
-    id: 1,
-    name: "Alexandre Reis",
-    avatar:
-      "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200&q=80&auto=format&fit=crop",
-    rating: 4.95,
-    specialty: "Desenvolvimento Web",
-  },
-  {
-    id: 2,
-    name: "Carla Dias",
-    avatar:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&q=80&auto=format&fit=crop",
-    rating: 4.87,
-    specialty: "Design Gráfico",
-  },
-  {
-    id: 3,
-    name: "Lucas Andrade",
-    avatar:
-      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&q=80&auto=format&fit=crop",
-    rating: 4.82,
-    specialty: "Manutenção",
-  },
-  {
-    id: 4,
-    name: "Fernanda Costa",
-    avatar:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&q=80&auto=format&fit=crop",
-    rating: 4.78,
-    specialty: "Fotografia",
-  },
-];
-
-const fetchWithTimeout = (
-  url: string,
-  options: RequestInit = {},
-  timeout = 2500
-) =>
-  new Promise<Response>((resolve, reject) => {
-    const controller = new AbortController();
-    const id = setTimeout(() => {
-      controller.abort();
-      reject(new Error("timeout"));
-    }, timeout);
-    fetch(url, { ...options, signal: controller.signal })
-      .then((r) => {
-        clearTimeout(id);
-        resolve(r);
-      })
-      .catch((err) => {
-        clearTimeout(id);
-        reject(err);
-      });
-  });
+/** Converte o serviço da API para o formato dos cards desta tela. */
+function toCard(e: ServiceData): Service {
+  return {
+    id: e.id,
+    title: e.title,
+    shortDescription: e.description_service,
+    description: e.description_service,
+    category: e.category.name,
+    images: [e.imageUrl ?? `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(e.title)}`],
+    rating: e.rating,
+    ratingCount: e.ratingCount,
+    price: e.price,
+    duration: e.duration,
+    data: e,
+    provider: e.provider?.id
+      ? {
+          id: e.provider.id,
+          professionalName: e.provider.companyName || e.provider.professionalName,
+          profileImageUrl: e.provider.profileImageUrl,
+          description: e.provider.description,
+          rating: e.provider.rating?.average ?? 0,
+          ratingCount: e.provider.rating?.count ?? 0,
+        }
+      : undefined,
+  };
+}
 
 export default function ServiceDashboardSophisticated() {
   const [services, setServices] = useState<Service[] | null>(null);
@@ -192,6 +101,9 @@ export default function ServiceDashboardSophisticated() {
 
   // UI state
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const navigate = useNavigate();
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [page, setPage] = useState(1);
 
@@ -202,61 +114,31 @@ export default function ServiceDashboardSophisticated() {
     return () => clearTimeout(t);
   }, [query]);
 
-  // fetch data with fallback to mock
+  // busca serviços e prestadores reais
   useEffect(() => {
     let mounted = true;
     setLoading(true);
+    setLoadError(false);
 
     const load = async () => {
       try {
-        const data = await serviceAPI.getServices();
-        if (!data) throw new Error();
-
-        if (Array.isArray(data)) {
-          const list: Service[] = data.map((e) => {
-            const image = LOCAL_PORT + e.imageUrl;
-
-            return {
-              id: e.id,
-              title: e.title,
-              shortDescription: e.description_service,
-              description: e.description_service,
-              subcategory: e.subcategory,
-              category: e.category.name,
-              price: String(e.price),
-              active: true,
-              duration: e.duration,
-              rating: 4.6,
-              images: [image],
-              provider: e.provider
-                ? {
-                    id: e.provider.id,
-                    professionalName: e.provider.professionalName,
-                    profileImageUrl: e.provider.profileImageUrl,
-                    description: e.provider.description,
-                  }
-                : undefined,
-            };
-          });
-
-          setServices(list);
-        }
-      } catch {
-        if (mounted) setServices(MOCK_SERVICES);
-      }
-
-      try {
-        const provRes = await fetchWithTimeout("/api/providers");
-        const provData = await provRes.json();
+        const [data, provs] = await Promise.all([serviceAPI.getServices(), providerApi.getAll().catch(() => [])]);
         if (!mounted) return;
-        setProviders(provData);
+        setServices(data.map(toCard));
+        setProviders(
+          provs.map((p) => ({
+            id: p.id,
+            name: p.companyName || p.professionalName,
+            avatar: avatarFor(p.profileImageUrl, p.companyName || p.professionalName),
+            rating: p.rating?.average ?? 0,
+            ratingCount: p.rating?.count ?? 0,
+            specialty: p.category?.name ?? "Prestador de serviços",
+          }))
+        );
       } catch {
-        setProviders(MOCK_PROVIDERS);
+        if (mounted) setLoadError(true);
       } finally {
-    
-        setTimeout(() => {
-          setLoading(false);
-        }, 1000)
+        if (mounted) setLoading(false);
       }
     };
 
@@ -264,18 +146,18 @@ export default function ServiceDashboardSophisticated() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [reloadKey]);
 
   // derived categories
   const categories = useMemo(() => {
     const cats = new Set<string>();
-    (services || MOCK_SERVICES).forEach((s) => cats.add(s.category));
+    (services || []).forEach((s) => cats.add(s.category));
     return ["Todos", ...Array.from(cats)];
   }, [services]);
 
   // filtering + sorting
   const filtered = useMemo(() => {
-    const list = (services || MOCK_SERVICES).filter((s) => {
+    const list = (services || []).filter((s) => {
       const matchesQuery =
         debouncedQuery.trim() === "" ||
         s.title.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
@@ -287,11 +169,7 @@ export default function ServiceDashboardSophisticated() {
     });
 
     if (sortBy === "rating") return list.sort((a, b) => b.rating - a.rating);
-    if (sortBy === "price") {
-      // crude price sorting by extracting digits
-      const extract = (p: string) => Number(p.replace(/[^\d]/g, "")) || 0;
-      return list.sort((a, b) => extract(a.price) - extract(b.price));
-    }
+    if (sortBy === "price") return list.sort((a, b) => a.price - b.price);
     // relevance fallback
     return list;
   }, [services, debouncedQuery, categoryFilter, minRating, sortBy]);
@@ -319,6 +197,18 @@ export default function ServiceDashboardSophisticated() {
     return <ServicesPageSkeleton/>
   }
 
+  if (loadError) {
+    return (
+      <div className="w-full py-20 text-center text-[var(--text-muted)]">
+        <p className="text-lg text-[var(--text)] font-semibold">Não foi possível carregar os serviços.</p>
+        <p className="mt-1">Verifique sua conexão e tente novamente.</p>
+        <button onClick={() => setReloadKey((k) => k + 1)} className="mt-4 px-4 py-2 rounded-lg bg-[var(--primary)] text-white">
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
+
   return (
     <LayoutGroup>
       <h1 className="mt-10 mb-5 text-4xl px-12 font-bold leading-tight">
@@ -328,7 +218,7 @@ export default function ServiceDashboardSophisticated() {
         Escolha o tipo de serviço e encontre profissionais disponíveis. Filtre
         por categoria, avaliação e preço.
       </h3>
-      <div className="min-h-screen bg-[var(--bg-dark)] md:min-w-screen text-[var(--text)] p-6 md:p-10 ">
+      <div className="min-h-screen w-full bg-[var(--bg-dark)] text-[var(--text)] p-6 md:p-10 ">
         {/* Floating Search + Filters (sophisticated) */}
         <motion.div
           initial={{ y: -18, opacity: 0 }}
@@ -359,11 +249,11 @@ export default function ServiceDashboardSophisticated() {
                 </div>
                 {/* subtle suggestion chips */}
                 <div className="lg:absolute  mt-2 flex gap-2 flex-wrap">
-                  {["design", "react", "limpeza", "pintura"].map((chip) => (
+                  {categories.filter((c) => c !== "Todos").slice(0, 4).map((chip) => (
                     <motion.button
                       key={chip}
                       whileHover={{ scale: 1.04 }}
-                      onClick={() => setQuery(chip)}
+                      onClick={() => { setQuery(""); setCategoryFilter(chip); }}
                       className="text-xs px-3 py-1 rounded-full bg-[var(--bg-light)]/30 border border-[var(--border-muted)] text-[var(--text-muted)]"
                     >
                       #{chip}
@@ -373,8 +263,8 @@ export default function ServiceDashboardSophisticated() {
               </div>
 
               {/* filters */}
-              <div className="flex items-center  gap-3">
-                <div className="hidden md:flex items-center gap-2 p-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)]">
+              <div className="flex flex-wrap items-center  gap-3">
+                <div className="flex items-center gap-2 p-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)]">
                   <Filter className="text-[var(--text-muted)]" />
                   <select
                     value={categoryFilter}
@@ -390,7 +280,7 @@ export default function ServiceDashboardSophisticated() {
                   </select>
                 </div>
 
-                <div className="hidden md:flex items-center gap-2 p-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)]">
+                <div className="flex items-center gap-2 p-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)]" title={`Avaliação mínima: ${minRating}`}>
                   <Star fill="currentColor" className="text-yellow-400" />
                   <input
                     aria-label="Avaliação mínima"
@@ -402,12 +292,13 @@ export default function ServiceDashboardSophisticated() {
                     onChange={(e) => setMinRating(Number(e.target.value))}
                     className="accent-[var(--highlight)]"
                   />
+                  <span className="text-xs text-[var(--text-muted)] w-6">{minRating > 0 ? minRating : "—"}</span>
                 </div>
 
-                <div className="hidden md:flex items-center gap-2 p-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)]">
+                <div className="flex items-center gap-2 p-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)]">
                   <select
                     value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
+                    onChange={(e) => setSortBy(e.target.value as "relevance" | "rating" | "price")}
                     className="bg-[var(--bg)] outline-none text-[var(--text)]"
                     aria-label="Ordenar por"
                   >
@@ -446,6 +337,7 @@ export default function ServiceDashboardSophisticated() {
                 >
                   Alternar ordenação
                 </button>
+                {totalPages > 1 && (<>
                 <div className="text-xs text-[var(--text-muted)]">
                   Página {page}/{totalPages}
                 </div>
@@ -465,6 +357,7 @@ export default function ServiceDashboardSophisticated() {
                     <ChevronRight size={16} />
                   </button>
                 </div>
+                </>)}
               </div>
             </div>
 
@@ -522,15 +415,16 @@ export default function ServiceDashboardSophisticated() {
                       {srv.provider && (
                         <motion.div
                           key={srv.provider.id}
+                          role="link"
+                          tabIndex={0}
+                          aria-label={`Ver perfil de ${srv.provider.professionalName}`}
+                          onClick={() => navigate(`/provider/${srv.provider!.id}`)}
+                          onKeyDown={(e) => e.key === "Enter" && navigate(`/provider/${srv.provider!.id}`)}
                           className="flex items-center cursor-pointer gap-3 py-4 px-2 mb-2 border-b-1 border-t-1 rounded-lg bg-[var(--bg-dark)] border-[var(--highlight)]/50 transition"
                           whileHover={{ scale: 1.02 }}
                         >
                           <img
-                            src={
-                              srv.provider.profileImageUrl
-                              ? `${LOCAL_PORT}${srv.provider.profileImageUrl}`
-                              : 'https://api.dicebear.com/9.x/miniavs/svg?seed=vitorreis'
-                            }
+                            src={avatarFor(srv.provider.profileImageUrl, srv.provider.professionalName)}
                             alt={srv.provider.professionalName}
                             className="w-12 h-12 rounded-full object-cover border border-[var(--border)]"
                           />
@@ -540,8 +434,8 @@ export default function ServiceDashboardSophisticated() {
                                 {srv.provider.professionalName}
                               </div>
                               <div className="flex items-center gap-1 text-yellow-400 text-sm">
-                                <Star fill="currentColor" size={14} />
-                                4.8
+                                <Star fill={srv.provider.ratingCount > 0 ? "currentColor" : "none"} size={14} />
+                                {srv.provider.ratingCount > 0 ? srv.provider.rating.toFixed(1) : "Novo"}
                               </div>
                             </div>
                             <div className="text-xs text-[var(--text-muted)] mt-1">
@@ -561,14 +455,14 @@ export default function ServiceDashboardSophisticated() {
                       <p className="text-sm text-[var(--text-muted)] mt-2 line-clamp-2">
                         {srv.shortDescription}
                       </p>
-                      <div className=" mt-4 flex items-center mb-2 text-[var(--highlight)] font-semibold">
+                      <div className=" mt-4 flex items-center mb-2 text-[var(--text-highlight)] font-semibold">
                          <HandCoins size={20} className="text-[var(--text)]/70 mr-2" />
-                        R$ {srv.price}
+                        {formatCurrency(srv.price)}
                       </div>
                       <div className=" flex items-center  justify-between">
                         <div className="flex items-center  gap-3">
                           
-                          <div className="flex items-center mb-2 text-[var(--highlight)] font-semibold">
+                          <div className="flex items-center mb-2 text-[var(--text-highlight)] font-semibold">
                             <Clock className="text-[var(--text)]/70 mr-2"  size={20} /> <span>{srv.duration}</span>
                           </div>
                         </div>
@@ -592,7 +486,17 @@ export default function ServiceDashboardSophisticated() {
               {/* empty state */}
               {!loading && filtered.length === 0 && (
                 <div className="col-span-full text-center py-20 text-[var(--text-muted)]">
-                  Nenhum serviço encontrado para sua busca.
+                  {(services ?? []).length === 0
+                    ? "Ainda não há serviços publicados."
+                    : "Nenhum serviço encontrado para sua busca."}
+                  {(query || categoryFilter !== "Todos" || minRating > 0) && (
+                    <button
+                      onClick={() => { setQuery(""); setCategoryFilter("Todos"); setMinRating(0); }}
+                      className="block mx-auto mt-3 text-[var(--primary)] underline"
+                    >
+                      Limpar filtros
+                    </button>
+                  )}
                 </div>
               )}
             </motion.div>
@@ -608,11 +512,14 @@ export default function ServiceDashboardSophisticated() {
             >
               <div className="flex items-center justify-between mb-3">
                 <h4 className="font-semibold">Top Prestadores</h4>
-                <div className="text-xs text-[var(--text-muted)]">Hoje</div>
+                <div className="text-xs text-[var(--text-muted)]">Mais bem avaliados</div>
               </div>
 
               <div className="flex flex-col gap-3">
-                {(providers || MOCK_PROVIDERS).map((p) => (
+                {(providers ?? []).length === 0 && (
+                  <p className="text-sm text-[var(--text-muted)]">Nenhum prestador cadastrado ainda.</p>
+                )}
+                {(providers ?? []).slice(0, 5).map((p) => (
                   <motion.div
                     key={p.id}
                     className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)] border border-[var(--border-muted)] hover:border-[var(--highlight)] transition"
@@ -627,13 +534,13 @@ export default function ServiceDashboardSophisticated() {
                       <div className="flex items-center justify-between">
                         <div className="font-medium">{p.name}</div>
                         <div className="flex items-center gap-1 text-yellow-400 text-sm">
-                          <Star fill="currentColor" size={14} /> {p.rating.toFixed(2)}
+                          <Star fill={p.ratingCount > 0 ? "currentColor" : "none"} size={14} /> {p.ratingCount > 0 ? p.rating.toFixed(1) : "Novo"}
                         </div>
                       </div>
                       <div className="text-xs text-[var(--text-muted)] mt-1">
                         {p.specialty}
                       </div>
-                      <button className="mt-2 text-xs px-3 py-1 rounded-full bg-[var(--bg)]/60 border border-[var(--border)]">
+                      <button onClick={() => navigate(`/provider/${p.id}`)} className="mt-2 text-xs px-3 py-1 rounded-full bg-[var(--bg)]/60 border border-[var(--border)]">
                         Ver perfil
                       </button>
                     </div>
@@ -647,7 +554,7 @@ export default function ServiceDashboardSophisticated() {
           <div className="lg:hidden mt-6">
             <h4 className="text-sm font-semibold mb-3">Top Prestadores</h4>
             <div className="flex gap-3 overflow-x-auto pb-2">
-              {(providers || MOCK_PROVIDERS).map((p) => (
+              {(providers ?? []).slice(0, 5).map((p) => (
                 <motion.div
                   key={p.id}
                   className="min-w-[200px] flex-shrink-0 rounded-2xl p-3 bg-[var(--bg-light)]/30 border border-[var(--border)]"
@@ -667,9 +574,9 @@ export default function ServiceDashboardSophisticated() {
                   </div>
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center gap-1 text-yellow-400">
-                      <Star fill="currentColor" size={14} /> {p.rating.toFixed(2)}
+                      <Star fill={p.ratingCount > 0 ? "currentColor" : "none"} size={14} /> {p.ratingCount > 0 ? p.rating.toFixed(1) : "Novo"}
                     </div>
-                    <button className="text-xs px-3 py-1 rounded-full bg-[var(--highlight)] text-black">
+                    <button onClick={() => navigate(`/provider/${p.id}`)} className="text-xs px-3 py-1 rounded-full bg-[var(--primary)] text-white">
                       Ver perfil
                     </button>
                   </div>
@@ -684,7 +591,7 @@ export default function ServiceDashboardSophisticated() {
       <AnimatePresence>
         {selectedService && (
           <ServiceDetail
-            service={selectedService}
+            service={selectedService.data}
             images={selectedService.images}
             isOpen={open}
             onClose={() => {

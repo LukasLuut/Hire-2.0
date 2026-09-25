@@ -6,7 +6,6 @@
 // - Placeholders for illustrations in /assets/ (many cards ready to receive images)
 // - AuthPage is embedded at the end as CTA
 
-import React from "react";
 import { LazyMotion, domAnimation, motion, useScroll, useTransform } from "framer-motion";
 import Particles from "react-tsparticles";
 import { FiChevronDown } from "react-icons/fi";

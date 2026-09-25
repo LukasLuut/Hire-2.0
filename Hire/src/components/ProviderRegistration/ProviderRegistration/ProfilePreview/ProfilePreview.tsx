@@ -2,7 +2,7 @@
 // ------------------------------------------------------
 
 import React, { useEffect, useState } from "react";
-import type { ProviderForm, DayKey, Availability } from "../helpers/types-and-helpers";
+import type { ProviderForm, DayKey } from "../helpers/types-and-helpers";
 import {
   ShieldCheck,
   FileText,
@@ -40,10 +40,12 @@ export default function ProfilePreview({
 
   useEffect( () => {
     const getCategory = async () => {
-      const categoryGetted = await categoryAPI.getCategoryById(Number(form.category));
-
-      if(categoryGetted) {
-        setCategory(categoryGetted);
+      if (!form.category) return setCategory(undefined);
+      try {
+        const categoryGetted = await categoryAPI.getCategoryById(Number(form.category));
+        if (categoryGetted) setCategory(categoryGetted);
+      } catch {
+        setCategory(undefined);
       }
     }
 
@@ -113,7 +115,7 @@ export default function ProfilePreview({
 
       {/* Horários disponíveis */}
       <div className="flex flex-col gap-2 mt-4">
-        <div className="text-sm font-medium text-[var(--highlight)]">Disponibilidade semanal</div>
+        <div className="text-sm font-medium text-[var(--text-highlight)]">Disponibilidade semanal</div>
 
         {availabilityList.length > 0 ? (
           availabilityList.map(([key, label]) => {
@@ -138,7 +140,7 @@ export default function ProfilePreview({
       <div className="flex flex-col gap-2 text-sm mt-2">
         <StatusLine
           icon={<ShieldCheck />}
-          text={form.idDocument ? "Identidade verificada" : "Verificação pendente"}
+          text={form.idDocument ? "Documento anexado" : "Verificação pendente"}
           highlight={!!form.idDocument}
         />
         
@@ -179,7 +181,7 @@ function InfoCard({
         })}
         <span className="text-xs">{label}</span>
       </div>
-      <div className="font-semibold text-[var(--highlight)] text-sm">{value}</div>
+      <div className="font-semibold text-[var(--text-highlight)] text-sm">{value}</div>
     </div>
   );
 }
@@ -201,7 +203,7 @@ function StatusLine({
         })}
       </div>
       <span
-        className={`text-[var(--text)] ${highlight ? "font-medium text-[var(--highlight)]" : "text-[var(--text-muted)]"}`}
+        className={`text-[var(--text)] ${highlight ? "font-medium text-[var(--text-highlight)]" : "text-[var(--text-muted)]"}`}
       >
         {text}
       </span>

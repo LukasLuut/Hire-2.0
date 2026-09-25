@@ -1,5 +1,6 @@
 // ServiceNegotiationModal.tsx
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageSquare,
@@ -12,7 +13,13 @@ import {
   X,
   Send,
   Paperclip,
+  FileText,
 } from "lucide-react";
+import { conversationAPI } from "../../api/ConversationAPI";
+import type { ChatMessage, ConversationSummary } from "../../interfaces/Entities";
+import { useToast } from "../Toast/ToastContext";
+import { getErrorMessage } from "../../utils/errors";
+import { uploadUrl } from "../../utils/avatar";
 
 /* ==========================================================================
    SECTION: Types (o Service que você especificou + tipos internos)
@@ -59,79 +66,64 @@ const stateColor = (state: TopicState) =>
 
 /* ==========================================================================
    SECTION: Component - ServiceNegotiationModal
-   - Recebe um Service (preenchido ou vazio) e onClose
+   - Negociação real entre cliente e prestador (conversationId vindo da API)
+   - Tópicos são salvos automaticamente; mensagens chegam por polling (4 s)
    ========================================================================= */
+
+const POLL_MS = 4000;
+
+type UiMessage = {
+  id: string;
+  sender: "prestador" | "cliente" | "system";
+  text: string;
+  time: string;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+};
+
+function toUiMessage(m: ChatMessage): UiMessage {
+  return {
+    id: String(m.id),
+    sender: m.role,
+    text: m.text,
+    time: new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    attachmentUrl: uploadUrl(m.attachmentUrl),
+    attachmentName: m.attachmentName,
+  };
+}
 
 export default function ServiceNegotiationModal({
   service: initialService,
+  conversationId,
   isOpen,
   onClose,
-  onFormalize, // callback opcional para envio para API quando formalizar
+  onFormalize, // callback opcional depois de formalizar
 }: {
   service?: Service;
+  conversationId?: number | null;
   isOpen: boolean;
   onClose: () => void;
-  onFormalize?: (finalService: Service) => void;
+  onFormalize?: (result: { hireId: number; contractId: number; code: string }) => void;
 }) {
+  const navigate = useNavigate();
+  const { showToast } = useToast();
+
   /* ---------------------------- states ---------------------------------- */
 
-  // tópico principal: cada tópico contém estado e conteúdo (texto resumido)
-  const [topics, setTopics] = useState<Topic[]>(() => [
-    {
-      key: "service",
-      label: "Serviço previsto",
-      tooltip: "Descrição e escopo do serviço (o que será entregue).",
-      state: "Pendente",
-      content: initialService?.title || initialService?.description || "",
-    },
-    {
-      key: "payment",
-      label: "Valor & método",
-      tooltip: "Valor acordado e forma de pagamento.",
-      state: "Pendente",
-      content:
-        (initialService?.price ? initialService.price : "") +
-        (initialService?.paymentMethod ? ` • ${initialService.paymentMethod}` : ""),
-    },
-    {
-      key: "start",
-      label: "Data e hora de início",
-      tooltip: "Defina quando o serviço deve começar.",
-      state: "Pendente",
-      content: initialService?.startDate || "",
-    },
-    {
-      key: "duration",
-      label: "Duração",
-      tooltip: "Tempo estimado para entrega / realização do serviço.",
-      state: "Pendente",
-      content: initialService?.duration || initialService?.deliveryTime || "",
-    },
-    {
-      key: "finalize",
-      label: "Finalizar",
-      tooltip: "Formalize o serviço ou encerre a negociação.",
-      state: "Acordado",
-      content: "",
-    },
-  ]);
+  // tópicos da negociação (vêm da API)
+  const [topics, setTopics] = useState<Topic[]>([]);
+  const [conversation, setConversation] = useState<ConversationSummary | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // referência ao tópico aberto (expandido). Null = nada expandido.
   const [expandedTopic, setExpandedTopic] = useState<TopicKey | null>(null);
 
   // Mensagens do chat
-  const [messages, setMessages] = useState<
-    { id: string; sender: "prestador" | "cliente" | "system"; text: string; time: string }[]
-  >(() => [
-    // mensagem inicial automática (system)
-    { id: "m0", sender: "system", text: "Inicie a negociação ajustando os tópicos.", time: timeNow() },
-  ]);
+  const [messages, setMessages] = useState<UiMessage[]>([]);
 
   // input do chat
   const [chatInput, setChatInput] = useState("");
-
-  // Controle arquivos/attachments enviados via tópico (temporários)
-  const [attachments, setAttachments] = useState<File[]>(initialService?.attachments || []);
+  const [sending, setSending] = useState(false);
 
   // confirmação animada (formalize / close)
   const [confirming, setConfirming] = useState<null | "formalize" | "close">(null);
@@ -145,8 +137,50 @@ export default function ServiceNegotiationModal({
   }, []);
 
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
+  const lastIdRef = useRef<number>(0);
+  const dirtyRef = useRef(false); // há edição local ainda não salva
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const token = localStorage.getItem("token") ?? "";
+  const myRole = conversation?.myRole ?? "cliente";
+  const isOpenNegotiation = conversation?.status === "OPEN";
+  const counterpart =
+    myRole === "cliente"
+      ? conversation?.provider?.companyName || conversation?.provider?.professionalName
+      : conversation?.client?.name;
 
   /* ---------------------------- effects ---------------------------------- */
+
+  // carrega a conversa e busca novas mensagens periodicamente
+  useEffect(() => {
+    if (!isOpen || !conversationId) return;
+    let active = true;
+    lastIdRef.current = 0;
+    setMessages([]);
+    setLoadError(null);
+
+    const load = async (initial: boolean) => {
+      try {
+        const data = await conversationAPI.get(conversationId, token, initial ? undefined : lastIdRef.current);
+        if (!active) return;
+        setConversation(data);
+        if (!dirtyRef.current) setTopics(data.topics as Topic[]);
+        if (data.messages.length > 0) {
+          lastIdRef.current = data.messages[data.messages.length - 1].id;
+          setMessages((prev) => (initial ? data.messages.map(toUiMessage) : [...prev, ...data.messages.map(toUiMessage)]));
+        }
+      } catch (err) {
+        if (active && initial) setLoadError(getErrorMessage(err, "Não foi possível abrir a negociação."));
+      }
+    };
+
+    load(true);
+    const timer = setInterval(() => load(false), POLL_MS);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [isOpen, conversationId, token]);
 
   // manter scroll no fim ao adicionar mensagens
   useEffect(() => {
@@ -164,28 +198,68 @@ export default function ServiceNegotiationModal({
     }
   }, [isOpen]);
 
+  // Esc fecha
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
   /* ---------------------------- helpers ---------------------------------- */
 
-  function timeNow() {
-    return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  async function refreshMessages() {
+    if (!conversationId) return;
+    const data = await conversationAPI.get(conversationId, token, lastIdRef.current);
+    setConversation(data);
+    if (data.messages.length > 0) {
+      lastIdRef.current = data.messages[data.messages.length - 1].id;
+      setMessages((prev) => [...prev, ...data.messages.map(toUiMessage)]);
+    }
+  }
+
+  function saveTopics(next: Topic[], note?: string, immediate = false) {
+    if (!conversationId || !isOpenNegotiation) return;
+    dirtyRef.current = true;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    const run = async () => {
+      try {
+        await conversationAPI.updateTopics(conversationId, next, token, note);
+        dirtyRef.current = false;
+        if (note) await refreshMessages();
+      } catch (err) {
+        showToast(getErrorMessage(err, "Não foi possível salvar o tópico."), "error");
+      }
+    };
+    if (immediate) run();
+    else saveTimer.current = setTimeout(run, 800);
   }
 
   function updateTopic(key: TopicKey, patch: Partial<Topic>) {
-    setTopics((prev) => prev.map((t) => (t.key === key ? { ...t, ...patch } : t)));
+    const next = topics.map((t) => (t.key === key ? { ...t, ...patch } : t));
+    setTopics(next);
+    // mudança de estado salva na hora (e avisa no chat); digitação espera uma pausa
+    saveTopics(next, patch.state ? `"${keyToLabel(key)}" marcado como ${patch.state}.` : undefined, !!patch.state);
   }
 
-  function sendMessage(sender: "prestador" | "cliente" | "system", text: string) {
-    const msg = { id: String(Date.now()) + Math.random().toString(36).slice(2), sender, text, time: timeNow() };
-    setMessages((prev) => [...prev, msg]);
+  async function sendMessage(_sender: "prestador" | "cliente" | "system", text: string, attachment?: File) {
+    if (!conversationId) return;
+    setSending(true);
+    try {
+      await conversationAPI.send(conversationId, text, token, attachment);
+      await refreshMessages();
+    } catch (err) {
+      showToast(getErrorMessage(err, "Não foi possível enviar a mensagem."), "error");
+    } finally {
+      setSending(false);
+    }
   }
 
   // enviar resumo de alteração do tópico para o chat (Propor alteração)
   function proposeChange(key: TopicKey, summary: string) {
-    // atualiza o próprio tópico como "Pendente" (porque foi proposta uma mudança)
-    updateTopic(key, { state: "Pendente", content: summary });
-    // enviar mensagem resumida para o chat
-    sendMessage("prestador", `Proposta de alteração em "${keyToLabel(key)}": ${summary}`);
-    // opcional: expandir o tópico para revisão
+    const next = topics.map((t) => (t.key === key ? { ...t, state: "Pendente" as TopicState, content: summary } : t));
+    setTopics(next);
+    saveTopics(next, `Proposta de alteração em "${keyToLabel(key)}": ${summary || "(vazio)"}`, true);
     setExpandedTopic(key);
   }
 
@@ -196,40 +270,39 @@ export default function ServiceNegotiationModal({
 
   /* ---------------------------- finalização/encerrar ---------------------- */
 
-  const allAgreed = topics.every((t) => t.state === "Acordado");
+  const allAgreed = topics.length > 0 && topics.every((t) => t.state === "Acordado");
 
   async function handleFormalize() {
-    // confirmação animada
-    setConfirming("formalize");
-    // simula delay (ex: envio para API/registro)
-    setTimeout(() => {
-      // gera Service final com dados dos tópicos
-      const finalService: Service = {
-        title: topics.find((t) => t.key === "service")?.content || initialService?.title || "",
-        description: topics.find((t) => t.key === "service")?.content || initialService?.description || "",
-        price: topics.find((t) => t.key === "payment")?.content || initialService?.price || "",
-        paymentMethod: undefined,
-        startDate: topics.find((t) => t.key === "start")?.content || initialService?.startDate || "",
-        duration: topics.find((t) => t.key === "duration")?.content || initialService?.duration || initialService?.deliveryTime || "",
-        attachments,
-      };
-      sendMessage("system", "Serviço formalizado ✔️");
-      onFormalize?.(finalService);
-      // fecha após animação
+    if (!conversationId) return;
+    try {
+      const result = await conversationAPI.formalize(conversationId, token);
+      await refreshMessages();
+      showToast(`Serviço formalizado. Contrato ${result.code} gerado.`, "success");
+      onFormalize?.(result);
+      setTimeout(() => {
+        setConfirming(null);
+        onClose();
+        navigate(`/contract/${result.contractId}`);
+      }, 900);
+    } catch (err) {
+      setConfirming(null);
+      showToast(getErrorMessage(err, "Não foi possível formalizar."), "error");
+    }
+  }
+
+  async function handleCloseNegotiation() {
+    if (!conversationId) return;
+    try {
+      await conversationAPI.close(conversationId, token);
+      await refreshMessages();
       setTimeout(() => {
         setConfirming(null);
         onClose();
       }, 900);
-    }, 800);
-  }
-
-  function handleCloseNegotiation() {
-    setConfirming("close");
-    sendMessage("system", "Negociação encerrada ✖️");
-    setTimeout(() => {
+    } catch (err) {
       setConfirming(null);
-      onClose();
-    }, 900);
+      showToast(getErrorMessage(err, "Não foi possível encerrar."), "error");
+    }
   }
 
   /* ==========================================================================
@@ -241,7 +314,7 @@ export default function ServiceNegotiationModal({
      - Em mobile, ocupa tela inteira; em desktop, flutua canto inferior direito.
      ========================================================================= */
 
-  if (!isOpen) return null;
+  if (!isOpen || !conversationId) return null;
 
   return (
     <AnimatePresence>
@@ -274,14 +347,11 @@ export default function ServiceNegotiationModal({
             {/* ------------------------- LEFT / TOP: Tópicos (ícones) ------------------------- */}
             <div className={`flex ${isMobile ? "flex-row items-center px-4 py-2  overflow-x-auto" : "flex-col w-24 p-2 gap-4"} bg-[var(--bg)] border-r border-[var(--border)]`}>
               {/* Close button (mobile) */}
-              {isMobile && (
-                <div className="flex justify-between items-center w-full mb-1">
-                  
-                  <button onClick={onClose} className=" fixed text-[var(--text-muted)]">
-                    <X size={20} />
-                  </button>
-                </div>
-              )}
+              <div className="flex justify-between items-center w-full mb-1">
+                <button onClick={onClose} aria-label="Fechar negociação" className={`${isMobile ? "fixed" : ""} text-[var(--text-muted)] hover:text-[var(--primary)] p-1`}>
+                  <X size={20} />
+                </button>
+              </div>
 
                {/* icons */}
                 {topics.map((t) => {
@@ -332,16 +402,28 @@ export default function ServiceNegotiationModal({
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-semibold text-[var(--text)]">
-                    {initialService?.title || "Negociação do Serviço"}
+                    {conversation?.service?.title || initialService?.title || "Negociação do Serviço"}
                   </h3>
                   <p className="text-sm text-[var(--text-muted)]">
-                    Use o chat para alinhar cada tópico. Alterações podem ser propostas e serão enviadas ao chat.
+                    {counterpart ? <>Negociando com <strong className="text-[var(--text)]">{counterpart}</strong>. </> : null}
+                    {loadError
+                      ? loadError
+                      : conversation && !isOpenNegotiation
+                        ? conversation.status === "FORMALIZED"
+                          ? "Negociação formalizada."
+                          : "Negociação encerrada."
+                        : "Use o chat para alinhar cada tópico. Alterações podem ser propostas e serão enviadas ao chat."}
+                    {conversation?.contractId && (
+                      <button onClick={() => { onClose(); navigate(`/contract/${conversation.contractId}`); }} className="ml-1 text-[var(--primary)] underline">
+                        Ver contrato
+                      </button>
+                    )}
                   </p>
                 </div>
 
                 {/* quick actions: attachments preview */}
                 <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer text-sm text-[var(--text-muted)]">
+                  <label className={`flex items-center gap-2 text-sm text-[var(--text-muted)] ${isOpenNegotiation ? "cursor-pointer" : "opacity-50 pointer-events-none"}`}>
                     <Paperclip size={16} />
                     <input
                       type="file"
@@ -349,9 +431,8 @@ export default function ServiceNegotiationModal({
                       onChange={(e) => {
                         const files = e.target.files;
                         if (!files) return;
-                        setAttachments((prev) => [...prev, ...Array.from(files)]);
-                        // add a system message notifying attachments
-                        sendMessage("system", `${Array.from(files).length} arquivo(s) anexado(s).`);
+                        // cada arquivo vira uma mensagem com anexo
+                        Array.from(files).forEach((file) => sendMessage(myRole, "", file));
                         e.currentTarget.value = "";
                       }}
                       className="hidden"
@@ -515,16 +596,17 @@ export default function ServiceNegotiationModal({
 
                                 <div className="flex gap-2 mt-4">
                                   <button
-                                    onClick={() => handleCloseNegotiation()}
-                                    className="px-1 md:px-3 py-2 rounded bg-red-500/20 text-red-600 hover:bg-red-500/30"
+                                    onClick={() => setConfirming("close")}
+                                    disabled={!isOpenNegotiation}
+                                    className="px-1 md:px-3 py-2 rounded bg-red-500/20 text-red-600 hover:bg-red-500/30 disabled:opacity-50"
                                   >
                                     Encerrar negociação
                                   </button>
 
                                   <button
-                                    disabled={!allAgreed}
+                                    disabled={!allAgreed || !isOpenNegotiation}
                                     onClick={() => setConfirming("formalize")}
-                                    className={`px-1 md:px-3 py-2 rounded font-semibold ${allAgreed ? "bg-green-500/20 text-green-600 hover:bg-green-500/30" : "bg-[var(--border)] text-[var(--text-muted)] cursor-not-allowed"}`}
+                                    className={`px-1 md:px-3 py-2 rounded font-semibold ${allAgreed && isOpenNegotiation ? "bg-green-500/20 text-green-600 hover:bg-green-500/30" : "bg-[var(--border)] text-[var(--text-muted)] cursor-not-allowed"}`}
                                   >
                                     Formalizar Serviço
                                   </button>
@@ -532,7 +614,7 @@ export default function ServiceNegotiationModal({
                                   {/* botão para enviar resumo pro chat */}
                                   <button
                                     onClick={() => {
-                                      sendMessage("prestador", `Pedido de formalização: todos os tópicos estão ${allAgreed ? "acordados" : "pendentes"}.`);
+                                      sendMessage(myRole, `Pedido de formalização: ${allAgreed ? "todos os tópicos estão acordados" : "ainda há tópicos pendentes"}.`);
                                     }}
                                     className="ml-auto px-1 md:px-3 py-2 rounded bg-[var(--highlight)] text-black hover:brightness-105"
                                   >
@@ -558,10 +640,18 @@ export default function ServiceNegotiationModal({
               <div className="border-t  border-[var(--border)] pt-3">
                 <div ref={chatScrollRef} className="max-h-100 md:max-h-86 overflow-y-auto space-y-2 px-2 pb-2">
                   {messages.map((m) => (
-                    <div key={m.id} className={`flex ${m.sender === "prestador" ? "justify-end" : m.sender === "cliente" ? "justify-start" : "justify-center"}`}>
-                      <div className={`max-w-[85%] px-3 py-2 rounded-lg ${m.sender === "prestador" ? "bg-[var(--primary)] text-white" : m.sender === "cliente" ? "bg-[var(--bg)] text-[var(--text)]" : "bg-[var(--bg-dark)]/70 text-[var(--text-muted)]"} `}>
+                    <div key={m.id} className={`flex ${m.sender === myRole ? "justify-end" : m.sender === "system" ? "justify-center" : "justify-start"}`}>
+                      <div className={`max-w-[85%] px-3 py-2 rounded-lg ${m.sender === myRole ? "bg-[var(--primary)] text-white" : m.sender === "system" ? "bg-[var(--bg-dark)]/70 text-[var(--text-muted)]" : "bg-[var(--bg)] text-[var(--text)]"} `}>
+                        {m.sender !== "system" && m.sender !== myRole && (
+                          <div className="text-xs font-semibold mb-0.5 opacity-80">{m.sender === "prestador" ? "Prestador" : "Cliente"}</div>
+                        )}
+                        {m.attachmentUrl && (
+                          <a href={m.attachmentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm underline mb-1">
+                            <FileText size={14} /> {m.attachmentName || "Anexo"}
+                          </a>
+                        )}
                         <div className="text-sm">{m.text}</div>
-                        <div className="text-xs text-[var(--text-muted)] text-right mt-1">{m.time}</div>
+                        <div className={`text-xs text-right mt-1 ${m.sender === myRole ? "text-white/70" : "text-[var(--text-muted)]"}`}>{m.time}</div>
                       </div>
                     </div>
                   ))}
@@ -571,9 +661,8 @@ export default function ServiceNegotiationModal({
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (!chatInput.trim()) return;
-                    // envia como 'cliente' local por padrão — em app real, atribuir sender dinamicamente
-                    sendMessage("cliente", chatInput.trim());
+                    if (!chatInput.trim() || sending || !isOpenNegotiation) return;
+                    sendMessage(myRole, chatInput.trim());
                     setChatInput("");
                   }}
                   className="mt-2 flex items-center gap-2"
@@ -581,10 +670,12 @@ export default function ServiceNegotiationModal({
                   <input
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
-                    placeholder="Digite sua mensagem..."
+                    placeholder={isOpenNegotiation ? "Digite sua mensagem..." : "Negociação encerrada"}
+                    disabled={!isOpenNegotiation}
+                    aria-label="Mensagem"
                     className="flex-1 p-2 bg-[var(--bg-light)] border border-[var(--border)] rounded-lg text-[var(--text)]"
                   />
-                  <button type="submit" className="px-3 py-2 rounded bg-[var(--primary)] text-white">
+                  <button type="submit" aria-label="Enviar mensagem" disabled={sending || !isOpenNegotiation} className="px-3 py-2 rounded bg-[var(--primary)] text-white disabled:opacity-60">
                     <Send size={16} />
                   </button>
                 </form>

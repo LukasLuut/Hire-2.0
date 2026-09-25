@@ -1,5 +1,5 @@
 // apiClient.ts
-export const LOCAL_PORT = `http://localhost:8080`;
+export const LOCAL_PORT: string = import.meta.env.VITE_API_URL ?? `http://localhost:8080`;
 
 export async function apiRequest<T>(
   endpoint: string,
@@ -7,17 +7,20 @@ export async function apiRequest<T>(
 ): Promise<T> {
 
   const isFormData = options.body instanceof FormData;
+  const headers: Record<string, string> = {
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
+    ...((options.headers as Record<string, string>) || {}),
+  };
 
-  const response = await fetch(`http://localhost:8080${endpoint}`, {
-    ...options,
-    headers: {
-      ...(isFormData ? {} : { "Content-Type": "application/json" }),
-      ...(options.headers || {}),
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${LOCAL_PORT}${endpoint}`, { ...options, headers });
+  } catch {
+    // fetch só rejeita quando não há resposta (servidor fora do ar, sem internet)
+    throw new Error("Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.");
+  }
 
-
-  let body: any = null;
+  let body: unknown = null;
 
   const contentType = response.headers.get("content-type");
 
@@ -26,12 +29,23 @@ export async function apiRequest<T>(
   }
 
   if (!response.ok) {
-    let message = "Erro na requisição";
+    // Token expirado ou inválido: encerra a sessão e volta para o login
+    if (response.status === 401 && headers.Authorization) {
+      localStorage.removeItem("token");
+      if (!window.location.pathname.startsWith("/auth")) {
+        window.location.assign("/auth?expirada=1");
+      }
+      throw new Error("Sua sessão expirou. Entre novamente.");
+    }
+
+    let message = "Algo deu errado. Tente novamente.";
 
     if (Array.isArray(body)) {
-      message = Object.values(body[0])[0] as string;
+      // Erros de validação (class-validator): [{ campo: "mensagem" }]
+      message = (Object.values(body[0] ?? {})[0] as string) ?? message;
     } else if (typeof body === "object" && body !== null) {
-      message = body.message || body.error || message;
+      const b = body as { message?: string; messages?: string; error?: string };
+      message = b.message || b.messages || b.error || message;
     }
 
     throw new Error(message);

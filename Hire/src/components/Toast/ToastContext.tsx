@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useState,
   type ReactNode,
@@ -24,21 +25,22 @@ const ToastContext = createContext<ToastContextData | null>(null);
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastData[]>([]);
 
-  function showToast(message: string, type: ToastType = 'info') {
+  // useCallback: função estável para poder entrar em dependências de efeitos
+  const showToast = useCallback((message: string, type: ToastType = 'info') => {
     const id = crypto.randomUUID();
 
     setToasts((prev) => [...prev, { id, message, type }]);
 
     setTimeout(() => {
       setToasts((prev) => prev.filter((toast) => toast.id !== id));
-    }, 4000);
-  }
+    }, type === 'error' ? 7000 : 4000);
+  }, []);
 
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
 
-      <div className="fixed top-6 right-6 z-50 flex flex-col gap-3">
+      <div className="fixed top-6 right-6 z-[70] flex flex-col gap-3" aria-live="polite">
         <AnimatePresence>
           {toasts.map((toast) => (
             <Toast

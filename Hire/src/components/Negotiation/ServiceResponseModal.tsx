@@ -16,7 +16,7 @@ interface Service {
   attachments?: File[];
 }
 
-interface ClientProposal {
+export interface ClientProposal {
   clientName: string;
   serviceDescription: string;
   budget: string;

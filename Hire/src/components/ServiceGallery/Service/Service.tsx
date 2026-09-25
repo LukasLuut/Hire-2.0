@@ -1,46 +1,40 @@
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight, Clock, Tag as TagIcon, Heart, HandCoins, Trash, SquarePen } from "lucide-react";
+import { ArrowLeft, ArrowRight, Clock, Tag as TagIcon, Heart, HandCoins, SquarePen, Star } from "lucide-react";
 import ServiceDetailModal from "../ServiceDetail/ServiceDetail";
-import { LOCAL_PORT } from "../../../api/ApiClient";
 import ServiceEditor from "../../ServiceEditor/ServiceEditor";
-
-/* --------------------------------------------------------------------------
- * Interface do Serviço
- * -------------------------------------------------------------------------- */
-interface Service {
-  id: number;
-  title: string;
-  description: string;
-  category?: string;
-  subcategory?: string;
-  price?: string;
-  negotiable?: boolean;
-  duration?: string;
-  status?: string;
-  images: string[];
-  likes?: number;
-}
-
+import { serviceAPI, type ServiceData } from "../../../api/ServiceAPI";
+import { useToast } from "../../Toast/ToastContext";
+import { formatCurrency } from "../../../utils/format";
 
 /* --------------------------------------------------------------------------
  * Componente PostCard com Partículas de Like
+ * - Segure o coração para curtir (curtida salva no servidor)
+ * - noEdit: esconde editar/curtir (ex.: card dentro do acompanhamento)
  * -------------------------------------------------------------------------- */
-export default function PostCard({ service, noEdit = false }: { service: Service, noEdit?: boolean }) {
- 
-  const image1 = service.images[0];
-
+export default function PostCard({
+  service,
+  noEdit = false,
+  liked: likedInitial = false,
+  onChanged,
+}: {
+  service: ServiceData;
+  noEdit?: boolean;
+  liked?: boolean;
+  /** Chamado depois de editar ou excluir o serviço */
+  onChanged?: () => void;
+}) {
+  const { showToast } = useToast();
   const imagesLink = [
-    image1 ? LOCAL_PORT + image1 : "https://images.pexels.com/photos/1267338/pexels-photo-1267338.jpeg",
-    image1 ? LOCAL_PORT + image1 : "https://images.pexels.com/photos/1267338/pexels-photo-1267338.jpeg",
-
-  ]
+    service.imageUrl ?? `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(service.title)}`,
+  ];
 
   const [index, setIndex] = useState(0);
-  const total = service.images.length;
+  const total = imagesLink.length;
   const touchStartX = useRef<number | null>(null);
 
-  const [likeCount, setLikeCount] = useState(service.likes || 0);
+  const [likeCount, setLikeCount] = useState(service.likesNumber || 0);
+  const [liked, setLiked] = useState(likedInitial);
   const [isHolding, setIsHolding] = useState(false);
   const [likeScale, setLikeScale] = useState(0);
   const [explode, setExplode] = useState(false);
@@ -77,7 +71,21 @@ export default function PostCard({ service, noEdit = false }: { service: Service
     setIsHolding(false);
     if (holdTimer.current) clearInterval(holdTimer.current);
 
-    setLikeCount(c => c + 1);
+    // salva no servidor (curtir/descurtir); a animação só aparece ao curtir
+    const token = localStorage.getItem("token");
+    if (token) {
+      serviceAPI
+        .toggleLike(service.id, token)
+        .then((r) => {
+          setLiked(r.liked);
+          setLikeCount(r.likesNumber);
+        })
+        .catch(() => showToast("Não foi possível curtir agora.", "error"));
+    }
+    if (liked) {
+      setLikeScale(0);
+      return;
+    }
 
     // Explosão do like
     const burst = Array.from({ length: 12 }).map(() => ({
@@ -108,9 +116,9 @@ export default function PostCard({ service, noEdit = false }: { service: Service
   return (
     <div className="pt-5 ">
 
-      {openEdit&&(<div className="fixed inset-0 z-30"><ServiceEditor serviceId={service.id} isOpen={openEdit} onClose={()=>{setOpenEdit(false)}}/></div>)} 
+      {openEdit&&(<div className="fixed inset-0 z-30"><ServiceEditor serviceId={service.id} isOpen={openEdit} onClose={()=>{setOpenEdit(false)}} onSaved={onChanged}/></div>)} 
     <div
-      className={`relative bg-[var(--bg)] shadow-lg shadow-[#00000077] mx-auto w-[80vw] h-[80vh] md:w-[20vw] md:h-[60vh] rounded-2xl overflow-hidden`}
+      className={`relative bg-[var(--bg)] shadow-lg shadow-[#00000077] mx-auto w-full max-w-sm h-[70vh] md:h-[60vh] min-h-[460px] rounded-2xl overflow-hidden`}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
@@ -132,24 +140,27 @@ export default function PostCard({ service, noEdit = false }: { service: Service
       {/* Overlay gradient */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
 
-      {/* Desktop arrows */}
+      {/* Desktop arrows (só com mais de uma imagem) */}
+      {total > 1 && (
       
         <div className="absolute -top-20 inset-0 flex items-center justify-between px-4 z-20">
-          <button onClick={prev} className="p-2 rounded-full bg-black/40 hover:bg-black/60 transition">
+          <button onClick={prev} aria-label="Imagem anterior" className="p-2 rounded-full bg-black/40 hover:bg-black/60 transition">
             <ArrowLeft className="text-white" />
           </button>
-          <button onClick={next} className="p-2 rounded-full bg-black/40 hover:bg-black/60 transition">
+          <button onClick={next} aria-label="Próxima imagem" className="p-2 rounded-full bg-black/40 hover:bg-black/60 transition">
             <ArrowRight className="text-white" />
           </button>
         </div>
       
 
+      )}
       {/* Botão like canto superior */}
       { !noEdit && (
         <div className="absolute top-4 px-3 z-20 flex flex-row justify-between min-w-full items-top ">
         
         <button
           onClick={handleEdit}
+          aria-label={`Editar ${service.title}`}
           className="p-2 w-9 h-9 rounded-full bg-[var(--primary)]/40 backdrop-blur-md hover:bg-[var(--primary)]/70"
         >
           <SquarePen className=" w-5 h-5 text-white" />
@@ -159,9 +170,12 @@ export default function PostCard({ service, noEdit = false }: { service: Service
         <button
           onPointerDown={startHold}
           onPointerUp={endHold}
+          onPointerLeave={endHold}
+          aria-label={liked ? "Descurtir (segure)" : "Curtir (segure)"}
+          aria-pressed={liked}
           className="p-2 rounded-full bg-black/40 backdrop-blur-md hover:bg-[var(--primary)]/70"
         >
-          <Heart className="w-5 h-5 text-white" />
+          <Heart className={`w-5 h-5 text-white ${liked ? "fill-[var(--primary)]" : ""}`} />
           <span className="text-xs absolut text-white/90">{likeCount}</span>
         </button>
         
@@ -209,16 +223,22 @@ export default function PostCard({ service, noEdit = false }: { service: Service
       {/* Overlay info */}
       <div className="absolute bottom-0 left-0 right-0 p-4 z-20">
         <div className="backdrop-blur-md bg-black/40 rounded-2xl border border-white/10 p-4 text-white">
-          {(service.category || service.subcategory) && (
+          {(service.category?.name || service.subcategory) && (
             <div className="flex items-center gap-2 text-sm text-gray-300 mb-2">
               <TagIcon size={14} />
-              <span>{service.category}{service.subcategory ? ` · ${service.subcategory}` : ""}</span>
+              <span>{service.category?.name}{service.subcategory ? ` · ${service.subcategory}` : ""}</span>
             </div>
           )}
           <h3 className="text-lg sm:text-xl font-semibold mb-2">{service.title}</h3>
-          <p className="text-sm text-gray-200 line-clamp-2 mb-3">{service.description}</p>
+          {service.ratingCount > 0 && (
+            <div className="flex items-center gap-1 text-yellow-400 text-xs mb-2">
+              <Star size={12} fill="currentColor" /> {service.rating.toFixed(1)}
+              <span className="text-gray-300">({service.ratingCount})</span>
+            </div>
+          )}
+          <p className="text-sm text-gray-200 line-clamp-2 mb-3">{service.description_service}</p>
           <div className="flex items-center justify-between text-sm font-medium mb-2">
-            {service.price && <span className="bg-white/10 px-3 flex gap-1 items-center py-1 rounded-full backdrop-blur-sm"><HandCoins size={16}/> R$ {service.price}</span>}
+            {service.price && <span className="bg-white/10 px-3 flex gap-1 items-center py-1 rounded-full backdrop-blur-sm"><HandCoins size={16}/> {formatCurrency(service.price)}</span>}
             {service.duration && (
               <span className="flex items-center gap-1 bg-white/10 px-3 py-1 rounded-full backdrop-blur-sm">
                 <Clock size={14} /> {service.duration}
@@ -227,7 +247,7 @@ export default function PostCard({ service, noEdit = false }: { service: Service
           </div>
           <div className="flex justify-between gap-2 mb-2">
             {service.negotiable && <span className="bg-yellow-500/30 px-2 py-1 rounded-full text-yellow-200 text-xs">Negociável</span>}
-            {service.status && <span className="bg-blue-500/30 px-2 py-1 rounded-full text-blue-200 text-xs">Politica de cancelamento</span>}
+            {service.requiresScheduling && <span className="bg-blue-500/30 px-2 py-1 rounded-full text-blue-200 text-xs">Exige agendamento</span>}
           </div>
           <button 
           onClick={handleDetail}
@@ -242,6 +262,7 @@ export default function PostCard({ service, noEdit = false }: { service: Service
     images={imagesLink}
     isOpen={open}
     onClose={()=>{setOpen(false)}}
+    onEdit={noEdit ? undefined : () => { setOpen(false); setOpenEdit(true); }}
     />
     
 </div>

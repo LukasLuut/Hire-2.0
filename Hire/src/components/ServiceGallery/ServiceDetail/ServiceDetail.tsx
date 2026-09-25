@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   X,
   MessageCircle,
@@ -7,36 +8,34 @@ import {
   Heart,
   ChevronLeft,
   ChevronRight,
+  Star,
+  Pencil,
+  Loader2,
 } from "lucide-react";
-import { serviceAPI } from "../../../api/ServiceAPI";
-import { userAPI } from "../../../api/UserAPI";
+import { serviceAPI, type ServiceData } from "../../../api/ServiceAPI";
 import { hireAPI } from "../../../api/HireAPI";
+import { reviewAPI } from "../../../api/ReviewAPI";
+import { conversationAPI } from "../../../api/ConversationAPI";
 import { useToast } from "../../../components/Toast/ToastContext";
+import { useSession } from "../../../context/SessionContext";
+import ChatInbox from "../../Chat/ChatInbox";
+import ReviewModal from "../../Reviews/ReviewModal";
+import type { HireEntity } from "../../../interfaces/Entities";
+import { formatCurrency } from "../../../utils/format";
+import { getErrorMessage } from "../../../utils/errors";
+import { HIRE_STAGE_LABEL, getHireStage } from "../../../utils/hireStatus";
 
 
 /* --------------------------------------------------------------------------
  * Tipos
  * -------------------------------------------------------------------------- */
-interface Service {
-  id: number;
-  title: string;
-  description: string;
-  category?: string;
-  subcategory?: string;
-  price?: string;
-  duration?: string;
-  negotiable?: boolean;
-  requiresScheduling?: boolean;
-  cancellationNotice?: string;
-  images: string[];
-  // provider:string
-}
-
 interface ServiceDetailProps {
-  service: Service;
+  service: ServiceData;
   images: string[]
   isOpen: boolean;
   onClose: () => void;
+  /** Quando quem vê é o dono do serviço: mostra "Editar" no lugar de "Contratar" */
+  onEdit?: () => void;
 }
 
 /* --------------------------------------------------------------------------
@@ -47,24 +46,33 @@ export default function ServiceDetail({
   images,
   isOpen,
   onClose,
+  onEdit,
 }: ServiceDetailProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [direction, setDirection] = useState(0);
   const [liked, setLiked] = useState(false);
+  const [likes, setLikes] = useState(service.likesNumber ?? 0);
   const [imageModalOpen, setImageModalOpen] = useState(false);
-  const [Open, setOpen]=useState(false);
-  const [hireId, setHireId] = useState<number | null>(null)
-  const [hasHire, setHasHire] = useState<boolean>(false)
-  const [concluded, setConcluded] = useState<boolean>(false)
+  const [myHire, setMyHire] = useState<HireEntity | null>(null)
+  const [reviewed, setReviewed] = useState(false)
+  const [confirming, setConfirming] = useState<null | "hire" | "conclude">(null)
+  const [busy, setBusy] = useState(false)
+  const [reviewOpen, setReviewOpen] = useState(false)
+  const [chatId, setChatId] = useState<number | null>(null)
   const { showToast } = useToast();
+  const { user, provider } = useSession();
+  const navigate = useNavigate();
 
+  const isOwner = !!provider && provider.id === service.provider?.id;
+  const providerName = service.provider?.companyName || service.provider?.professionalName || "Prestador";
+  const token = localStorage.getItem("token") ?? "";
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /* ----------------------- Auto-play inteligente ----------------------- */
   useEffect(() => {
-    if (!isOpen || isDragging) return;
+    if (!isOpen || isDragging || images.length < 2) return;
 
     intervalRef.current = setInterval(() => {
       slideNext();
@@ -73,7 +81,16 @@ export default function ServiceDetail({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [isOpen, isDragging]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, isDragging, images.length]);
+
+  // Esc fecha o modal
+  useEffect(() => {
+    if (!isOpen || imageModalOpen || reviewOpen || chatId) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, imageModalOpen, reviewOpen, chatId, onClose]);
 
   const slideNext = () => {
     setDirection(1);
@@ -89,7 +106,7 @@ export default function ServiceDetail({
     );
   };
 
-  const handleDragEnd = (_: any, info: any) => {
+  const handleDragEnd = (_: unknown, info: { offset: { x: number }; velocity: { x: number } }) => {
     const offset = info.offset.x;
     const velocity = info.velocity.x;
     setIsDragging(false);
@@ -104,139 +121,95 @@ export default function ServiceDetail({
     exit: (dir: number) => ({ x: dir > 0 ? -200 : 200, opacity: 0 }),
   };
 
-  const [hireLoading, setHireLoading] = useState(true);
+  // Minha contratação mais recente deste serviço (e se já avaliei)
+  const loadMyHire = useCallback(async () => {
+    if (!token || isOwner) return;
+    try {
+      const hires = await hireAPI.getMine(token);
+      const mine = hires.find((h) => h.service?.id === service.id && getHireStage(h) !== "cancelled") ?? null;
+      setMyHire(mine);
+      if (mine && getHireStage(mine) === "done") {
+        const reviews = await reviewAPI.forHire(mine.id, token);
+        setReviewed(reviews.some((r) => r.direction === "CLIENT_TO_PROVIDER"));
+      } else setReviewed(false);
+    } catch {
+      setMyHire(null);
+    }
+  }, [token, isOwner, service.id]);
 
   useEffect(() => {
-    const getHire = async () => {
-      try {
-        setHireLoading(true);
+    if (!isOpen) return;
+    setConfirming(null);
+    setLikes(service.likesNumber ?? 0);
+    loadMyHire();
+    if (token) serviceAPI.likedIds(token).then((ids) => setLiked(ids.includes(service.id))).catch(() => {});
+  }, [isOpen, service.id, service.likesNumber, loadMyHire, token]);
 
-        const serviceWithHire = await serviceAPI.getServiceById(service?.id);
+  const stage = myHire ? getHireStage(myHire) : null;
+  const hasHire = !!myHire && stage !== "done";
 
-        if (!serviceWithHire?.hire?.id) {
-          setHasHire(false);
-          return;
-        }
-
-        setHasHire(true);
-        setHireId(serviceWithHire.hire.id);
-      } catch (err) {
-        setHasHire(false);
-      } finally {
-        setHireLoading(false);
-      }
-    };
-
-    if (service?.id) {
-      getHire();
+  const handleLike = async () => {
+    if (!token) return;
+    setLiked((v) => !v);
+    try {
+      const r = await serviceAPI.toggleLike(service.id, token);
+      setLiked(r.liked);
+      setLikes(r.likesNumber);
+    } catch (err) {
+      setLiked((v) => !v);
+      showToast(getErrorMessage(err, "Não foi possível curtir agora."), "error");
     }
-  }, [service?.id]);
+  };
 
-
+  // Contratar: cria o pedido depois da confirmação
   const handleNegociar = async () => {
-
+    if (!user || !service.provider?.id) {
+      showToast("Não foi possível identificar o prestador deste serviço.", "warning");
+      return;
+    }
+    setBusy(true);
     try {
-      const token = localStorage.getItem("token");
-      if(!token) {
-        showToast("Token Inválido", "error");
-        return;
-      }
-      // setOpen(true);
-      const id = service.id;
-      const price = service.price;
-
-      const user = await userAPI.getUser(token);
-      if(!user) {
-        showToast("User não encontrado", "warning");
-        return;
-      }
-
-      const userId = user.id;
-
-      const serviceWithProvider = await serviceAPI.getServiceById(id);
-      if(!serviceWithProvider) {
-        showToast("Provedor não encontrado", "warning");
-        return;
-      }
-
-      const providerId = serviceWithProvider.provider?.id;
-
-      if(!providerId) {
-        showToast("Provider não encontrado", "warning");
-        return;
-      }
-
-      const createHire = await hireAPI.create({
-        price: Number(price),
-        providerId: providerId ? providerId : 54,
-        userId, 
-        serviceId: Number(id)
+      await hireAPI.create({
+        price: Number(service.price),
+        serviceId: Number(service.id),
       });
-      if(!createHire) {
-        showToast("Erro ao criar serviço", "error");
-        return;
-      }
-
-      showToast("Serviço contratado com sucesso.", "success");
-      setHireId (createHire)
-      setHasHire(true);
-      
-    } 
-    catch (err: any) {
-      console.error(err);
-
-  }
-
-    // const createService = await serviceAPI.create();
-  }
-
-  const handleDeleteHire = async () => {    
-    try {
-      if(!hireId) {
-        showToast("Serviço inválido", "warning")
-        return;
-      }
-
-      const response = await hireAPI.deleteHire(hireId);
-      if(!response) {
-        return;
-      }
-
-      window.location.reload();
-      setTimeout(() => {
-        showToast("Contratação de serviço excluída com sucesso!", "success");
-      }, 1000)
-    } 
-    catch (err: any) {
-      console.error(err)
+      showToast("Serviço contratado! Acompanhe em Contratações.", "success");
+      setConfirming(null);
+      await loadMyHire();
+    } catch (err) {
+      showToast(getErrorMessage(err, "Erro ao contratar o serviço."), "error");
+    } finally {
+      setBusy(false);
     }
   }
 
+  // Mensagem: abre (ou retoma) a negociação com o prestador sobre este serviço
+  const handleMensagem = async () => {
+    if (!token) return;
+    try {
+      const conv = await conversationAPI.open({ serviceId: service.id }, token);
+      setChatId(conv.id);
+    } catch (err) {
+      showToast(getErrorMessage(err, "Não foi possível abrir a conversa."), "error");
+    }
+  };
+
+  // Concluir: só depois que o prestador marcou como entregue; em seguida, avaliar
   const handleConcluir = async () => {
+    if (!myHire) return;
+    setBusy(true);
     try {
-      const id = hireId;
-      if(!id) {
-        showToast("Não foi possível completar a conclusão", "warning");
-        return;
-      }
-
-      await hireAPI.concludeHire(id);
+      await hireAPI.concludeHire(myHire.id);
       showToast("Serviço concluído com sucesso", "success");
-      
-      setTimeout(() => {
-        handleDeleteHire();
-      }, 2000);
-      
-      setConcluded(true);
-
+      setConfirming(null);
+      await loadMyHire();
+      setReviewOpen(true);
     }
-    catch(err: any) {
-      showToast(err.message, "error")
+    catch(err) {
+      showToast(getErrorMessage(err, "Não foi possível concluir."), "error")
+    } finally {
+      setBusy(false);
     }
-  }
-
-  if (hireLoading) {
-    return <p>Verificando contratação...</p>;
   }
 
   return (
@@ -272,6 +245,7 @@ export default function ServiceDetail({
             {/* ----------------------- Botão fechar ----------------------- */}
             <button
               onClick={onClose}
+              aria-label="Fechar"
               className="absolute top-3 right-3 text-[var(--text)] hover:text-[var(--primary)] transition-colors z-20"
             >
               <X size={24} />
@@ -302,8 +276,10 @@ export default function ServiceDetail({
 
               {/* Ícone de like */}
               <button
-                onClick={() => setLiked((prev) => !prev)}
-                className="absolute top-1 right-11 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full z-10 transition"
+                onClick={handleLike}
+                aria-label={liked ? "Descurtir" : "Curtir"}
+                aria-pressed={liked}
+                className="absolute top-1 right-11 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full z-10 transition flex items-center gap-1"
               >
                 <Heart
                   size={20}
@@ -311,21 +287,26 @@ export default function ServiceDetail({
                     liked ? "fill-[var(--primary)] scale-110" : "scale-100"
                   }`}
                 />
+                {likes > 0 && <span className="text-xs pr-1">{likes}</span>}
               </button>
 
               {/* Botões laterais (desktop) */}
+              {images.length > 1 && (<>
               <button
                 onClick={slidePrev}
+                aria-label="Imagem anterior"
                 className="hidden md:flex absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white z-10 transition"
               >
                 <ChevronLeft size={22} />
               </button>
               <button
                 onClick={slideNext}
+                aria-label="Próxima imagem"
                 className="hidden md:flex absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 p-2 rounded-full text-white z-10 transition"
               >
                 <ChevronRight size={22} />
               </button>
+              </>)}
 
               {/* Indicadores */}
               <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2">
@@ -348,16 +329,31 @@ export default function ServiceDetail({
                 <h2 className="text-2xl font-bold text-[var(--primary)] mb-1">
                   {service.title}
                 </h2>
+                {service.ratingCount > 0 && (
+                  <div className="flex items-center gap-1 text-yellow-400 text-sm mb-1">
+                    <Star size={14} fill="currentColor" />
+                    <span className="font-semibold">{service.rating.toFixed(1)}</span>
+                    <span className="text-[var(--text-muted)]">({service.ratingCount} {service.ratingCount === 1 ? "avaliação" : "avaliações"})</span>
+                  </div>
+                )}
                 <p className="text-[var(--text-muted)] leading-relaxed">
-                  {service.description}
+                  {service.description_service}
                 </p>
+                {service.provider?.id && (
+                  <button
+                    onClick={() => { onClose(); navigate(`/provider/${service.provider!.id}`); }}
+                    className="mt-2 text-sm text-[var(--primary)] hover:underline"
+                  >
+                    Prestador: {providerName}
+                  </button>
+                )}
               </div>
 
               {/* Informações gerais */}
               <div className="grid grid-cols-2 gap-y-2 text-sm">
-                <Info label="Categoria" value={service.category} />
+                <Info label="Categoria" value={service.category?.name} />
                 <Info label="Subcategoria" value={service.subcategory} />
-                <Info label="Preço" value={"R$" + service.price + ",00 "} />
+                <Info label="Preço" value={formatCurrency(service.price)} />
                 <Info label="Duração" value={service.duration} />
                 <Info
                   label="Negociável"
@@ -367,39 +363,97 @@ export default function ServiceDetail({
                   label="Agendamento"
                   value={service.requiresScheduling ? "Sim" : "Não"}
                 />
-                {service.requiresScheduling && (
-                  <Info
-                    label="Política de cancelamento"
-                    value={service.cancellationNotice}
-                    spanFull
-                  />
-                )}
+
               </div>
 
               {/* ----------------------- Ações ----------------------- */}
-              {hasHire ?
+              {isOwner ? (
               <div className="flex gap-3 mt-4">
-                <button 
-                onClick={handleConcluir}
-                className="flex-1 flex items-center justify-center gap-2 bg-[var(--primary)] text-white font-semibold py-3 rounded-xl shadow-md hover:scale-[1.02] hover:shadow-lg transition-all">
-                  <Handshake size={18} />{
-                    concluded ? "Concluído" : "Marcar como concluído"
-                  }
-                  
-                </button>
-              </div> :
-              <div className="flex gap-3 mt-4">
-                <button 
-                onClick={handleNegociar}
-                className="flex-1 flex items-center justify-center gap-2 bg-[var(--primary)] text-white font-semibold py-3 rounded-xl shadow-md hover:scale-[1.02] hover:shadow-lg transition-all">
-                  <Handshake size={18} />
-                  Contratar / Negociar
-                </button>
-
-                <button className="flex-1 flex items-center justify-center gap-2 border border-[var(--primary)] text-[var(--text)] font-semibold py-3 rounded-xl hover:bg-[var(--primary)] hover:text-[var(--bg-light)] hover:scale-[1.02] hover:shadow-lg transition-all">
+                <p className="flex-1 text-sm text-[var(--text-muted)] self-center">Este serviço é seu. É assim que os clientes o veem.</p>
+                {onEdit && (
+                  <button
+                  onClick={onEdit}
+                  className="flex items-center justify-center gap-2 border border-[var(--primary)] text-[var(--text)] font-semibold py-3 px-5 rounded-xl hover:bg-[var(--primary)] hover:text-white transition-all">
+                    <Pencil size={18} /> Editar
+                  </button>
+                )}
+              </div>
+              ) : confirming ? (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 p-4 rounded-xl bg-[var(--bg)] border border-[var(--border)]"
+              >
+                <p className="font-semibold">
+                  {confirming === "hire" ? "Confirmar contratação?" : "Confirmar que o serviço foi concluído?"}
+                </p>
+                <p className="text-sm text-[var(--text-muted)] mt-1">
+                  {confirming === "hire"
+                    ? `${service.title} com ${providerName} por ${formatCurrency(service.price)}. O prestador recebe o pedido e inicia o serviço.`
+                    : `Confirme só se ${providerName} realmente terminou. Depois você poderá avaliar o prestador.`}
+                </p>
+                <div className="flex gap-3 mt-4">
+                  <button onClick={() => setConfirming(null)} disabled={busy} className="flex-1 py-3 rounded-xl border border-[var(--border)] hover:bg-[var(--bg-light)] transition">
+                    Voltar
+                  </button>
+                  <button
+                    onClick={confirming === "hire" ? handleNegociar : handleConcluir}
+                    disabled={busy}
+                    className="flex-1 flex items-center justify-center gap-2 bg-[var(--primary)] text-white font-semibold py-3 rounded-xl shadow-md hover:scale-[1.02] hover:shadow-lg transition-all disabled:opacity-70">
+                    {busy && <Loader2 size={18} className="animate-spin" />}
+                    Confirmar
+                  </button>
+                </div>
+              </motion.div>
+              ) : hasHire ?
+              <div className="flex flex-col gap-3 mt-4">
+                <p className="text-sm text-[var(--text-muted)]">
+                  Sua contratação: <strong className="text-[var(--text)]">{HIRE_STAGE_LABEL[stage!]}</strong>
+                </p>
+                <div className="flex gap-3">
+                {stage === "delivered" ? (
+                  <button
+                  onClick={() => setConfirming("conclude")}
+                  className="flex-1 flex items-center justify-center gap-2 bg-[var(--primary)] text-white font-semibold py-3 rounded-xl shadow-md hover:scale-[1.02] hover:shadow-lg transition-all">
+                    <Handshake size={18} />Marcar como concluído
+                  </button>
+                ) : (
+                  <button
+                  onClick={() => { onClose(); navigate("/hires"); }}
+                  className="flex-1 flex items-center justify-center gap-2 bg-[var(--primary)] text-white font-semibold py-3 rounded-xl shadow-md hover:scale-[1.02] hover:shadow-lg transition-all">
+                    <Handshake size={18} />Acompanhar contratação
+                  </button>
+                )}
+                <button
+                  onClick={handleMensagem}
+                  className="flex-1 flex items-center justify-center gap-2 border border-[var(--primary)] text-[var(--text)] font-semibold py-3 rounded-xl hover:bg-[var(--primary)] hover:text-[var(--bg-light)] hover:scale-[1.02] hover:shadow-lg transition-all">
                   <MessageCircle size={18} />
                   Mensagem
-                </button>  
+                </button>
+                </div>
+              </div> :
+              <div className="flex flex-col gap-3 mt-4">
+                {stage === "done" && !reviewed && (
+                  <button
+                    onClick={() => setReviewOpen(true)}
+                    className="flex items-center justify-center gap-2 border border-yellow-400/60 text-[var(--text)] font-semibold py-2 rounded-xl hover:bg-yellow-400/10 transition-all">
+                    <Star size={18} className="text-yellow-400" /> Avaliar {providerName}
+                  </button>
+                )}
+              <div className="flex gap-3">
+                <button
+                onClick={() => setConfirming("hire")}
+                className="flex-1 flex items-center justify-center gap-2 bg-[var(--primary)] text-white font-semibold py-3 rounded-xl shadow-md hover:scale-[1.02] hover:shadow-lg transition-all">
+                  <Handshake size={18} />
+                  {stage === "done" ? "Contratar novamente" : "Contratar"}
+                </button>
+                <button
+                  onClick={handleMensagem}
+                  className="flex-1 flex items-center justify-center gap-2 border border-[var(--primary)] text-[var(--text)] font-semibold py-3 rounded-xl hover:bg-[var(--primary)] hover:text-[var(--bg-light)] hover:scale-[1.02] hover:shadow-lg transition-all">
+                  <MessageCircle size={18} />
+                  Negociar
+                </button>
+              </div>
               </div>
               }
             </div>
@@ -412,6 +466,20 @@ export default function ServiceDetail({
             onClose={() => setImageModalOpen(false)}
             startIndex={currentIndex}
           />
+
+          <ChatInbox isOpen={!!chatId} initialConversationId={chatId} onClose={() => setChatId(null)} />
+
+          {myHire && (
+            <ReviewModal
+              open={reviewOpen}
+              onClose={() => setReviewOpen(false)}
+              hireId={myHire.id}
+              targetName={providerName}
+              serviceTitle={service.title}
+              targetRole="provider"
+              onDone={() => setReviewed(true)}
+            />
+          )}
 
         
         </motion.div>

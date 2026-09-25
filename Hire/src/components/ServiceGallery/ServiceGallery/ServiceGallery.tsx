@@ -14,71 +14,57 @@
  *  - TailwindCSS (estilização responsiva)
  * -------------------------------------------------------------------------- */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion,  LayoutGroup } from "framer-motion";
 import { Search, X, Filter } from "lucide-react";
 import PostCard from "../Service/Service";
 import { providerApi } from "../../../api/ProviderAPI";
+import { serviceAPI, toServiceData, type ServiceData } from "../../../api/ServiceAPI";
 import { ServicesGallerySkeleton } from "../../../skeletons/ServiceGallerySkeleton/ServicesGallerySkeleton";
 
 /* ==========================================================================
  * COMPONENTE PRINCIPAL
+ * - Sem "services": carrega os serviços do prestador logado (com edição)
+ * - Com "services": mostra os serviços recebidos (perfil público, sem edição)
  * ========================================================================== */
-export default function ServiceGalleryZoom() {
+export default function ServiceGalleryZoom({
+  services: externalServices,
+  noEdit = false,
+  title = "Galeria de Serviços",
+}: {
+  services?: ServiceData[];
+  noEdit?: boolean;
+  title?: string;
+} = {}) {
 
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(!externalServices);
+  const [error, setError] = useState(false);
+  const [services, setServices] = useState<ServiceData[]>(externalServices ?? []);
+  const [likedIds, setLikedIds] = useState<number[]>([]);
 
-  const [services, setServices] = useState([
-    {
-    id: 1,
-    title: "Design de Interface",
-    description: "Criação de telas otimizadas com foco em UX e responsividade.",
-    subcategory: "Subcategoria",
-    category: "UI/UX",
-    price: "R$500",
-    duration: "2 dias",
-    rating: 4.8,
-    images: ["https://images.pexels.com/photos/4348401/pexels-photo-4348401.jpeg", "/img/uiux2.jpg"],
-  }
-]);
+  const getServices = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    if (externalServices) {
+      setServices(externalServices);
+    } else {
+      setLoading(true);
+      setError(false);
+      try {
+        const servicesList = await providerApi.getServices(token);
+        setServices(servicesList.map(toServiceData));
+      } catch {
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+    serviceAPI.likedIds(token).then(setLikedIds).catch(() => {});
+  }, [externalServices]);
 
   useEffect(() => {
-    setLoading(true);
-
-    const getServices = async () => {
-      const token = localStorage.getItem("token");
-      if(!token) return;
-
-      const servicesList = await providerApi.getServices(token);
-
-      if(!servicesList) return;
-
-      if(Array.isArray(servicesList)) {
-        const list = servicesList.map((e) => ({
-          id: e.id,
-          title: e.title,
-          description: e.description_service,
-          subcategory: e.subcategory,
-          category: e.category ? e.category.name : "Categoria",
-          price: e.price,
-          duration: e.duration,
-          rating: 3.2,
-          images: [
-            e.imageUrl,
-            "/img/uiux2.jpg",
-          ],
-      }));
-
-      setServices(list);
-
-      }
-
-      setLoading(false);
-
-    }
-
     getServices();
-  }, [])
+  }, [getServices]);
 
 
   /* ------------------------------------------------------------------------
@@ -87,7 +73,7 @@ export default function ServiceGalleryZoom() {
   const [searchTerm, setSearchTerm] = useState(""); // texto digitado na barra de busca
   const [priceOrder, setPriceOrder] = useState<"asc" | "desc" | null>(null); // ordenação por preço
   const [minRating, setMinRating] = useState<number>(0); // nota mínima
-  const [filtered, setFiltered] = useState(services); // lista filtrada
+  const [filtered, setFiltered] = useState<ServiceData[]>(services); // lista filtrada
   const [isMobile, setIsMobile] = useState(false); // controle de largura da tela
 
 
@@ -95,7 +81,14 @@ export default function ServiceGalleryZoom() {
    * TAGS DE SUGESTÃO
    * (exibidas abaixo da barra de pesquisa)
    * ------------------------------------------------------------------------ */
-  const tags = ["UI", "UX", "Prototipagem", "Design", "Consultoria", "Mobile", "Figma", "Landing Page"];
+  const tags = useMemo(() => {
+    const set = new Set<string>();
+    services.forEach((s) => {
+      if (s.subcategory) set.add(s.subcategory);
+      if (s.category?.name) set.add(s.category.name);
+    });
+    return Array.from(set).slice(0, 8);
+  }, [services]);
 
   // Detecta se a tela é pequena (para limitar o número de tags)
   useEffect(() => {
@@ -118,18 +111,15 @@ export default function ServiceGalleryZoom() {
       results = results.filter(
         (srv) =>
           srv.title.toLowerCase().includes(term) ||
-          srv.description.toLowerCase().includes(term) ||
-          srv.category.toLowerCase().includes(term)
+          srv.description_service.toLowerCase().includes(term) ||
+          (srv.category?.name ?? "").toLowerCase().includes(term) ||
+          (srv.subcategory ?? "").toLowerCase().includes(term)
       );
     }
 
     // Ordenação por preço
     if (priceOrder) {
-      results.sort((a, b) => {
-        const pa = parseFloat(a.price.replace(/[^\d,]/g, "").replace(",", "."));
-        const pb = parseFloat(b.price.replace(/[^\d,]/g, "").replace(",", "."));
-        return priceOrder === "asc" ? pa - pb : pb - pa;
-      });
+      results.sort((a, b) => (priceOrder === "asc" ? a.price - b.price : b.price - a.price));
     }
 
     // Filtro de nota mínima
@@ -151,7 +141,7 @@ export default function ServiceGalleryZoom() {
          * CABEÇALHO
          * ------------------------------------------------------------------ */}
         <h1 className="text-6xl font-bold text-center pt-15 mb-10 ">
-          Galeria de Serviços
+          {title}
         </h1>
 
         {/* ------------------------------------------------------------------
@@ -170,6 +160,7 @@ export default function ServiceGalleryZoom() {
             <Search className="absolute left-4 top-3.5 text-[var(--text)]/60" size={20} />
             <button
               onClick={() => setSearchTerm("")}
+              aria-label="Limpar busca"
               className="absolute right-4 top-4 text-[var(--text)]/60 hover:text-[var(--primary)]"
             >
               <X size={18} />
@@ -233,13 +224,29 @@ export default function ServiceGalleryZoom() {
         {/* ------------------------------------------------------------------
          * GRADE DE CARDS
          * ------------------------------------------------------------------ */}
-        <div className="grid -ml-4 grid-cols-1 sm:grid-cols-2  md:grid-cols-3 gap-16">
+        {loading ? (
+          <ServicesGallerySkeleton />
+        ) : error ? (
+          <div className="text-center py-16 text-[var(--text-muted)]">
+            Não foi possível carregar os serviços.{" "}
+            <button onClick={getServices} className="text-[var(--primary)] underline">Tentar novamente</button>
+          </div>
+        ) : services.length === 0 ? (
+          <div className="text-center py-16 text-[var(--text-muted)]">
+            {noEdit ? "Este prestador ainda não publicou serviços." : "Você ainda não publicou serviços. Use \"Novo serviço\" para criar o primeiro."}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16 text-[var(--text-muted)]">
+            Nenhum serviço encontrado.{" "}
+            <button onClick={() => { setSearchTerm(""); setMinRating(0); setPriceOrder(null); }} className="text-[var(--primary)] underline">Limpar filtros</button>
+          </div>
+        ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-16">
           {filtered.map((srv) => (
-           
-              <PostCard service={srv}/>
-           
+              <PostCard key={srv.id} service={srv} noEdit={noEdit} liked={likedIds.includes(srv.id)} onChanged={getServices}/>
           ))}
         </div>
+        )}
 
        
       </div>

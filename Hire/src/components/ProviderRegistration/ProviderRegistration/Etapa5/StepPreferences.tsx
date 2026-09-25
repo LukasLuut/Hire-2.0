@@ -12,16 +12,12 @@ import {
   Tag,
   Eye,
   Power,
-  Mail,
-  Smartphone,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function StepPreferences({
   form,
   update,
-  onSave,
-  onBack,
 }: {
   form: ProviderForm;
   update: <K extends keyof ProviderForm>(k: K, v: ProviderForm[K]) => void;

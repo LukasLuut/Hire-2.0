@@ -1,44 +1,44 @@
-import type { ProviderForm } from "../components/ProviderRegistration/ProviderRegistration/helpers/types-and-helpers";
 import { apiRequest } from "./ApiClient";
+import type { ProviderEntity, ServiceEntity } from "../interfaces/Entities";
+
+const auth = (token: string) => ({ Authorization: "Bearer " + token });
 
 export const providerApi = {
 
   create: async (data: FormData, token: string) => {
-
     return await apiRequest("/providers", {
       method: "POST",
-      headers: {
-        "Authorization": "Bearer " + token
-      },
+      headers: auth(token),
       body: data,
     });
   },
 
-  getByUser: async (token: string): Promise<ProviderForm | null>  => {
-    const response: ProviderForm = await apiRequest('/providers', {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + token
-      }
+  update: async (data: FormData, token: string) => {
+    return await apiRequest<ProviderEntity>("/providers", {
+      method: "PUT",
+      headers: auth(token),
+      body: data,
     });
-
-    if(!response || typeof response == "undefined") return null;
-    return response;
   },
 
-  getServices: async (token: string) => {
-    const response = await apiRequest('/providers/services', {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + token
-      }
-    });
+  /** Perfil de prestador do usuário logado (erro 404 quando ainda não é prestador). */
+  getByUser: async (token: string): Promise<ProviderEntity | null> => {
+    const response = await apiRequest<ProviderEntity>("/providers", { method: "GET", headers: auth(token) });
+    return response ?? null;
+  },
 
-    if(!response) return null;
-    return response;
-  }
+  getServices: async (token: string): Promise<ServiceEntity[]> => {
+    const response = await apiRequest<ServiceEntity[]>("/providers/services", { method: "GET", headers: auth(token) });
+    return response ?? [];
+  },
+
+  /** Todos os prestadores, ordenados pela nota (Top Prestadores). */
+  getAll: async (): Promise<ProviderEntity[]> => {
+    return (await apiRequest<ProviderEntity[]>("/providers/all")) ?? [];
+  },
+
+  /** Perfil público de um prestador (Ver perfil). */
+  getPublic: async (id: number) => {
+    return await apiRequest<ProviderEntity & { services: ServiceEntity[] }>(`/providers/${id}/public`);
+  },
 };
-
-

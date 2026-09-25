@@ -8,7 +8,7 @@ import React, { useState } from "react";
 /* -----------------------------
    Tipos principais do formulário
    ----------------------------- */
-interface Service {
+export interface Service {
   id: number;
   title: string;
   description: string;
@@ -256,7 +256,7 @@ export function LinkList({
               href={link}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[var(--highlight)] text-sm underline truncate max-w-[160px]"
+              className="text-[var(--text-highlight)] text-sm underline truncate max-w-[160px]"
             >
               {link.replace(/^https?:\/\//, "").split("/")[0]}
             </a>
