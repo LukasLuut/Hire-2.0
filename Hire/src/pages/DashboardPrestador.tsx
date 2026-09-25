@@ -19,7 +19,9 @@ import { useSession } from "../context/SessionContext";
 import { hireAPI } from "../api/HireAPI";
 import { reviewAPI } from "../api/ReviewAPI";
 import { conversationAPI } from "../api/ConversationAPI";
-import type { ConversationSummary, HireEntity, ReviewEntity } from "../interfaces/Entities";
+import type { ConversationSummary, HireEntity, ReviewEntity, ServiceEntity } from "../interfaces/Entities";
+import ProviderChecklist from "../components/ProviderChecklist";
+import { providerApi } from "../api/ProviderAPI";
 import { HIRE_STAGE_LABEL_PROVIDER, getHireStage } from "../utils/hireStatus";
 import { formatCurrency, formatDate, formatDateTime } from "../utils/format";
 import { uploadUrl } from "../utils/avatar";
@@ -44,6 +46,8 @@ export default function DashboardPrestador() {
   const [isOpenChat, setIsOpenChat]=useState(false);
   const [galleryKey, setGalleryKey] = useState(0);
   const [responding, setResponding] = useState<number | null>(null);
+  const [myServices, setMyServices] = useState<ServiceEntity[]>([]);
+  const [editRequest, setEditRequest] = useState(0);
 
   // mobile accordion (drawer alternative per sua escolha 'b')
   const [panelOpen, setPanelOpen] = useState(false);
@@ -51,15 +55,17 @@ export default function DashboardPrestador() {
   const load = useCallback(async () => {
     const token = localStorage.getItem("token");
     if (!token || !provider?.id) return;
-    const [hs, rv, cv] = await Promise.all([
+    const [hs, rv, cv, sv] = await Promise.all([
       hireAPI.getHireByProviderId(provider.id).catch(() => []),
       reviewAPI.forProvider(provider.id).catch(() => null),
       conversationAPI.list(token).catch(() => []),
+      providerApi.getServices(token).catch(() => []),
     ]);
+    setMyServices(sv);
     setBookings(hs);
     setReviews(rv?.reviews ?? []);
     setConversations(cv.filter((c) => c.myRole === "prestador"));
-  }, [provider?.id]);
+  }, [provider?.id, galleryKey]);
 
   useEffect(() => {
     load();
@@ -105,8 +111,18 @@ export default function DashboardPrestador() {
         {/* header */}
         <div className="max-w-[90%] mx-auto flex flex-col lg:flex-row gap-6">
           {/* aside (desktop) visible at right; on mobile it will be an accordion below header */}
-          {provider && <ProviderHero key={galleryKey} provider={provider} />}
+          {provider && <ProviderHero key={galleryKey} provider={provider} editRequest={editRequest} />}
           <aside className="w-full mt-6 lg:w-80">
+            {provider && (
+              <ProviderChecklist
+                provider={provider}
+                servicesCount={myServices.length}
+                servicesWithPhoto={myServices.filter((s) => (s.images?.length ?? 0) > 0 || !!s.imageUrl).length}
+                reviewsCount={reviews?.length ?? 0}
+                onEditProfile={() => setEditRequest((n) => n + 1)}
+                onNewService={() => setOpenCreateService(true)}
+              />
+            )}
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className=" lg:block hidden md:flex mb-4 bg-[var(--bg-light)]/40 backdrop-blur-xl rounded-2xl p-4 border border-[var(--border)] shadow-md">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold">Atalhos</h3>

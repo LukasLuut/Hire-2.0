@@ -28,10 +28,16 @@ interface ProviderHeroProps {
   /** Perfil público: sem edição; a galeria mostra os serviços recebidos */
   readOnly?: boolean;
   services?: ServiceData[];
+  /** Muda (ex.: contador) para abrir a edição do perfil de fora (checklist do Business) */
+  editRequest?: number;
 }
 
-export default function ProviderHero({ provider, readOnly = false, services }: ProviderHeroProps) {
+export default function ProviderHero({ provider, readOnly = false, services, editRequest }: ProviderHeroProps) {
   const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (editRequest) setIsEditing(true);
+  }, [editRequest]);
 
   // Fecha com ESC
   useEffect(() => {
