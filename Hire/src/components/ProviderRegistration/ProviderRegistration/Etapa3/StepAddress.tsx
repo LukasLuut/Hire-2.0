@@ -35,6 +35,7 @@ export default function StepAddress({
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Estados locais para inputs
+  const uid = useId();
   const [cep, setCep] = useState(form.address?.cep || "");
   const [street, setStreet] = useState(form.address?.street || "");
   const [number, setNumber] = useState(form.address?.number || "");
@@ -202,6 +203,27 @@ export default function StepAddress({
                 Digite o CEP para localizar o endereço. Você pode mover o marcador para ajustar.
               </p>
               <div ref={mapContainerRef} className="w-full h-56 rounded-xl border bg-[var(--bg)] border-[var(--border)] overflow-hidden relative isolate z-0"></div>
+            </div>
+
+            {/* Raio de atendimento presencial (busca por proximidade) */}
+            <div className="border-t border-[var(--border)] bg-[var(--bg-light)] p-4">
+              <label htmlFor={`${uid}-radius`} className="flex items-center justify-between text-sm font-medium text-[var(--text)]">
+                <span>Até onde você vai atender</span>
+                <span className="text-[var(--primary)]">{form.serviceRadiusKm ?? 20} km</span>
+              </label>
+              <input
+                id={`${uid}-radius`}
+                type="range"
+                min={1}
+                max={150}
+                step={1}
+                value={form.serviceRadiusKm ?? 20}
+                onChange={(e) => update("serviceRadiusKm", Number(e.target.value))}
+                className="w-full mt-2 accent-[var(--primary)]"
+              />
+              <p className="text-xs text-[var(--text-muted)] mt-1">
+                Clientes a até essa distância do ponto no mapa veem você como "atende sua região". Quem atende online aparece para todos.
+              </p>
             </div>
           </motion.div>
       </AnimatePresence>

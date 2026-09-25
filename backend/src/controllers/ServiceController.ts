@@ -63,7 +63,7 @@ export class ServiceController {
 
     list = async (req: Request, res: Response) => {
         try {
-            const services = await serviceService.list();
+            const services = await serviceService.list({ lat: req.query.lat, lng: req.query.lng, onlyNearby: req.query.onlyNearby });
             res.json(services)
         }
         catch(err: any) {

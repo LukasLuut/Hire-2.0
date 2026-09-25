@@ -6,6 +6,7 @@ import { ServiceProvider } from "../models/ServiceProvider";
 import { statsService } from "./StatsService";
 import { HttpError } from "./HireService";
 import { parseSlots } from "../utils/schedule";
+import { coord, distanceKm } from "../utils/geo";
 
 export interface ServiceInput {
   title: string;
@@ -132,10 +133,27 @@ export class ServiceService {
     return await this.serviceRepository.save(service);
   }
 
-  /** Vitrine: só serviços ativos (pausados continuam acessíveis pelo id). */
-  async list() {
+  /**
+   * Vitrine: só serviços ativos (pausados continuam acessíveis pelo id).
+   * Com a localização do cliente (lat/lng), cada serviço traz a distância até o
+   * prestador e se ele atende o cliente (online ou dentro do raio). Com
+   * onlyNearby, a lista fica só com quem atende.
+   */
+  async list(opts: { lat?: unknown; lng?: unknown; onlyNearby?: unknown } = {}) {
     const services = await this.serviceRepository.find({ where: { active: true }, relations: { category: true, provider: true }, order: { id: "DESC" } });
-    return this.withStats(services);
+    const withStats = await this.withStats(services);
+    const lat = coord(opts.lat, 90);
+    const lng = coord(opts.lng, 180);
+    if (lat === null || lng === null) return withStats;
+    const located = withStats.map((s: any) => {
+      const p = s.provider;
+      const hasPoint = p && typeof p.latitude === "number" && typeof p.longitude === "number";
+      const distance = hasPoint ? Math.round(distanceKm(lat, lng, p.latitude, p.longitude) * 10) / 10 : null;
+      const inRadius = distance !== null && p.attendsPresent !== false && distance <= (p.serviceRadiusKm ?? 20);
+      return { ...s, distanceKm: distance, servesYou: !!p?.attendsOnline || inRadius };
+    });
+    const only = opts.onlyNearby === true || opts.onlyNearby === "true" || opts.onlyNearby === "1";
+    return only ? located.filter((s) => s.servesYou) : located;
   }
 
   async getById(id: number) {

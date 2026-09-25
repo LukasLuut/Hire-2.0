@@ -70,15 +70,17 @@ function buildInitialForm(existing: ProviderEntity | null | undefined, user: { n
 
   // Endereço
   hasPhysicalLocation: true,
+  // na edição, a área de atendimento salva volta preenchida (cidade, UF e ponto no mapa)
   address: {
     cep: "",
     street: "",
     number: "",
     neighborhood: "",
-    city: "",
-    state: "",
+    city: existing?.baseCity ?? "",
+    state: existing?.baseState ?? "",
+    ...(existing?.latitude != null && existing?.longitude != null ? { lat: existing.latitude, lng: existing.longitude } : {}),
   },
-  serviceRadiusKm: 25,
+  serviceRadiusKm: existing?.serviceRadiusKm ?? 20,
 
   // Documentos
   idDocument: null,
@@ -235,6 +237,14 @@ export default function ProviderRegistrationContainer({ isOpen, onClose, existin
     formData.append("onlineLink", form.onlineLink);
     formData.append("links", JSON.stringify(form.links));
     formData.append("availabilities", JSON.stringify(form.availability));
+    // área de atendimento (usada na busca por proximidade)
+    if (form.address?.lat != null && form.address?.lng != null) {
+      formData.append("latitude", String(form.address.lat));
+      formData.append("longitude", String(form.address.lng));
+    }
+    if (form.address?.city) formData.append("baseCity", form.address.city);
+    if (form.address?.state) formData.append("baseState", form.address.state);
+    formData.append("serviceRadiusKm", String(form.serviceRadiusKm ?? 20));
     if (form.profilePhoto) formData.append("image", form.profilePhoto);
 
     setSaving(true);

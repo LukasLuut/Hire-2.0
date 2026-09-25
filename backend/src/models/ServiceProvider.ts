@@ -72,6 +72,22 @@ export class ServiceProvider {
   @Column({ length: 400, nullable: true })
   onlineLink?: string
 
+  // Área de atendimento presencial: cidade base, ponto no mapa e raio em km
+  @Column({ type: "varchar", length: 80, nullable: true })
+  baseCity?: string | null;
+
+  @Column({ type: "varchar", length: 2, nullable: true })
+  baseState?: string | null;
+
+  @Column({ type: "double", nullable: true })
+  latitude?: number | null;
+
+  @Column({ type: "double", nullable: true })
+  longitude?: number | null;
+
+  @Column({ type: "int", default: 20 })
+  serviceRadiusKm: number;
+
   @Column({ length: 255, nullable: true })
   description?: string
 

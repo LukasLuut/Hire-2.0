@@ -22,6 +22,7 @@ const ProviderRegistrationContainer = lazy(() => import("../ProviderRegistration
 import type { ProviderEntity } from "../../interfaces/Entities";
 import type { ServiceData } from "../../api/ServiceAPI";
 import { avatarFor } from "../../utils/avatar";
+import ServiceAreaLine from "../ServiceAreaLine";
 
 interface ProviderHeroProps {
   provider: ProviderEntity;
@@ -129,6 +130,8 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
                   : "Categoria não informada"}
               </span>
             </div>
+            {/* área de atendimento */}
+            <ServiceAreaLine full service={{ provider: { baseCity: provider.baseCity, baseState: provider.baseState, attendsOnline: provider.attendsOnline, serviceRadiusKm: provider.baseCity ? provider.serviceRadiusKm : undefined } }} />
 
             <h2 className="mt-2 md:ml-6 text-[var(--text)]">
               Sobre

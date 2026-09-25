@@ -29,6 +29,12 @@ export interface ProviderEntity {
   profileImageUrl?: string | null;
   status?: string;
   onlineLink?: string | null;
+  /** área de atendimento presencial */
+  baseCity?: string | null;
+  baseState?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  serviceRadiusKm?: number;
   attendsPresent: boolean;
   attendsOnline: boolean;
   personalizedProposals: boolean;

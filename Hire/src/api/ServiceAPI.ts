@@ -26,6 +26,9 @@ export interface ServiceData {
   imagePaths: string[],
   scheduleSlots: ScheduleSlots | null,
   cancellationNotice: string | null,
+  /** com a localização do cliente: distância até o prestador e se ele atende a região */
+  distanceKm?: number | null,
+  servesYou?: boolean,
   provider?:{
     id?: number,
     professionalName?: string,
@@ -33,6 +36,10 @@ export interface ServiceData {
     profileImageUrl?: string | null,
     description?: string,
     rating?: RatingStats,
+    baseCity?: string | null,
+    baseState?: string | null,
+    attendsOnline?: boolean,
+    serviceRadiusKm?: number,
   },
 }
 
@@ -59,6 +66,8 @@ export function toServiceData(e: ServiceEntity): ServiceData {
     images: (e.images?.length ? e.images : e.imageUrl ? [e.imageUrl] : []).map((p) => uploadUrl(p)!).filter(Boolean),
     scheduleSlots: e.scheduleSlots ?? null,
     cancellationNotice: e.cancellationNotice ?? null,
+    distanceKm: (e as ServiceEntity & { distanceKm?: number | null }).distanceKm,
+    servesYou: (e as ServiceEntity & { servesYou?: boolean }).servesYou,
     provider: e.provider
       ? {
           id: e.provider.id,
@@ -67,6 +76,10 @@ export function toServiceData(e: ServiceEntity): ServiceData {
           profileImageUrl: e.provider.profileImageUrl,
           description: e.provider.description ?? undefined,
           rating: e.provider.rating ?? EMPTY_STATS,
+          baseCity: e.provider.baseCity,
+          baseState: e.provider.baseState,
+          attendsOnline: e.provider.attendsOnline,
+          serviceRadiusKm: e.provider.serviceRadiusKm,
         }
       : undefined,
   };
@@ -84,8 +97,10 @@ export const serviceAPI = {
     });
   },
 
-  getServices: async (): Promise<ServiceData[]> => {
-    const response = await apiRequest<ServiceEntity[]>("/services", { method: "GET" });
+  /** Vitrine; com a localização, traz distância e pode filtrar só quem atende a região. */
+  getServices: async (near?: { lat: number; lng: number; onlyNearby?: boolean } | null): Promise<ServiceData[]> => {
+    const qs = near ? `?lat=${near.lat}&lng=${near.lng}${near.onlyNearby ? "&onlyNearby=true" : ""}` : "";
+    const response = await apiRequest<ServiceEntity[]>(`/services${qs}`, { method: "GET" });
     return Array.isArray(response) ? response.map(toServiceData) : [];
   },
 

@@ -7,6 +7,7 @@ import { useSession } from "../context/SessionContext";
 import { useToast } from "../components/Toast/ToastContext";
 import ServiceDetail from "../components/ServiceGallery/ServiceDetail/ServiceDetail";
 import ReviewsSection from "../components/Reviews/ReviewsSection";
+import ServiceAreaLine from "../components/ServiceAreaLine";
 import { avatarFor } from "../utils/avatar";
 import { formatCurrency } from "../utils/format";
 import { getErrorMessage } from "../utils/errors";
@@ -129,6 +130,8 @@ export default function ServicePage() {
                 <div className="col-span-2"><dt className="font-semibold inline">Cancelamento: </dt><dd className="inline text-[var(--text-muted)]">{service.cancellationNotice}</dd></div>
               )}
             </dl>
+
+            <ServiceAreaLine full service={service} />
 
             {/* Prestador */}
             <div className="mt-5 flex items-center gap-3 p-3 rounded-2xl bg-[var(--bg)] border border-[var(--border-muted)]">

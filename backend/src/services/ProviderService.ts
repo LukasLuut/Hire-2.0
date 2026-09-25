@@ -1,5 +1,6 @@
 import { AppDataSource } from "../config/data-source";
 import { ServiceProvider } from "../models/ServiceProvider";
+import { coord } from "../utils/geo";
 import { User } from "../models/User";
 import { Subcategory } from "../models/Subcategory";
 import { Availability } from "../models/Availability";
@@ -53,6 +54,7 @@ export class ProviderService {
     const { categoryId, subcategories: _s, links: _l, availabilities: _a, ...fields } = data as any;
     const newData: any = {
       ...fields,
+      ...areaFields(data),
       user,
       profileImageUrl,
       category: categoryId ? { id: Number(categoryId) } : null,
@@ -219,7 +221,7 @@ export class ProviderService {
       profileImageUrl: _img, image: _image, ...fields
     } = data;
 
-    Object.assign(provider, fields);
+    Object.assign(provider, fields, areaFields(data));
     if (categoryId) provider.category = { id: Number(categoryId) } as any;
     if (file) provider.profileImageUrl = `/uploads/${file.filename}`;
 
@@ -229,6 +231,20 @@ export class ProviderService {
 
     return this.getById(id);
   }
+}
+
+/** Campos da área de atendimento vindos do formulário (só os enviados, já validados). */
+function areaFields(data: any) {
+  const out: Record<string, unknown> = {};
+  if (data.latitude !== undefined) out.latitude = coord(data.latitude, 90);
+  if (data.longitude !== undefined) out.longitude = coord(data.longitude, 180);
+  if (data.baseCity !== undefined) out.baseCity = String(data.baseCity).trim().slice(0, 80) || null;
+  if (data.baseState !== undefined) out.baseState = String(data.baseState).trim().toUpperCase().slice(0, 2) || null;
+  if (data.serviceRadiusKm !== undefined) {
+    const r = Math.round(Number(data.serviceRadiusKm));
+    out.serviceRadiusKm = Number.isFinite(r) ? Math.min(Math.max(r, 1), 300) : 20;
+  }
+  return out;
 }
 
 // Converte um campo de formulário (string JSON) em lista de strings; vazio ou inválido vira lista vazia

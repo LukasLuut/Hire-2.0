@@ -11,6 +11,9 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { serviceAPI, serviceImages, type ServiceData } from "../api/ServiceAPI";
+import LocationBar from "../components/LocationBar";
+import ServiceAreaLine from "../components/ServiceAreaLine";
+import { loadLocation, saveLocation, type ClientLocation } from "../utils/location";
 import { providerApi } from "../api/ProviderAPI";
 import ServiceDetail from "../components/ServiceGallery/ServiceDetail/ServiceDetail";
 import { ServicesPageSkeleton } from "../skeletons/ServiceSkeleton/ServicesPageSkeleton";
@@ -95,9 +98,21 @@ export default function ServiceDashboardSophisticated() {
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("Todos");
   const [minRating, setMinRating] = useState<number>(0);
-  const [sortBy, setSortBy] = useState<"relevance" | "rating" | "price">(
+  const [sortBy, setSortBy] = useState<"relevance" | "rating" | "price" | "distance">(
     "relevance"
   );
+
+  // localização do cliente (busca por proximidade), lembrada no navegador
+  const [location, setLocationState] = useState<ClientLocation | null>(() => loadLocation());
+  const [onlyNearby, setOnlyNearby] = useState(false);
+  const setLocation = (loc: ClientLocation | null) => {
+    saveLocation(loc);
+    setLocationState(loc);
+    if (!loc) {
+      setOnlyNearby(false);
+      if (sortBy === "distance") setSortBy("relevance");
+    }
+  };
 
   // UI state
   const [loading, setLoading] = useState(true);
@@ -122,7 +137,10 @@ export default function ServiceDashboardSophisticated() {
 
     const load = async () => {
       try {
-        const [data, provs] = await Promise.all([serviceAPI.getServices(), providerApi.getAll().catch(() => [])]);
+        const [data, provs] = await Promise.all([
+          serviceAPI.getServices(location ? { lat: location.lat, lng: location.lng, onlyNearby } : null),
+          providerApi.getAll().catch(() => []),
+        ]);
         if (!mounted) return;
         setServices(data.map(toCard));
         setProviders(
@@ -146,7 +164,7 @@ export default function ServiceDashboardSophisticated() {
     return () => {
       mounted = false;
     };
-  }, [reloadKey]);
+  }, [reloadKey, location, onlyNearby]);
 
   // derived categories
   const categories = useMemo(() => {
@@ -170,6 +188,7 @@ export default function ServiceDashboardSophisticated() {
 
     if (sortBy === "rating") return list.sort((a, b) => b.rating - a.rating);
     if (sortBy === "price") return list.sort((a, b) => a.price - b.price);
+    if (sortBy === "distance") return list.sort((a, b) => (a.data.distanceKm ?? Infinity) - (b.data.distanceKm ?? Infinity));
     // relevance fallback
     return list;
   }, [services, debouncedQuery, categoryFilter, minRating, sortBy]);
@@ -298,15 +317,21 @@ export default function ServiceDashboardSophisticated() {
                 <div className="flex items-center gap-2 p-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)]">
                   <select
                     value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as "relevance" | "rating" | "price")}
+                    onChange={(e) => setSortBy(e.target.value as "relevance" | "rating" | "price" | "distance")}
                     className="bg-[var(--bg)] outline-none text-[var(--text)]"
                     aria-label="Ordenar por"
                   >
                     <option value="relevance">Relevância</option>
                     <option value="rating">Avaliação</option>
                     <option value="price">Preço</option>
+                    {location && <option value="distance">Mais perto</option>}
                   </select>
                 </div>
+              </div>
+
+              {/* onde o cliente está: distância e "atende minha região" */}
+              <div className="mt-3">
+                <LocationBar location={location} onChange={setLocation} onlyNearby={onlyNearby} onOnlyNearbyChange={setOnlyNearby} />
               </div>
             </div>
           </div>
@@ -451,6 +476,7 @@ export default function ServiceDashboardSophisticated() {
                       <h3 className="text-lg font-semibold leading-tight">
                         {srv.title}
                       </h3>
+                      <ServiceAreaLine service={srv.data} />
 
                       <p className="text-sm text-[var(--text-muted)] mt-2 line-clamp-2">
                         {srv.shortDescription}
@@ -461,7 +487,7 @@ export default function ServiceDashboardSophisticated() {
                       </div>
                       <div className=" flex items-center  justify-between">
                         <div className="flex items-center  gap-3">
-                          
+
                           <div className="flex items-center mb-2 text-[var(--text-highlight)] font-semibold">
                             <Clock className="text-[var(--text)]/70 mr-2"  size={20} /> <span>{srv.duration}</span>
                           </div>
