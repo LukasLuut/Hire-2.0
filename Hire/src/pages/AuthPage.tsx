@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import bgImage from "../assets/bg-login.webp";
 import hirePng from "../assets/hire-logo.webp";
 import { userAPI, type UserAPI, type UserLoginAPI } from "../api/UserAPI";
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import UseTerms from "../components/Terms/UseTerms";
 import { useToast } from "../components/Toast/ToastContext"
 import { useSession } from "../context/SessionContext";
@@ -82,7 +82,7 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
         }
 
         await handleRegistrar(formData);
-         showToast("Usuário registrado com sucesso!", "success");
+         showToast("Conta criada! Enviamos um link para confirmar seu e-mail. Agora é só entrar.", "success");
         setIsLogin(true);
         cleanForm();
 
@@ -239,6 +239,9 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
                   >
                     Entrar
                   </button>
+                  <Link to="/esqueci-senha" className="block text-center text-sm text-[var(--text-muted)] hover:text-[var(--primary)]">
+                    Esqueci minha senha
+                  </Link>
                 </form>
               </motion.div>
             ) : (

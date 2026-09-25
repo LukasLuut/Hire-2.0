@@ -6,4 +6,6 @@ export interface User {
     about:string,
     acceptedTerms?: boolean,
     acceptedAt?: Date,
+    /** e-mail confirmado pelo link enviado no cadastro */
+    emailVerified?: boolean,
 }

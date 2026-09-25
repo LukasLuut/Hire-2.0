@@ -44,6 +44,10 @@ export class User {
   @Column({ length: 400, nullable: true })
   about: string;
 
+  // E-mail confirmado pelo link enviado no cadastro
+  @Column({ default: false })
+  emailVerified: boolean;
+
   @OneToOne(() => Address, (address) => address.user, { cascade: true })
   @JoinColumn()
   address: Address;

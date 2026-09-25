@@ -1,6 +1,9 @@
 import { Request, Response } from 'express'
 import { UserService } from '../services/UserService'
 import { generateToken } from '../utils/jwt' // Importa a função que gera o JWT
+import { accountService } from '../services/AccountService'
+
+const fail = (res: Response, e: any) => res.status(e?.status ?? 400).json({ message: e?.message ?? 'Erro inesperado' })
 
 const service = new UserService()
 
@@ -10,9 +13,43 @@ export class AuthController {
       const acceptedAt: Date = new Date();
       const body = {...req.body, acceptedAt}
       const user = await service.create(body)
+      // link de confirmação por e-mail (falha no envio não impede o cadastro)
+      await accountService.sendVerification(user.id).catch(() => null)
       res.status(201).json(user)
     } catch (e: any) {
       res.status(400).json({ message: e.message })
+    }
+  }
+
+  async verifyEmail(req: Request, res: Response) {
+    try {
+      res.json(await accountService.verify(req.body?.token))
+    } catch (e: any) {
+      fail(res, e)
+    }
+  }
+
+  async resendVerification(req: Request, res: Response) {
+    try {
+      res.json(await accountService.sendVerification((req as any).user.id))
+    } catch (e: any) {
+      fail(res, e)
+    }
+  }
+
+  async forgotPassword(req: Request, res: Response) {
+    try {
+      res.json(await accountService.forgot(req.body?.email))
+    } catch (e: any) {
+      fail(res, e)
+    }
+  }
+
+  async resetPassword(req: Request, res: Response) {
+    try {
+      res.json(await accountService.reset(req.body?.token, req.body?.password))
+    } catch (e: any) {
+      fail(res, e)
     }
   }
 

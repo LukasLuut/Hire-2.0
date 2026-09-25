@@ -7,3 +7,6 @@ uploads/
 
 # build
 dist/
+
+# e-mails de desenvolvimento (sem SMTP configurado)
+outbox/

@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "r
 
 import Navbar from "./components/Navbar";
 import Accessibility from "./components/Accessibility";
+import EmailVerifyBanner from "./components/EmailVerifyBanner";
 
 // Cada página vira um arquivo JS separado, baixado só quando a rota é aberta
 // (o login não carrega mapa, gerador de PDF nem as partículas da apresentação)
@@ -13,6 +14,9 @@ const ApresentationPage = lazy(() => import("./pages/ApresentationPage"));
 const NegotiationsPage = lazy(() => import("./pages/NegotiationsPage"));
 const ServicePage = lazy(() => import("./pages/ServicePage"));
 const PendingPage = lazy(() => import("./pages/PendingPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/AccountPages").then((m) => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import("./pages/AccountPages").then((m) => ({ default: m.ResetPasswordPage })));
+const VerifyEmailPage = lazy(() => import("./pages/AccountPages").then((m) => ({ default: m.VerifyEmailPage })));
 const ProviderPublicPage = lazy(() => import("./pages/ProviderPublicPage"));
 const ContractPreview = lazy(() => import("./components/ContractPreview").then((m) => ({ default: m.ContractPreview })));
 const NegotiationRoom = lazy(() => import("./components/Negotiation/NegotiationRoom"));
@@ -67,6 +71,7 @@ export default function App() {
     <Router>
       <Accessibility/>
       <Navbar theme={theme} setTheme={setTheme} />
+      <EmailVerifyBanner />
       <main id="main-content" tabIndex={-1} className="outline-none">
         <Suspense fallback={<PageLoading />}>
         <Routes>
@@ -76,6 +81,10 @@ export default function App() {
           {/* Rotas principais */}
           <Route path="/home" element={<RequireAuth><ProfilePage /></RequireAuth>} />
           <Route path="/auth" element={<AuthPage />} />
+          {/* Links enviados por e-mail */}
+          <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
+          <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
+          <Route path="/verificar-email" element={<VerifyEmailPage />} />
           <Route path="/apresentacao" element={<ApresentationPage />} />
           <Route path="/business" element={<RequireAuth><DashboardPrestador /></RequireAuth>} />
           <Route path="/client" element={<RequireAuth><div className="pt-20"><ServiceDashboardSophisticated /></div></RequireAuth>} />
