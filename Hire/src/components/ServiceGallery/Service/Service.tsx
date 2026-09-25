@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, Clock, Tag as TagIcon, Heart, HandCoins, SquarePen, Star } from "lucide-react";
 import ServiceDetailModal from "../ServiceDetail/ServiceDetail";
-import ServiceEditor from "../../ServiceEditor/ServiceEditor";
+import { ServiceCreationWizardModal } from "../../ServiceCreator/ServiceCreationWizardModal";
 import { serviceAPI, serviceImages, type ServiceData } from "../../../api/ServiceAPI";
 import { useToast } from "../../Toast/ToastContext";
 import { formatCurrency } from "../../../utils/format";
@@ -114,7 +114,7 @@ export default function PostCard({
   return (
     <div className="pt-5 ">
 
-      {openEdit&&(<div className="fixed inset-0 z-30"><ServiceEditor serviceId={service.id} isOpen={openEdit} onClose={()=>{setOpenEdit(false)}} onSaved={onChanged}/></div>)} 
+      <ServiceCreationWizardModal serviceId={service.id} isOpen={openEdit} onClose={()=>{setOpenEdit(false)}} onCreated={onChanged} />
     <div
       className={`relative bg-[var(--bg)] shadow-lg shadow-[#00000077] mx-auto w-full max-w-sm h-[70vh] md:h-[60vh] min-h-[460px] rounded-2xl overflow-hidden`}
       onTouchStart={onTouchStart}
@@ -224,7 +224,7 @@ export default function PostCard({
           {(service.category?.name || service.subcategory) && (
             <div className="flex items-center gap-2 text-sm text-gray-300 mb-2">
               <TagIcon size={14} />
-              <span>{service.category?.name}{service.subcategory ? ` · ${service.subcategory}` : ""}</span>
+              <span className="truncate">{service.category?.name}{service.subcategory ? ` · ${service.subcategory}` : ""}</span>
             </div>
           )}
           <h3 className="text-lg sm:text-xl font-semibold mb-2">{service.title}</h3>
@@ -235,17 +235,17 @@ export default function PostCard({
             </div>
           )}
           <p className="text-sm text-gray-200 line-clamp-2 mb-3">{service.description_service}</p>
-          <div className="flex items-center justify-between text-sm font-medium mb-2">
-            {service.price && <span className="bg-white/10 px-3 flex gap-1 items-center py-1 rounded-full backdrop-blur-sm"><HandCoins size={16}/> {formatCurrency(service.price)}</span>}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium mb-2">
+            {service.price && <span className="bg-white/10 px-3 flex gap-1 items-center py-1 rounded-full backdrop-blur-sm whitespace-nowrap"><HandCoins size={16}/> {formatCurrency(service.price)}</span>}
             {service.duration && (
-              <span className="flex items-center gap-1 bg-white/10 px-3 py-1 rounded-full backdrop-blur-sm">
+              <span className="flex items-center gap-1 bg-white/10 px-3 py-1 rounded-full backdrop-blur-sm whitespace-nowrap">
                 <Clock size={14} /> {service.duration}
               </span>
             )}
           </div>
-          <div className="flex justify-between gap-2 mb-2">
-            {service.negotiable && <span className="bg-yellow-500/30 px-2 py-1 rounded-full text-yellow-200 text-xs">Negociável</span>}
-            {service.requiresScheduling && <span className="bg-blue-500/30 px-2 py-1 rounded-full text-blue-200 text-xs">Exige agendamento</span>}
+          <div className="flex flex-wrap gap-2 mb-2">
+            {service.negotiable && <span className="bg-yellow-500/30 px-2 py-1 rounded-full text-yellow-200 text-xs whitespace-nowrap">Negociável</span>}
+            {service.requiresScheduling && <span className="bg-blue-500/30 px-2 py-1 rounded-full text-blue-200 text-xs whitespace-nowrap">Exige agendamento</span>}
           </div>
           <button 
           onClick={handleDetail}

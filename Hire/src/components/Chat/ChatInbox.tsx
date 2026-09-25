@@ -5,6 +5,7 @@ import { conversationAPI } from "../../api/ConversationAPI";
 import type { ConversationSummary } from "../../interfaces/Entities";
 import ServiceFormalizerModal from "../Negotiation/ServiceFormalizerModal";
 import { avatarFor } from "../../utils/avatar";
+import { getFirstAndLastName } from "../../utils/nameUtils";
 
 const STATUS_LABEL: Record<ConversationSummary["status"], string> = {
   OPEN: "Em negociação",
@@ -122,7 +123,7 @@ export default function ChatInbox({ isOpen, onClose, initialConversationId = nul
             ) : (
               items.map((c) => {
                 const isClient = c.myRole === "cliente";
-                const name = isClient ? c.provider?.companyName || c.provider?.professionalName : c.client?.name;
+                const name = isClient ? c.provider?.companyName || c.provider?.professionalName : getFirstAndLastName(c.client?.name ?? "") || undefined;
                 const photo = isClient ? avatarFor(c.provider?.profileImageUrl, c.provider?.companyName) : avatarFor(null, c.client?.name);
                 return (
                   <button

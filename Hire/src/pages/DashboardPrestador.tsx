@@ -23,6 +23,10 @@ import type { ConversationSummary, HireEntity, ReviewEntity } from "../interface
 import { HIRE_STAGE_LABEL_PROVIDER, getHireStage } from "../utils/hireStatus";
 import { formatCurrency, formatDate, formatDateTime } from "../utils/format";
 import { uploadUrl } from "../utils/avatar";
+import { getFirstAndLastName } from "../utils/nameUtils";
+
+// nome curto (primeiro e último) nos cartões estreitos do painel
+const short = (name: string | undefined, fallback: string) => getFirstAndLastName(name ?? "") || fallback;
 
 type Notification = { id: string; text: string; date: number };
 
@@ -71,14 +75,14 @@ export default function DashboardPrestador() {
   const pendingRequests = conversations.filter((c) => c.status === "OPEN" && c.requestStatus === "PENDENTE");
 
   const notifications: Notification[] = [
-    ...pendingRequests.map((c) => ({ id: `q${c.id}`, text: `Pedido de orçamento — ${c.client?.name ?? "Cliente"} (${c.service?.title ?? "serviço"})`, date: new Date(c.updatedAt).getTime() })),
+    ...pendingRequests.map((c) => ({ id: `q${c.id}`, text: `Pedido de orçamento — ${short(c.client?.name, "Cliente")} (${c.service?.title ?? "serviço"})`, date: new Date(c.updatedAt).getTime() })),
     ...(bookings ?? [])
       .filter((b) => getHireStage(b) === "requested")
-      .map((b) => ({ id: `h${b.id}`, text: `Novo pedido — ${b.user?.name ?? "Cliente"} (${b.service?.title ?? "serviço"})`, date: new Date(b.firstContact).getTime() })),
-    ...(reviews ?? []).map((r) => ({ id: `r${r.id}`, text: `Nova avaliação recebida — ${r.author?.name ?? "Cliente"} (${r.rating}★)`, date: new Date(r.createdAt).getTime() })),
+      .map((b) => ({ id: `h${b.id}`, text: `Novo pedido — ${short(b.user?.name, "Cliente")} (${b.service?.title ?? "serviço"})`, date: new Date(b.firstContact).getTime() })),
+    ...(reviews ?? []).map((r) => ({ id: `r${r.id}`, text: `Nova avaliação recebida — ${short(r.author?.name, "Cliente")} (${r.rating}★)`, date: new Date(r.createdAt).getTime() })),
     ...conversations
       .filter((c) => c.lastMessage && c.lastMessage.role === "cliente")
-      .map((c) => ({ id: `c${c.id}`, text: `Mensagem de ${c.client?.name ?? "cliente"} — ${c.lastMessage!.text}`, date: new Date(c.lastMessage!.createdAt).getTime() })),
+      .map((c) => ({ id: `c${c.id}`, text: `Mensagem de ${short(c.client?.name, "cliente")} — ${c.lastMessage!.text}`, date: new Date(c.lastMessage!.createdAt).getTime() })),
   ]
     .sort((a, b) => b.date - a.date)
     .slice(0, 4);
@@ -209,7 +213,7 @@ export default function DashboardPrestador() {
                       <div key={c.id} className="flex items-start gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)]">
                         <FileText size={18} className="text-[var(--primary)] mt-0.5 shrink-0" />
                         <div className="flex-1 text-sm min-w-0">
-                          <div className="font-medium">{c.client?.name ?? "Cliente"}</div>
+                          <div className="font-medium">{short(c.client?.name, "Cliente")}</div>
                           <div className="text-xs text-[var(--text-muted)] truncate">{c.service?.title}</div>
                           {c.request?.budget && <div className="text-xs mt-1">Orçamento: {c.request.budget}</div>}
                         </div>
@@ -237,17 +241,18 @@ export default function DashboardPrestador() {
                     const img = uploadUrl(svc?.imageUrl) ?? `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(svc?.title ?? "servico")}`;
                     return (
                       <div key={b.id} className="flex items-start gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)]">
-                        <div className="w-10 h-10 rounded-md overflow-hidden">
+                        <div className="w-10 h-10 rounded-md overflow-hidden shrink-0">
                           <img src={img} alt={svc?.title} className="w-full h-full object-cover" />
                         </div>
-                        <div className="flex-1 text-sm">
-                          <div className="font-medium">{b.user?.name ?? "Cliente"}</div>
-                          <div className="text-[var(--text-muted)] text-xs">{b.scheduledAt ? `Agendado: ${formatDateTime(b.scheduledAt)}` : formatDate(b.firstContact)}</div>
+                        {/* nome e valor na mesma linha; datas e status sem quebrar no meio */}
+                        <div className="flex-1 min-w-0 text-sm">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="font-medium truncate">{short(b.user?.name, "Cliente")}</span>
+                            <span className="font-semibold text-xs whitespace-nowrap">{formatCurrency(b.price)}</span>
+                          </div>
+                          <div className="text-[var(--text-muted)] text-xs whitespace-nowrap">{b.scheduledAt ? `Agendado: ${formatDateTime(b.scheduledAt)}` : formatDate(b.firstContact)}</div>
                           <div className="text-xs mt-1">{svc?.title}</div>
-                        </div>
-                        <div className="text-right text-xs">
-                          <div className="font-semibold">{formatCurrency(b.price)}</div>
-                          <div className="text-[var(--text-muted)]">{HIRE_STAGE_LABEL_PROVIDER[getHireStage(b)]}</div>
+                          <div className="text-[var(--text-muted)] text-xs mt-0.5">{HIRE_STAGE_LABEL_PROVIDER[getHireStage(b)]}</div>
                         </div>
                       </div>
                     );
@@ -272,7 +277,7 @@ export default function DashboardPrestador() {
                   {(reviews ?? []).slice(0, 3).map((r) => (
                     <div key={r.id} className="p-3 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)]">
                       <div className="flex items-center justify-between">
-                        <div className="text-sm font-medium">{r.author?.name ?? "Cliente"}</div>
+                        <div className="text-sm font-medium">{short(r.author?.name, "Cliente")}</div>
                         <div className="text-yellow-400 text-sm flex items-center gap-1"><Star size={14} fill="currentColor" /> {r.rating.toFixed(1)}</div>
                       </div>
                       {r.comment && <div className="text-xs text-[var(--text-muted)] mt-2">{r.comment}</div>}

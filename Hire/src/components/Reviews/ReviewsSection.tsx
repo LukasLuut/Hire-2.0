@@ -6,6 +6,7 @@ import { ReviewsSkeleton } from "../../skeletons/ProviderProfileSkeleton/Reviews
 import type { ReviewList } from "../../interfaces/Entities";
 import { uploadUrl } from "../../utils/avatar";
 import { formatDate } from "../../utils/format";
+import { getFirstAndLastName } from "../../utils/nameUtils";
 
 /* --------------------------------------------------------------------------
  * ReviewsSection — avaliações no mesmo card do perfil original
@@ -100,7 +101,7 @@ export default function ReviewsSection({ title = "Avaliações", load, emptyText
                   </div>
                 )}
 
-                <span className="text-[var(--text)]/80 font-semibold mt-2">— {review.author?.name ?? "Usuário"}</span>
+                <span className="text-[var(--text)]/80 font-semibold mt-2">— {getFirstAndLastName(review.author?.name ?? "") || "Usuário"}</span>
               </motion.div>
             );
           })}

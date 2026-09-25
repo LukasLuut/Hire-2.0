@@ -14,6 +14,7 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
     ? [
         { label: "Home", to: "/home" },
         { label: "Contratações", to: "/hires" },
+        { label: "Negociações", to: "/negotiations" },
         ...(provider ? [{ label: "Business", to: "/business" }] : []),
       ]
     : [];

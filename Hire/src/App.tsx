@@ -5,6 +5,8 @@ import Navbar from "./components/Navbar";
 import ProfilePage from "./pages/ProfilePage";
 import DashboardPrestador from "./pages/DashboardPrestador";
 import AuthPage from "./pages/AuthPage";
+import ApresentationPage from "./pages/ApresentationPage";
+import NegotiationsPage from "./pages/NegotiationsPage";
 import ProviderPublicPage from "./pages/ProviderPublicPage";
 import { ContractPreview } from "./components/ContractPreview";
 import NegotiationRoom from "./components/Negotiation/NegotiationRoom";
@@ -20,9 +22,10 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+// "/" mostra a apresentação para visitantes; quem já entrou vai para a Home
 function RootRedirect() {
   const { token } = useSession();
-  return <Navigate to={token ? "/home" : "/auth"} replace />;
+  return token ? <Navigate to="/home" replace /> : <ApresentationPage />;
 }
 
 export default function App() {
@@ -57,6 +60,7 @@ export default function App() {
           {/* Rotas principais */}
           <Route path="/home" element={<RequireAuth><ProfilePage /></RequireAuth>} />
           <Route path="/auth" element={<AuthPage />} />
+          <Route path="/apresentacao" element={<ApresentationPage />} />
           <Route path="/business" element={<RequireAuth><DashboardPrestador /></RequireAuth>} />
           <Route path="/client" element={<RequireAuth><div className="pt-20"><ServiceDashboardSophisticated /></div></RequireAuth>} />
           <Route path="/progress" element={<RequireAuth><ServiceProgressContainer viewFor="provider" /></RequireAuth>} />
@@ -67,10 +71,11 @@ export default function App() {
           <Route path="/contract/:id" element={<RequireAuth><ContractPreview /></RequireAuth>} />
 
           {/* Negociação e agendamento */}
+          <Route path="/negotiations" element={<RequireAuth><NegotiationsPage /></RequireAuth>} />
           <Route path="/negotiation/:id" element={<RequireAuth><NegotiationRoom /></RequireAuth>} />
 
           {/* Rota fallback */}
-          <Route path="*" element={<RootRedirect />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
     </Router>

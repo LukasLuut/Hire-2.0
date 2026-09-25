@@ -192,8 +192,8 @@ export default function ServiceNegotiationModal({
   };
 
   /* ---------------------------
-   * Enviar proposta (mock)
-   * - aqui você chamaria sua API para enviar o pedido.
+   * Enviar proposta
+   * - cria a negociação com o pedido e os anexos (POST /conversations/request)
    * - depois de enviar, passamos à etapa 4 (confirmação)
    * --------------------------- */
   const submitProposal = async () => {

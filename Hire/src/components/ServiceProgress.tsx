@@ -22,6 +22,7 @@ import { HIRE_STEPS, HIRE_STAGE_LABEL, HIRE_STAGE_LABEL_PROVIDER, getHireStage, 
 import { formatCurrency, formatDate, formatDateTime } from "../utils/format";
 import { defaultAvatar, uploadUrl } from "../utils/avatar";
 import { getErrorMessage } from "../utils/errors";
+import { getFirstAndLastName } from "../utils/nameUtils";
 
 /* -----------------------------
    Tipagens (Types) - fácil leitura
@@ -72,7 +73,7 @@ export function ServiceProgress({
   const stage = getHireStage(data);
   const currentIndex = stepIndex(stage);
   const providerName = data.provider?.companyName || data.provider?.professionalName || "Prestador";
-  const clientName = data.user?.name ?? "Cliente";
+  const clientName = getFirstAndLastName(data.user?.name ?? "") || "Cliente";
   const titleId = `service-progress-title-${data.id}`;
   const actionsId = `actions-title-${data.id}`;
   const token = localStorage.getItem("token") ?? "";

@@ -11,7 +11,8 @@ import { useSession } from "../context/SessionContext";
 
 
 
-export default function AuthPage() {
+/** embedded: dentro da página de apresentação (não redireciona quem já está logado) */
+export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
@@ -32,8 +33,8 @@ export default function AuthPage() {
 
   // Quem já está logado vai direto para a página inicial
   useEffect(() => {
-    if (token) navigate("/home", { replace: true });
-  }, [token, navigate])
+    if (token && !embedded) navigate("/home", { replace: true });
+  }, [token, navigate, embedded])
 
   const cleanForm = () => {
     setFormData({

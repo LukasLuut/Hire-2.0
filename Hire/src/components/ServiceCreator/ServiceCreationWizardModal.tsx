@@ -10,12 +10,14 @@
  * - Layout aprimorado e responsivo
  * - Duração e agenda com o ScheduleConfigurator
  * - Publica o serviço na API (imagens na ordem escolhida; a primeira é a capa)
+ * - Com serviceId, o mesmo assistente edita um serviço existente: carrega os
+ *   dados, permite pular entre as etapas e salvar a qualquer momento
  * -------------------------------------------------------------------------- */
 
 import { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
 import { motion, AnimatePresence, Reorder } from "framer-motion";
-import { X, Info, Loader2 } from "lucide-react";
+import { X, Info, Loader2, Save, Trash } from "lucide-react";
 import { categoryAPI } from "../../api/CategoryAPI";
 import { serviceAPI } from "../../api/ServiceAPI";
 import type { Category } from "../../interfaces/CategoryInterface";
@@ -24,6 +26,8 @@ import ScheduleConfigurator from "../Schedule";
 import { useToast } from "../Toast/ToastContext";
 import { getErrorMessage } from "../../utils/errors";
 import { formatCurrency } from "../../utils/format";
+import { uploadUrl } from "../../utils/avatar";
+import ConfirmModal from "../Common/ConfirmModal";
 
 /* --------------------------------------------------------------------------
  * Tipagem dos dados do formulário
@@ -42,10 +46,11 @@ interface ServiceFormData {
   acceptedTerms: boolean;
 }
 
-/** Imagem escolhida: o id estável permite reordenar sem perder a miniatura */
+/** Imagem da lista: já publicada (path no servidor) ou nova (file); o id estável permite reordenar */
 interface WizardImage {
   id: string;
-  file: File;
+  file?: File;
+  path?: string;
   url: string;
 }
 
@@ -64,6 +69,7 @@ const EMPTY_FORM: ServiceFormData = {
 };
 
 const TOTAL_STEPS = 8;
+const STEP_LABELS = ["Imagens", "Categoria", "Subcategoria", "Título", "Preço", "Agenda", "Termos", "Revisão"];
 const MAX_IMAGES = 8;
 
 /** "1.250,50" ou "1250.5" → 1250.5 */
@@ -115,12 +121,16 @@ export const ServiceCreationWizardModal = ({
   isOpen,
   onClose,
   onCreated,
+  serviceId = null,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  /** chamado depois de publicar (ex.: recarregar a galeria) */
+  /** chamado depois de publicar, salvar ou excluir (ex.: recarregar a galeria) */
   onCreated?: () => void;
+  /** quando informado, o assistente edita esse serviço */
+  serviceId?: number | null;
 }) => {
+  const isEdit = !!serviceId;
   /* --------------------------------------------------------------------------
    * Estados
    * -------------------------------------------------------------------------- */
@@ -130,6 +140,9 @@ export const ServiceCreationWizardModal = ({
   const [step, setStep] = useState(0);
   const [imageList, setImageList] = useState<WizardImage[]>([]);
   const [publishing, setPublishing] = useState(false);
+  const [loadingService, setLoadingService] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const progressPercentage = ((step + 1) / TOTAL_STEPS) * 100;
   const categoryName = categories.find((c) => c.id === formData.categoryId)?.name ?? "";
   const price = parsePrice(formData.price);
@@ -139,13 +152,44 @@ export const ServiceCreationWizardModal = ({
     categoryAPI.getCategory().then((c) => setCategories(c ?? [])).catch(() => setCategories([]));
   }, [isOpen]);
 
+  // edição: carrega o serviço e preenche todas as etapas
+  useEffect(() => {
+    if (!isOpen || !serviceId) return;
+    let active = true;
+    setLoadingService(true);
+    serviceAPI
+      .getServiceById(serviceId)
+      .then((svc) => {
+        if (!active || !svc) return;
+        setFormData({
+          categoryId: svc.category?.id || "",
+          subcategory: svc.subcategory,
+          title: svc.title,
+          description: svc.description_service,
+          price: svc.price.toFixed(2).replace(".", ","),
+          negotiable: svc.negotiable,
+          duration: svc.duration || "1 hora",
+          requiresScheduling: svc.requiresScheduling,
+          scheduleSlots: svc.scheduleSlots ?? {},
+          cancellationNotice: svc.cancellationNotice ?? "",
+          acceptedTerms: true,
+        });
+        setImageList(svc.imagePaths.map((path) => ({ id: path, path, url: uploadUrl(path)! })));
+      })
+      .catch((err) => showToast(getErrorMessage(err, "Não foi possível carregar o serviço."), "error"))
+      .finally(() => active && setLoadingService(false));
+    return () => {
+      active = false;
+    };
+  }, [isOpen, serviceId, showToast]);
+
   // ao fechar, limpa tudo (e libera as miniaturas)
   useEffect(() => {
     if (isOpen) return;
     setStep(0);
     setFormData(EMPTY_FORM);
     setImageList((prev) => {
-      prev.forEach((img) => URL.revokeObjectURL(img.url));
+      prev.forEach((img) => img.file && URL.revokeObjectURL(img.url));
       return [];
     });
   }, [isOpen]);
@@ -189,7 +233,7 @@ export const ServiceCreationWizardModal = ({
   const removeImage = (id: string) => {
     setImageList((prev) => {
       const gone = prev.find((i) => i.id === id);
-      if (gone) URL.revokeObjectURL(gone.url);
+      if (gone?.file) URL.revokeObjectURL(gone.url);
       return prev.filter((i) => i.id !== id);
     });
   };
@@ -199,6 +243,13 @@ export const ServiceCreationWizardModal = ({
    * -------------------------------------------------------------------------- */
   async function handleSubmit() {
     if (publishing) return;
+    // na edição o salvar fica disponível em qualquer etapa: valida tudo de uma vez
+    const problem = validateAll();
+    if (problem) {
+      showToast(problem.message, "warning");
+      setStep(problem.step);
+      return;
+    }
     setPublishing(true);
     try {
       const data = new FormData();
@@ -214,30 +265,63 @@ export const ServiceCreationWizardModal = ({
         data.append("scheduleSlots", JSON.stringify(formData.scheduleSlots));
         data.append("cancellationNotice", formData.cancellationNotice.trim());
       }
-      imageList.forEach((img) => data.append("images", img.file));
-      await serviceAPI.create(data);
-      showToast("Serviço publicado!", "success");
+      imageList.forEach((img) => img.file && data.append("images", img.file));
+      if (isEdit) {
+        // mantém as imagens já publicadas que ficaram, na ordem da lista
+        data.append("keepImages", JSON.stringify(imageList.filter((i) => i.path).map((i) => i.path)));
+        await serviceAPI.update(serviceId!, data);
+        showToast("Alterações salvas.", "success");
+      } else {
+        await serviceAPI.create(data);
+        showToast("Serviço publicado!", "success");
+      }
       onCreated?.();
       onClose();
     } catch (err) {
-      showToast(getErrorMessage(err, "Não foi possível publicar o serviço."), "error");
+      showToast(getErrorMessage(err, isEdit ? "Não foi possível salvar o serviço." : "Não foi possível publicar o serviço."), "error");
     } finally {
       setPublishing(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!serviceId) return;
+    setDeleting(true);
+    try {
+      await serviceAPI.deleteUser(serviceId);
+      showToast("Serviço removido.", "success");
+      setConfirmDelete(false);
+      onCreated?.();
+      onClose();
+    } catch (err) {
+      // ex.: serviço com contratação em andamento
+      showToast(getErrorMessage(err, "Não foi possível excluir o serviço."), "error");
+      setConfirmDelete(false);
+    } finally {
+      setDeleting(false);
     }
   }
 
   const hasSlots = Object.values(formData.scheduleSlots).some((t) => t && t.length > 0);
 
   // O que falta em cada etapa (null = pode avançar)
-  const blocker = (() => {
-    if (step === 1 && !formData.categoryId) return "Escolha uma categoria";
-    if (step === 3 && (!formData.title.trim() || !formData.description.trim())) return "Preencha título e descrição";
-    if (step === 3 && formData.description.trim().length > 250) return "A descrição pode ter até 250 caracteres";
-    if (step === 4 && !(price > 0)) return "Informe um preço válido";
-    if (step === 5 && formData.requiresScheduling && !hasSlots) return "Escolha ao menos um horário na agenda";
-    if (step === 6 && !formData.acceptedTerms) return "Aceite os termos para continuar";
+  const problemAt = (i: number): string | null => {
+    if (i === 1 && !formData.categoryId) return "Escolha uma categoria";
+    if (i === 3 && (!formData.title.trim() || !formData.description.trim())) return "Preencha título e descrição";
+    if (i === 3 && formData.description.trim().length > 250) return "A descrição pode ter até 250 caracteres";
+    if (i === 4 && !(price > 0)) return "Informe um preço válido";
+    if (i === 5 && formData.requiresScheduling && !hasSlots) return "Escolha ao menos um horário na agenda";
+    if (i === 6 && !formData.acceptedTerms) return "Aceite os termos para continuar";
     return null;
-  })();
+  };
+  const blocker = problemAt(step);
+  function validateAll() {
+    for (let i = 0; i < TOTAL_STEPS; i++) {
+      const message = problemAt(i);
+      if (message) return { step: i, message };
+    }
+    return null;
+  }
 
   // -----------------------------------------------------------------------------
   // Componente: ServicePreview
@@ -380,7 +464,7 @@ export const ServiceCreationWizardModal = ({
      *   ETAPA 0 — UPLOAD DE IMAGENS
      * ------------------------------------------------------------------------ */
     <div className="flex flex-col gap-4 p-4 border-2 border-dashed border-[var(--border)] rounded-lg bg-[var(--bg-dark)]">
-      <label htmlFor="wizard-images" className="text-[var(--text)] font-semibold">Adicione imagens do serviço</label>
+      <label htmlFor="wizard-images" className="text-[var(--text)] font-semibold">{isEdit ? "Imagens do serviço" : "Adicione imagens do serviço"}</label>
       <Tooltip text={`A primeira imagem será usada como capa do serviço (até ${MAX_IMAGES}). Opcional.`} />
 
       {/* Input nativo para múltiplas imagens */}
@@ -522,7 +606,7 @@ export const ServiceCreationWizardModal = ({
      * ------------------------------------------------------------------------ */
     <div className="flex flex-col gap-2">
       <p className="text-[var(--text-muted)]">
-        Antes de publicar, confirme que leu e aceita os termos da plataforma.
+        {isEdit ? "Você já aceitou os termos da plataforma ao publicar este serviço." : "Antes de publicar, confirme que leu e aceita os termos da plataforma."}
       </p>
       <div className="flex items-center gap-2">
         <span className="text-[var(--text)]">Aceito os termos</span>
@@ -551,7 +635,7 @@ export const ServiceCreationWizardModal = ({
         className="mt-4 px-4 py-2 bg-[var(--primary)] text-white rounded hover:bg-[var(--primary)]/80 transition disabled:opacity-60 flex items-center justify-center gap-2"
       >
         {publishing && <Loader2 size={16} className="animate-spin" />}
-        {publishing ? "Publicando..." : "Publicar serviço"}
+        {publishing ? (isEdit ? "Salvando..." : "Publicando...") : isEdit ? "Salvar alterações" : "Publicar serviço"}
       </button>
     </div>,
   ];
@@ -575,7 +659,7 @@ export const ServiceCreationWizardModal = ({
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label="Criar serviço"
+            aria-label={isEdit ? "Editar serviço" : "Criar serviço"}
             className="bg-[var(--bg)] rounded-2xl shadow-2xl p-6 w-[95%] max-w-xl min-h-[32vh] max-h-[85vh] overflow-y-auto overflow-x-hidden relative"
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -593,7 +677,25 @@ export const ServiceCreationWizardModal = ({
             </button>
 
             {/* Barra de progresso das etapas */}
-            <div className="mx-10 mb-1 text-xs text-center text-[var(--text-muted)]">Etapa {step + 1} de {TOTAL_STEPS}</div>
+            <div className="mx-10 mb-1 text-xs text-center text-[var(--text-muted)]">
+              {isEdit ? "Editar serviço · " : ""}Etapa {step + 1} de {TOTAL_STEPS}
+            </div>
+            {/* Na edição dá para ir direto a qualquer etapa */}
+            {isEdit && (
+              <nav aria-label="Etapas" className="mx-6 mb-3 flex flex-wrap justify-center gap-1.5">
+                {STEP_LABELS.map((label, i) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setStep(i)}
+                    aria-current={i === step ? "step" : undefined}
+                    className={`px-2.5 py-1 rounded-full text-xs border transition ${i === step ? "bg-[var(--primary)] text-white border-[var(--primary)]" : "border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"} ${problemAt(i) ? "border-yellow-500/70" : ""}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </nav>
+            )}
             <div className="mx-10 h-2 bg-[var(--border-muted)] rounded-full mb-6 overflow-hidden">
               <motion.div
                 className="h-2 bg-[var(--primary)]"
@@ -604,6 +706,9 @@ export const ServiceCreationWizardModal = ({
             </div>
 
             {/* Renderização da etapa atual */}
+            {loadingService ? (
+              <div className="py-16 flex justify-center text-[var(--text-muted)]"><Loader2 className="animate-spin" aria-label="Carregando serviço" /></div>
+            ) : (
             <AnimatePresence mode="wait">
               <motion.div
                 key={step}
@@ -615,6 +720,7 @@ export const ServiceCreationWizardModal = ({
                 {stepsContent[step]}
               </motion.div>
             </AnimatePresence>
+            )}
 
             {/* Navegação entre etapas */}
             {blocker && <p className="text-xs text-[var(--text-muted)] mt-4 text-right">{blocker}</p>}
@@ -628,18 +734,54 @@ export const ServiceCreationWizardModal = ({
                 Anterior
               </button>
 
-              {step < TOTAL_STEPS - 1 && (
+              <div className="flex gap-2">
+                {/* edição: salvar e excluir em qualquer etapa */}
+                {isEdit && step < TOTAL_STEPS - 1 && (
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={publishing || loadingService}
+                    className="px-4 py-2 border border-[var(--primary)] text-[var(--text)] rounded hover:bg-[var(--primary)]/20 transition disabled:opacity-50 flex items-center gap-2"
+                  >
+                    <Save size={16} /> {publishing ? "Salvando..." : "Salvar"}
+                  </button>
+                )}
+                {step < TOTAL_STEPS - 1 && (
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    disabled={!!blocker}
+                    className="px-4 py-2 bg-[var(--primary)] text-white rounded hover:bg-[var(--primary)]/80 transition disabled:opacity-50"
+                  >
+                    Próximo
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {isEdit && (
+              <div className="mt-6 pt-4 border-t border-[var(--border)] flex justify-end">
                 <button
                   type="button"
-                  onClick={handleNext}
-                  disabled={!!blocker}
-                  className="px-4 py-2 bg-[var(--primary)] text-white rounded hover:bg-[var(--primary)]/80 transition disabled:opacity-50"
+                  onClick={() => setConfirmDelete(true)}
+                  className="text-sm flex items-center gap-2 text-red-500 hover:text-red-400"
                 >
-                  Próximo
+                  <Trash size={14} /> Excluir serviço
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </motion.div>
+
+          <ConfirmModal
+            open={confirmDelete}
+            title="Excluir este serviço?"
+            description="Ele deixa de aparecer na busca. Serviços com contratação em andamento não podem ser excluídos."
+            confirmLabel="Excluir serviço"
+            danger
+            loading={deleting}
+            onConfirm={handleDelete}
+            onClose={() => setConfirmDelete(false)}
+          />
         </motion.div>
       )}
     </AnimatePresence>

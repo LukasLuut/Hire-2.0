@@ -241,7 +241,7 @@ export default function ServiceGalleryZoom({
             <button onClick={() => { setSearchTerm(""); setMinRating(0); setPriceOrder(null); }} className="text-[var(--primary)] underline">Limpar filtros</button>
           </div>
         ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 pb-16">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-8 pb-16">
           {filtered.map((srv) => (
               <PostCard key={srv.id} service={srv} noEdit={noEdit} liked={likedIds.includes(srv.id)} onChanged={getServices}/>
           ))}
