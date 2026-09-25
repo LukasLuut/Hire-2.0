@@ -87,6 +87,16 @@ export class ServiceService {
   }
 
   /** IDs dos serviços que o usuário curtiu. */
+  /** Serviços curtidos pelo usuário, com nota (pausados vêm marcados com active=false). */
+  async favorites(userId: number) {
+    const likes = await this.likeRepository.find({
+      where: { user: { id: userId } },
+      relations: { service: { category: true, provider: true } },
+      order: { id: "DESC" },
+    });
+    return this.withStats(likes.map((l) => l.service).filter(Boolean));
+  }
+
   async likedBy(userId: number) {
     const likes = await this.likeRepository.find({ where: { user: { id: userId } }, relations: { service: true } });
     return likes.map((l) => l.service.id);

@@ -45,6 +45,14 @@ export class ServiceController {
         }
     }
 
+    favorites = async (req: Request, res: Response) => {
+        try {
+            res.json(await serviceService.favorites((req as any).user.id));
+        } catch (e: any) {
+            res.status(400).json({ message: e.message });
+        }
+    }
+
     likedByMe = async (req: Request, res: Response) => {
         try {
             res.json(await serviceService.likedBy((req as any).user.id));

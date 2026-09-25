@@ -121,6 +121,12 @@ export const serviceAPI = {
     return await apiRequest<{ liked: boolean; likesNumber: number }>(`/services/${id}/like`, { method: "POST", headers: auth(token) });
   },
 
+  /** Serviços curtidos pelo usuário (favoritos). */
+  favorites: async (token: string): Promise<ServiceData[]> => {
+    const list = await apiRequest<ServiceEntity[]>("/services/favorites", { headers: auth(token) });
+    return Array.isArray(list) ? list.map(toServiceData) : [];
+  },
+
   likedIds: async (token: string): Promise<number[]> => {
     return (await apiRequest<number[]>("/services/liked", { headers: auth(token) })) ?? [];
   },

@@ -6,7 +6,7 @@
 // - Etapas reais do pedido (status do cliente e do prestador)
 // - Usa variáveis CSS do projeto: --bg, --bg-light, --border, --text, --primary, --highlight
 
-import { CheckCircle, MessageSquare, Star } from "lucide-react";
+import { CheckCircle, MessageSquare, Star, RotateCcw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import PostCard from "./ServiceGallery/Service/Service";
 import ConfirmModal from "./Common/ConfirmModal";
@@ -15,7 +15,8 @@ import ChatInbox from "./Chat/ChatInbox";
 import { hireAPI } from "../api/HireAPI";
 import { reviewAPI } from "../api/ReviewAPI";
 import { conversationAPI } from "../api/ConversationAPI";
-import { toServiceData } from "../api/ServiceAPI";
+import { serviceImages, toServiceData } from "../api/ServiceAPI";
+import ServiceDetail from "./ServiceGallery/ServiceDetail/ServiceDetail";
 import { useToast } from "./Toast/ToastContext";
 import type { HireEntity } from "../interfaces/Entities";
 import { HIRE_STEPS, HIRE_STAGE_LABEL, HIRE_STAGE_LABEL_PROVIDER, getHireStage, stepIndex } from "../utils/hireStatus";
@@ -65,6 +66,7 @@ export function ServiceProgress({
   const [busy, setBusy] = useState(false);
   const [reviewed, setReviewed] = useState<boolean | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [rehireOpen, setRehireOpen] = useState(false);
   const [chatId, setChatId] = useState<number | null>(null);
   // depois de confirmar a conclusão, a lista só recarrega quando o modal de avaliação fecha
   // (senão o card vai para "Encerradas" e o modal some junto)
@@ -294,6 +296,12 @@ export function ServiceProgress({
                   {stage === "done" && reviewed && (
                     <p className="text-sm text-[var(--text-muted)]">Você já avaliou esta contratação. Obrigado!</p>
                   )}
+                  {/* recontratar: abre o serviço já com "Contratar novamente" */}
+                  {viewFor === "client" && (stage === "done" || stage === "cancelled") && data.service && (
+                    <button className={`${buttonClass()} flex items-center gap-2`} onClick={() => setRehireOpen(true)}>
+                      <RotateCcw size={16} /> Contratar de novo
+                    </button>
+                  )}
                 </div>
               </section>
             </main>
@@ -321,6 +329,15 @@ export function ServiceProgress({
           loading={busy}
           onConfirm={run}
           onClose={() => setPending(null)}
+        />
+      )}
+
+      {rehireOpen && data.service && (
+        <ServiceDetail
+          service={toServiceData(data.service)}
+          images={serviceImages(toServiceData(data.service))}
+          isOpen
+          onClose={() => setRehireOpen(false)}
         />
       )}
 

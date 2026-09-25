@@ -21,6 +21,7 @@ import { useSession } from "../context/SessionContext";
 import ChatInbox from "../components/Chat/ChatInbox";
 import ConfirmModal from "../components/Common/ConfirmModal";
 import ReviewsSection from "../components/Reviews/ReviewsSection";
+import FavoritesSection from "../components/Favorites/FavoritesSection";
 import { defaultAvatar } from "../utils/avatar";
 import { getErrorMessage } from "../utils/errors";
 import type { RatingStats } from "../interfaces/Entities";
@@ -256,6 +257,7 @@ export default function ProfilePage() {
 
           <div className="flex flex-col items-center justify-center min-h-50 bg-[var(--bg-dark)] border-b-1  border-[var(--border)] text-[var(--text)]">
 
+            {!registration&&(<FavoritesSection />)}
             {!registration&&(<ServiceDashboardSophisticated />)}
 
           </div>
