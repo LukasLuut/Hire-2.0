@@ -45,3 +45,36 @@ export function fitsSchedule(slots: Record<string, string[]> | null | undefined,
   const hhmm = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
   return (slots[day] ?? []).includes(hhmm);
 }
+
+/** "2 horas" → 120, "30 minutos" → 30, "1 dia" → 1440; texto livre conta como 1 hora (igual ao DurationPicker). */
+export function durationMinutes(text: unknown): number {
+  const m = String(text ?? "").trim().toLowerCase().match(/^(\d+)\s*(min|minutos?|h|horas?|d|dias?|sem|semanas?)\b/);
+  if (!m) return 60;
+  const n = Math.max(1, Number(m[1]));
+  const u = m[2];
+  return u.startsWith("min") ? n : u.startsWith("h") ? n * 60 : u.startsWith("d") ? n * 1440 : n * 10080;
+}
+
+export type BusinessHours = Record<string, { start: string; end: string }>;
+
+const toMinutes = (hhmm: string) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + (m || 0);
+};
+
+/**
+ * O atendimento cabe no expediente do prestador? Sem expediente cadastrado, qualquer horário vale.
+ * Serviços de um dia ou mais só precisam começar dentro do expediente.
+ */
+export function withinBusinessHours(hours: BusinessHours, start: Date, minutes: number) {
+  if (!Object.keys(hours).length) return true;
+  const day = hours[WEEK_DAYS[start.getDay()]];
+  if (!day) return false;
+  const begin = start.getHours() * 60 + start.getMinutes();
+  if (begin < toMinutes(day.start) || begin >= toMinutes(day.end)) return false;
+  return minutes >= 1440 || begin + minutes <= toMinutes(day.end);
+}
+
+/** Dois intervalos [início, início + duração) se sobrepõem? */
+export const overlaps = (aStart: Date, aMin: number, bStart: Date, bMin: number) =>
+  aStart.getTime() < bStart.getTime() + bMin * 60000 && bStart.getTime() < aStart.getTime() + aMin * 60000;

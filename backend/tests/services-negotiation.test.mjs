@@ -28,13 +28,14 @@ test("agendamento: horário obrigatório, dentro da agenda, sem duplicar", async
   assert.equal((await req("POST", "/hires", t.cli, { serviceId: svc.id })).s, 400);
   assert.equal((await req("POST", "/hires", t.cli, { serviceId: svc.id, scheduledAt: nextWeekday(3, "08:00") })).s, 400);
   // primeiro horário livre de segunda-feira nas próximas semanas (reservas de rodadas anteriores continuam no banco)
-  const booked = new Set((await req("GET", `/hires/booked/${svc.id}`, t.cli)).j.map((d) => new Date(d).getTime()));
+  const agenda = (await req("GET", `/hires/booked/${svc.id}`, t.cli)).j;
+  const free = (at) => !agenda.busy.some((b) => at < new Date(b.end).getTime() && new Date(b.start).getTime() < at + agenda.durationMinutes * 60000);
   let slot = null;
   for (let week = 0; week < 52 && !slot; week++) {
     for (const time of ["08:00", "10:00"]) {
       const base = new Date(nextWeekday(1, time));
       base.setDate(base.getDate() + week * 7);
-      if (!booked.has(base.getTime())) {
+      if (free(base.getTime())) {
         const p = (n) => String(n).padStart(2, "0");
         slot = `${base.getFullYear()}-${p(base.getMonth() + 1)}-${p(base.getDate())}T${time}`;
         break;
@@ -45,7 +46,7 @@ test("agendamento: horário obrigatório, dentro da agenda, sem duplicar", async
   const h = await req("POST", "/hires", t.cli, { serviceId: svc.id, scheduledAt: slot });
   assert.equal(h.s, 201, JSON.stringify(h.j));
   assert.equal((await req("POST", "/hires", t.cli, { serviceId: svc.id, scheduledAt: slot })).s, 409);
-  assert.ok((await req("GET", `/hires/booked/${svc.id}`, t.cli)).j.length >= 1);
+  assert.ok((await req("GET", `/hires/booked/${svc.id}`, t.cli)).j.busy.length >= 1);
   await req("PUT", `/hires/${h.j.id}`, t.cli, { status: "CANCELADO" });
 });
 

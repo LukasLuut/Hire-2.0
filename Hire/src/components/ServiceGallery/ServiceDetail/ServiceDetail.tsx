@@ -21,7 +21,7 @@ import { useSession } from "../../../context/SessionContext";
 import ChatInbox from "../../Chat/ChatInbox";
 import ReviewModal from "../../Reviews/ReviewModal";
 import ServiceNegotiationModal from "../../Negotiation/ServiceNegotiationModal";
-import { SlotPicker } from "../../Schedule";
+import { SlotPicker, type Agenda } from "../../Schedule";
 import type { HireEntity } from "../../../interfaces/Entities";
 import { formatCurrency } from "../../../utils/format";
 import { formatServicePrice, isQuoteOnly, needsQuantity } from "../../../utils/price";
@@ -65,7 +65,7 @@ export default function ServiceDetail({
   const [chatId, setChatId] = useState<number | null>(null)
   const [quoteOpen, setQuoteOpen] = useState(false)
   const [slot, setSlot] = useState<string | null>(null)
-  const [booked, setBooked] = useState<string[]>([])
+  const [agenda, setAgenda] = useState<Agenda | null>(null)
   // preço: pacote escolhido e quantidade (horas/m²)
   const [pkgIndex, setPkgIndex] = useState<number | null>(null)
   const [quantity, setQuantity] = useState("")
@@ -167,7 +167,8 @@ export default function ServiceDetail({
   useEffect(() => {
     if (confirming !== "hire" || !service.requiresScheduling) return;
     setSlot(null);
-    hireAPI.bookedSlots(service.id).then(setBooked).catch(() => setBooked([]));
+    setAgenda(null);
+    hireAPI.bookedSlots(service.id).then(setAgenda).catch(() => setAgenda({ busy: [], hours: {}, durationMinutes: 60 }));
   }, [confirming, service.id, service.requiresScheduling]);
 
   const stage = myHire ? getHireStage(myHire) : null;
@@ -483,7 +484,7 @@ export default function ServiceDetail({
                 {confirming === "hire" && service.requiresScheduling && (
                   <div className="mt-3">
                     <p className="text-sm font-semibold mb-2">Escolha o horário de início</p>
-                    <SlotPicker slots={service.scheduleSlots} booked={booked} value={slot} onChange={setSlot} />
+                    {agenda ? <SlotPicker slots={service.scheduleSlots} agenda={agenda} value={slot} onChange={setSlot} /> : <Loader2 size={18} className="animate-spin text-[var(--text-muted)]" />}
                   </div>
                 )}
                 <div className="flex gap-3 mt-4">

@@ -11,7 +11,7 @@ import { useSession } from "../../context/SessionContext";
 import ConfirmModal from "../Common/ConfirmModal";
 import { getErrorMessage } from "../../utils/errors";
 import { uploadUrl } from "../../utils/avatar";
-import { DurationPicker, SlotGrid, WEEK } from "../Schedule";
+import { DurationPicker, SlotGrid, WEEK, durationToMinutes } from "../Schedule";
 import { PRICE_UNITS, formatServicePrice, type PriceUnit } from "../../utils/price";
 
 /** Pacote em edição (preço como texto digitado) */
@@ -529,7 +529,7 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
                   {selectedService.requiresScheduling && (
                     <div className="flex flex-col gap-3">
                       <span className="text-sm text-[var(--text-muted)]">Horários disponíveis para o cliente escolher</span>
-                      <SlotGrid slots={slots} onChange={setSlots} serviceType={categoryName} />
+                      <SlotGrid slots={slots} onChange={setSlots} serviceType={categoryName} minutes={durationToMinutes(selectedService.duration || "1 hora")} hours={Object.fromEntries((provider?.availabilities ?? []).map((a) => [a.day, { start: a.start, end: a.end }]))} />
                       <label className="flex flex-col">
                         <span className="text-[var(--text-muted)] text-sm mb-1">Prazo para cancelamento</span>
                         <input

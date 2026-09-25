@@ -1,4 +1,5 @@
 import { apiRequest } from "./ApiClient";
+import type { Agenda } from "../components/Schedule";
 import type { HireEntity } from "../interfaces/Entities";
 
 // Todas as rotas de contratação exigem login
@@ -48,9 +49,9 @@ export const hireAPI = {
 
   beginHireProvider: (id: number) => setStatus(id, { status_provider: "EM ANDAMENTO" }),
 
-  /** Horários já reservados com o prestador do serviço (para esconder na agenda). */
-  bookedSlots: async (serviceId: number): Promise<string[]> => {
-    return (await apiRequest<string[]>(`/hires/booked/${serviceId}`, { headers: auth() })) ?? [];
+  /** Agenda do serviço: períodos ocupados do prestador, expediente e duração (para montar os horários livres). */
+  bookedSlots: async (serviceId: number): Promise<Agenda> => {
+    return (await apiRequest<Agenda>(`/hires/booked/${serviceId}`, { headers: auth() })) ?? { busy: [], hours: {}, durationMinutes: 60 };
   },
 
   getHireByProviderId: async (id: number): Promise<HireEntity[]> => {

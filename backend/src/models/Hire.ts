@@ -63,6 +63,10 @@ export class Hire {
   @Column({ type: "datetime", nullable: true })
   scheduledAt: Date | null;
 
+  // Duração reservada na agenda (minutos), copiada do serviço na contratação
+  @Column({ type: "int", nullable: true })
+  durationMinutes: number | null;
+
   // Contrato
   @OneToMany(() => Contract, (contract) => contract.hire)
   contracts: Contract[];

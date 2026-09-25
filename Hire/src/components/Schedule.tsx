@@ -65,6 +65,34 @@ export function parseDuration(text: string): { value: number; unitIndex: number 
   return { value: Math.max(1, Number(m[1])), unitIndex };
 }
 
+/** Duração em minutos ("2 horas" → 120), igual ao cálculo do servidor */
+export function durationToMinutes(text: string) {
+  const { value, unitIndex } = parseDuration(text);
+  return value * unitMultipliers[unitIndex];
+}
+
+/** Agenda devolvida por GET /hires/booked/:serviceId */
+export type BusinessHours = Record<string, { start: string; end: string }>;
+export type Agenda = { busy: { start: string; end: string }[]; hours: BusinessHours; durationMinutes: number };
+
+const hhmmToMin = (t: string) => {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + (m || 0);
+};
+
+/**
+ * O atendimento que começa em `time` cabe no expediente do dia? Sem expediente cadastrado, sempre cabe.
+ * Serviços de um dia ou mais só precisam começar dentro do expediente.
+ */
+export function fitsHours(hours: BusinessHours | undefined, day: string, time: string, minutes: number) {
+  if (!hours || !Object.keys(hours).length) return true;
+  const h = hours[day];
+  if (!h) return false;
+  const begin = hhmmToMin(time);
+  if (begin < hhmmToMin(h.start) || begin >= hhmmToMin(h.end)) return false;
+  return minutes >= 1440 || begin + minutes <= hhmmToMin(h.end);
+}
+
 export function formatDuration(value: number, unitIndex: number) {
   const [one, many] = unitWords[unitIndex];
   return `${value} ${value === 1 ? one : many}`;
@@ -202,8 +230,10 @@ export function DurationPicker({ value, onChange, compact = false }: { value: st
 /* --------------------------------------------------------------------------
  * SlotGrid — dias da semana × horários de início (usado no assistente e no editor)
  * -------------------------------------------------------------------------- */
-export function SlotGrid({ slots, onChange, serviceType = 'tecnologia' }: { slots: ScheduleSlots; onChange: (slots: ScheduleSlots) => void; serviceType?: string }) {
+export function SlotGrid({ slots, onChange, serviceType = 'tecnologia', hours, minutes = 60 }: { slots: ScheduleSlots; onChange: (slots: ScheduleSlots) => void; serviceType?: string; hours?: BusinessHours; minutes?: number }) {
   const slotColor = colorFor(serviceType);
+  // horários marcados que não cabem no expediente do prestador (o cliente não vai vê-los)
+  const outside = WEEK.flatMap((d) => (slots[d.key] ?? []).filter((t) => !fitsHours(hours, d.key, t, minutes)).map((t) => `${d.short} ${t}`));
   const toggleSlot = (day: DayKey, time: string) => {
     const current = slots[day] ?? [];
     const next = current.includes(time) ? current.filter((t) => t !== time) : [...current, time].sort();
@@ -217,9 +247,11 @@ export function SlotGrid({ slots, onChange, serviceType = 'tecnologia' }: { slot
           <div className="flex flex-wrap gap-2">
             {SLOT_TIMES.map(time => {
               const on = slots[day.key]?.includes(time) ?? false;
+              const fits = fitsHours(hours, day.key, time, minutes);
               return (
-                <button type="button" key={time} onClick={() => toggleSlot(day.key, time)} aria-pressed={on} aria-label={`${day.name} ${time}`}
-                  className={`px-3 py-2 rounded-lg text-sm transition ${on ? slotColor+' text-white' : 'bg-[var(--bg-light)] text-[var(--text-muted)]'} hover:scale-105`}>
+                <button type="button" key={time} onClick={() => toggleSlot(day.key, time)} aria-pressed={on} aria-label={`${day.name} ${time}${fits ? '' : ' (fora do expediente)'}`}
+                  title={fits ? undefined : 'Fora do seu expediente (considerando a duração do serviço)'}
+                  className={`px-3 py-2 rounded-lg text-sm transition ${on ? (fits ? slotColor : 'bg-amber-600') + ' text-white' : 'bg-[var(--bg-light)] text-[var(--text-muted)]'} ${fits ? '' : 'line-through decoration-1 opacity-70'} hover:scale-105`}>
                   {time}
                 </button>
               );
@@ -227,13 +259,21 @@ export function SlotGrid({ slots, onChange, serviceType = 'tecnologia' }: { slot
           </div>
         </div>
       ))}
+      {outside.length > 0 && (
+        <p role="status" className="text-sm text-amber-500">
+          Fora do seu expediente (com a duração de {formatMinutes(minutes)}): {outside.join(', ')}. Esses horários não aparecem para o cliente — ajuste o expediente no perfil ou a duração.
+        </p>
+      )}
     </div>
   );
 }
 
+const formatMinutes = (m: number) => (m % 1440 === 0 ? formatDuration(m / 1440, 2) : m % 60 === 0 ? formatDuration(m / 60, 1) : formatDuration(m, 0));
+
 /* --------------------------------------------------------------------------
  * SlotPicker — o cliente escolhe um horário da agenda do serviço
- * Mostra as próximas duas semanas, sem horários passados ou já reservados.
+ * Mostra as próximas duas semanas, sem horários passados, fora do expediente
+ * ou que se sobreponham a outro atendimento do prestador (pela duração do serviço).
  * O valor é "AAAA-MM-DDTHH:mm" no horário local.
  * -------------------------------------------------------------------------- */
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -241,35 +281,39 @@ const localKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad
 
 export function SlotPicker({
   slots,
-  booked,
+  agenda,
   value,
   onChange,
   days = 14,
 }: {
   slots: ScheduleSlots | null;
-  booked: string[];
+  agenda: Agenda | null;
   value: string | null;
   onChange: (value: string) => void;
   days?: number;
 }) {
   const options = useMemo(() => {
-    const taken = new Set(booked.map((b) => localKey(new Date(b))));
+    const busy = (agenda?.busy ?? []).map((b) => [new Date(b.start).getTime(), new Date(b.end).getTime()]);
+    const minutes = agenda?.durationMinutes ?? 60;
     const now = Date.now();
     const list: { date: Date; times: string[] }[] = [];
     for (let i = 0; i < days; i++) {
       const date = new Date();
       date.setHours(0, 0, 0, 0);
       date.setDate(date.getDate() + i);
-      const times = (slots?.[DAY_BY_INDEX[date.getDay()]] ?? []).filter((t) => {
+      const day = DAY_BY_INDEX[date.getDay()];
+      const times = (slots?.[day] ?? []).filter((t) => {
         const [h, m] = t.split(':').map(Number);
         const at = new Date(date);
         at.setHours(h, m);
-        return at.getTime() > now && !taken.has(localKey(at));
+        const start = at.getTime();
+        const end = start + minutes * 60000;
+        return start > now && fitsHours(agenda?.hours, day, t, minutes) && !busy.some(([s, e]) => start < e && s < end);
       });
       if (times.length) list.push({ date, times });
     }
     return list;
-  }, [slots, booked, days]);
+  }, [slots, agenda, days]);
 
   if (options.length === 0) {
     return <p className="text-sm text-[var(--text-muted)]">Nenhum horário livre nas próximas semanas. Envie uma mensagem ao prestador.</p>;
