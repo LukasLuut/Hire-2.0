@@ -10,7 +10,7 @@ import {
   ChevronUp,
   FileText,
 } from "lucide-react";
-import { ServiceCreationWizardModal } from "../components/ServiceCreator/ServiceCreationWizardModal";
+import ServiceEditor from "../components/ServiceEditor/ServiceEditor";
 import ServiceResponseModal from "../components/Negotiation/ServiceResponseModal";
 import { useNavigate } from "react-router-dom";
 import ChatInbox from "../components/Chat/ChatInbox";
@@ -198,7 +198,7 @@ export default function DashboardPrestador() {
             </div>
             <div >
 
-            <ServiceCreationWizardModal isOpen={openCreateService} onClose={() => setOpenCreateService(false)} onCreated={() => setGalleryKey((k) => k + 1)} />
+            {openCreateService && <ServiceEditor serviceId={null} isOpen={openCreateService} onClose={() => setOpenCreateService(false)} onSaved={() => setGalleryKey((k) => k + 1)} />}
             </div>
             {/* right column inside main (bookings + reviews) */}
             <aside className="lg:col-span-1">

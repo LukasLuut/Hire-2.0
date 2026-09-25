@@ -11,7 +11,8 @@ import { useSession } from "../../context/SessionContext";
 import ConfirmModal from "../Common/ConfirmModal";
 import { getErrorMessage } from "../../utils/errors";
 import { uploadUrl } from "../../utils/avatar";
-import { SlotGrid } from "../Schedule";
+import { DurationPicker, SlotGrid, WEEK } from "../Schedule";
+import { formatCurrency } from "../../utils/format";
 import type { ScheduleSlots } from "../../interfaces/Entities";
 
 /** Imagem na lista do editor: já publicada (path no servidor) ou nova (arquivo) */
@@ -32,12 +33,12 @@ const EMPTY_SERVICE: Service = {
   title: "",
   description_service: "",
   price: "",
-  duration: "",
+  duration: "1 hora",
   categoryId: null,
   subcategory: "",
   negotiable: false,
   requiresScheduling: false,
-  acceptedTerms: true,
+  acceptedTerms: false,
   imageUrl: "",
   cancellationNotice: "",
 };
@@ -95,6 +96,16 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
     if (isOpen) window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, [isOpen, onClose, saving]);
+
+  // Enquanto o editor está aberto, a página de trás não rola (só o formulário)
+  useEffect(() => {
+    if (!isOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [isOpen]);
 
   /* --------------------------- Atualiza estado ao redimensionar a tela --------------------------- */
   useEffect(() => {
@@ -252,6 +263,8 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
       showToast("Preencha título, descrição, categoria, preço e duração.", "warning")
       return;
     }
+    if (selectedService.description_service.trim().length > 250) return showToast("A descrição pode ter até 250 caracteres.", "warning");
+    if (!hasService && !selectedService.acceptedTerms) return showToast("Aceite os termos da plataforma para publicar.", "warning");
     if (!providerId) return showToast("Cadastre sua empresa antes de publicar serviços.", "warning");
     const hasSlots = Object.values(slots).some((t) => t && t.length > 0);
     if (selectedService.requiresScheduling && !hasSlots) return showToast("Escolha ao menos um horário na agenda.", "warning");
@@ -293,8 +306,13 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
    * Renderização principal
    * -------------------------------------------------------------------------- */
   return (
-    <div  className="min-h-screen md:pt-15 pt-17 overflow-hidden bg-[var(--bg-dark)]/50 text-[var(--text)] flex flex-col md:flex-row transition-all duration-500 items-center justify-center">
-      <div className="flex-1 relative flex overflow-hidden w-full max-w-[1024px]">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="service-editor-title"
+      className="fixed inset-0 z-50 md:pt-20 pt-17 bg-[var(--bg-dark)]/80 backdrop-blur-sm text-[var(--text)] flex flex-col md:flex-row transition-all duration-500 items-start justify-center"
+    >
+      <div className="flex-1 relative flex w-full max-w-[1024px] h-[calc(100dvh-4.5rem)] md:h-[calc(100vh-6.5rem)] md:px-4">
 
         {/* ----------------------------------------------------------------------
          * Editor do serviço
@@ -305,7 +323,7 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
           {(mobileSlide === "editor" || !isMobile) && (
             <motion.div
               key="editor"
-              className={`${isMobile ? mobileModalClass : "w-1/2 p-6"}  md:ml-10 bg-[var(--bg-light)]  rounded-2xl shadow-lg border border-[var(--border)]`}
+              className={`${isMobile ? mobileModalClass : "w-1/2 p-6 h-full overflow-y-auto overscroll-contain"} bg-[var(--bg-light)] rounded-2xl shadow-lg border border-[var(--border)]`}
               custom={slideDirection}
               variants={variants}
               initial="enter"
@@ -318,7 +336,7 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
             >
               {/* --------------------------- Título e descrição --------------------------- */}
               <div className="flex items-start justify-between gap-3">
-                <h3 className="text-4xl text-[var(--primary)] font-bold mb-3">{hasService ? "Editar Serviço" : "Criar Serviço"}</h3>
+                <h2 id="service-editor-title" className="text-4xl text-[var(--primary)] font-bold mb-3">{hasService ? "Editar Serviço" : "Criar Serviço"}</h2>
                 <button onClick={onClose} disabled={saving} aria-label="Fechar" className="text-[var(--text-muted)] hover:text-[var(--primary)] p-1">
                   <X size={22} />
                 </button>
@@ -331,6 +349,7 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
                   </span>
                   <input
                     type="text"
+                    maxLength={100}
                     placeholder="Ex: Consultoria Jurídica, Design Gráfico..."
                     value={selectedService.title}
                     onChange={(e) => handleChange("title", e.target.value)}
@@ -349,8 +368,10 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
                       handleChange("description_service", e.target.value)
                     }
                     rows={4}
+                    maxLength={250}
                     className="p-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)] resize-none"
                   />
+                  <span className="text-xs text-[var(--text-muted)] self-end mt-1">{selectedService.description_service.length}/250</span>
                 </label>
 
                 {/* --------------------------- Categoria / Subcategoria --------------------------- */}
@@ -387,7 +408,7 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
                 </div>
 
                 {/* --------------------------- Preço / Duração --------------------------- */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <label className="flex flex-col">
                     <span className="text-[var(--text-muted)] text-sm mb-1">Preço (R$)</span>
                     <input
@@ -399,18 +420,7 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
                       className="p-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)]"
                     />
                   </label>
-                  <label className="flex flex-col">
-                    <span className="text-[var(--text-muted)] text-sm mb-1">Duração média</span>
-                    <input
-                      placeholder="Ex: 2 horas, 1 dia..."
-                      type="text"
-                      value={selectedService.duration}
-                      onChange={(e) =>
-                        handleChange("duration", e.target.value)
-                      }
-                      className="p-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)]"
-                    />
-                  </label>
+                  <DurationPicker compact value={selectedService.duration || "1 hora"} onChange={(d) => handleChange("duration", d)} />
                 </div>
 
                 {/* --------------------------- Switches --------------------------- */}
@@ -517,16 +527,29 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
                 </div>
 
 
+                {/* --------------------------- Termos (só ao publicar) --------------------------- */}
+                {!hasService && (
+                  <label className="flex items-center gap-3 mt-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={!!selectedService.acceptedTerms}
+                      onChange={(e) => handleChange("acceptedTerms", e.target.checked)}
+                      className="w-4 h-4 accent-[var(--primary)]"
+                    />
+                    Li e aceito os termos da plataforma para publicar este serviço.
+                  </label>
+                )}
+
                 {/* --------------------------- Botão salvar --------------------------- */}
-                <div className="mt-5 flex gap-3 justify-center">
+                <div className="mt-5 pb-2 flex flex-wrap gap-3 justify-center">
                   <button
-                    className="flex items-center justify-center gap-2 bg-[var(--primary)] text-white font-semibold px-4 py-2 rounded-lg hover:brightness-110 transition"
+                    className="flex items-center justify-center gap-2 bg-[var(--primary)] text-white font-semibold px-4 py-2 rounded-lg hover:brightness-110 transition disabled:opacity-60"
                     onClick={handleSave}
                     disabled={saving}
                   >
                     <Save size={18} />{saving ? "Salvando..." : hasService ? "Salvar Alterações" : "Criar Serviço"}
                   </button>
-                  {serviceId && (
+                  {hasService && (
                   <button className="flex items-center justify-center gap-2 bg-red-600 text-white font-semibold px-4 py-2 rounded-lg hover:brightness-110 transition"
                   onClick={() => setConfirmDelete(true)}>
                     <Trash size={18} /> Excluir serviço
@@ -546,7 +569,7 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
   {(mobileSlide === "preview" || !isMobile) && (
     <motion.div
       key="preview"
-      className={`${isMobile ? mobileModalClass : "w-1/2 p-6"} md:ml-10 max-h-[90vh] bg-[var(--bg-light)] rounded-2xl shadow-lg border border-[var(--border)] `}
+      className={`${isMobile ? mobileModalClass : "w-1/2 p-6 h-full overflow-y-auto"} md:ml-6 bg-[var(--bg-light)] rounded-2xl shadow-lg border border-[var(--border)] `}
       custom={slideDirection}
       variants={variants}
       initial="enter"
@@ -568,12 +591,13 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
 
       {/* --------------------------- Informações do serviço --------------------------- */}
       <div className="p-4 flex flex-col gap-2">
-        <h2 className="text-2xl font-bold text-[var(--primary)]">
-          {selectedService.title}
-        </h2>
+        <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">Pré-visualização</p>
+        <h3 className="text-2xl font-bold text-[var(--primary)]">
+          {selectedService.title || "Título do serviço"}
+        </h3>
 
         <p className="text-[var(--text-muted)] line-clamp-3">
-          {selectedService.description_service}
+          {selectedService.description_service || "Descrição do serviço..."}
         </p>
 
         <div className="grid grid-cols-2 gap-4 mt-2">
@@ -586,8 +610,8 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
             {selectedService.subcategory || "-"}
           </div>
           <div>
-            <span className="font-semibold text-[var(--text)]">Preço: R$</span>{" "}
-            {selectedService.price || "-"}
+            <span className="font-semibold text-[var(--text)]">Preço:</span>{" "}
+            {parsePrice(priceDigits) > 0 ? formatCurrency(parsePrice(priceDigits)) : "-"}
           </div>
           <div>
             <span className="font-semibold text-[var(--text)]">Duração:</span>{" "}
@@ -604,16 +628,30 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
             <span className="font-semibold text-[var(--text)]">Exige agendamento:</span>{" "}
             {selectedService.requiresScheduling ? "Sim" : "Não"}
           </div>
+          {selectedService.requiresScheduling && (
+            <>
+              <div>
+                <span className="font-semibold text-[var(--text)]">Cancelamento:</span>{" "}
+                {selectedService.cancellationNotice || "-"}
+              </div>
+              <div className="text-sm text-[var(--text-muted)]">
+                {WEEK.filter((d) => slots[d.key]?.length).map((d) => `${d.short}: ${slots[d.key]!.join(", ")}`).join(" · ") || "Nenhum horário escolhido"}
+              </div>
+            </>
+          )}
         </div>
 
         {/* --------------------------- Lista de imagens adicionais --------------------------- */}
-        {images[0] && (
+        {images.length > 1 && (
           <div className="flex gap-2 mt-4 overflow-x-auto">
-            <img
-              src={images[0].url}
-              alt="Preview da imagem"
-              className="w-24 h-24 object-cover rounded-lg border border-[var(--border)]"
-            />
+            {images.slice(1).map((img, i) => (
+              <img
+                key={img.id}
+                src={img.url}
+                alt={`Imagem ${i + 2} do serviço`}
+                className="w-24 h-24 object-cover rounded-lg border border-[var(--border)] shrink-0"
+              />
+            ))}
           </div>
         )}
 

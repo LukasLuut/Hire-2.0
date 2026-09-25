@@ -91,31 +91,6 @@ export default function ScheduleConfiguratorAdvanced({
   cancellationNotice?: string;
   onCancellationNoticeChange?: (text: string) => void;
 }) {
-  const { value: durationValue, unitIndex } = parseDuration(duration);
-
-  const increment = () => {
-    // minutos andam de 15 em 15; ao completar a unidade seguinte, troca (60 min → 1 h, 24 h → 1 d, 7 d → 1 sem)
-    const next = durationValue + (unitIndex === 0 ? 15 : 1);
-    const minutes = next * unitMultipliers[unitIndex];
-    if (unitIndex < units.length - 1 && minutes >= unitMultipliers[unitIndex + 1] && minutes % unitMultipliers[unitIndex + 1] === 0) {
-      onDurationChange(formatDuration(minutes / unitMultipliers[unitIndex + 1], unitIndex + 1));
-    } else {
-      onDurationChange(formatDuration(next, unitIndex));
-    }
-  };
-
-  const decrement = () => {
-    if (durationValue <= 1 && unitIndex > 0) {
-      // 1 h → 45 min, 1 dia → 23 h, 1 semana → 6 dias
-      const lower = unitIndex - 1;
-      const inLower = unitMultipliers[unitIndex] / unitMultipliers[lower];
-      onDurationChange(formatDuration(lower === 0 ? 45 : inLower - 1, lower));
-    } else {
-      const step = unitIndex === 0 ? 15 : 1;
-      onDurationChange(formatDuration(Math.max(unitIndex === 0 ? 15 : 1, durationValue - step), unitIndex));
-    }
-  };
-
   const selectedCount = WEEK.reduce((n, d) => n + (slots[d.key]?.length ?? 0), 0);
 
   return (
@@ -123,18 +98,7 @@ export default function ScheduleConfiguratorAdvanced({
       <div className="w-full space-y-6">
 
         {/* Duração média */}
-        <motion.div className={`p-6 rounded-3xl bg-[var(--bg-light)]/20 backdrop-blur-xl border border-[var(--border)] shadow-lg`}>
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <Clock className="size-6 text-blue-400" />
-            <span className="text-lg font-medium">Duração média do serviço</span>
-          </div>
-          <div className="flex items-center justify-center gap-6">
-            <button type="button" onClick={decrement} aria-label="Diminuir duração" className="px-4 py-2 rounded-lg bg-[var(--bg-light)] hover:brightness-110 transition"><Minus className="size-5" /></button>
-            <motion.div key={duration} animate={{ scale: [1,1.1,1] }} className="text-3xl font-bold" aria-live="polite">{durationValue}</motion.div>
-            <span className="text-xl font-medium">{units[unitIndex]}</span>
-            <button type="button" onClick={increment} aria-label="Aumentar duração" className="px-4 py-2 rounded-lg bg-[var(--bg-light)] hover:brightness-110 transition"><Plus className="size-5" /></button>
-          </div>
-        </motion.div>
+        <DurationPicker value={duration} onChange={onDurationChange} />
 
         {/* Habilitar agenda */}
         <motion.button
@@ -187,6 +151,51 @@ export default function ScheduleConfiguratorAdvanced({
 
       </div>
     </div>
+  );
+}
+
+/* --------------------------------------------------------------------------
+ * DurationPicker — odômetro da duração média (usado no assistente e no editor)
+ * -------------------------------------------------------------------------- */
+export function DurationPicker({ value, onChange, compact = false }: { value: string; onChange: (text: string) => void; compact?: boolean }) {
+  const { value: durationValue, unitIndex } = parseDuration(value);
+
+  const increment = () => {
+    // minutos andam de 15 em 15; ao completar a unidade seguinte, troca (60 min → 1 h, 24 h → 1 d, 7 d → 1 sem)
+    const next = durationValue + (unitIndex === 0 ? 15 : 1);
+    const minutes = next * unitMultipliers[unitIndex];
+    if (unitIndex < units.length - 1 && minutes >= unitMultipliers[unitIndex + 1] && minutes % unitMultipliers[unitIndex + 1] === 0) {
+      onChange(formatDuration(minutes / unitMultipliers[unitIndex + 1], unitIndex + 1));
+    } else {
+      onChange(formatDuration(next, unitIndex));
+    }
+  };
+
+  const decrement = () => {
+    if (durationValue <= 1 && unitIndex > 0) {
+      // 1 h → 45 min, 1 dia → 23 h, 1 semana → 6 dias
+      const lower = unitIndex - 1;
+      const inLower = unitMultipliers[unitIndex] / unitMultipliers[lower];
+      onChange(formatDuration(lower === 0 ? 45 : inLower - 1, lower));
+    } else {
+      const step = unitIndex === 0 ? 15 : 1;
+      onChange(formatDuration(Math.max(unitIndex === 0 ? 15 : 1, durationValue - step), unitIndex));
+    }
+  };
+
+  return (
+    <motion.div className={`${compact ? "p-3 rounded-xl" : "p-6 rounded-3xl"} bg-[var(--bg-light)]/20 backdrop-blur-xl border border-[var(--border)] shadow-lg`}>
+      <div className={`flex items-center justify-center gap-4 ${compact ? "mb-2" : "mb-4"}`}>
+        <Clock className={compact ? "size-5 text-blue-400" : "size-6 text-blue-400"} />
+        <span className={compact ? "text-sm font-medium" : "text-lg font-medium"}>Duração média do serviço</span>
+      </div>
+      <div className="flex items-center justify-center gap-6">
+        <button type="button" onClick={decrement} aria-label="Diminuir duração" className="px-4 py-2 rounded-lg bg-[var(--bg-light)] hover:brightness-110 transition"><Minus className="size-5" /></button>
+        <motion.div key={value} animate={{ scale: [1,1.1,1] }} className={compact ? "text-2xl font-bold" : "text-3xl font-bold"} aria-live="polite">{durationValue}</motion.div>
+        <span className="text-xl font-medium">{units[unitIndex]}</span>
+        <button type="button" onClick={increment} aria-label="Aumentar duração" className="px-4 py-2 rounded-lg bg-[var(--bg-light)] hover:brightness-110 transition"><Plus className="size-5" /></button>
+      </div>
+    </motion.div>
   );
 }
 

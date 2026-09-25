@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, Clock, Tag as TagIcon, Heart, HandCoins, SquarePen, Star } from "lucide-react";
 import ServiceDetailModal from "../ServiceDetail/ServiceDetail";
-import { ServiceCreationWizardModal } from "../../ServiceCreator/ServiceCreationWizardModal";
+import ServiceEditor from "../../ServiceEditor/ServiceEditor";
 import { serviceAPI, serviceImages, type ServiceData } from "../../../api/ServiceAPI";
 import { useToast } from "../../Toast/ToastContext";
 import { formatCurrency } from "../../../utils/format";
@@ -114,7 +114,7 @@ export default function PostCard({
   return (
     <div className="pt-5 ">
 
-      <ServiceCreationWizardModal serviceId={service.id} isOpen={openEdit} onClose={()=>{setOpenEdit(false)}} onCreated={onChanged} />
+      {openEdit && <ServiceEditor serviceId={service.id} isOpen={openEdit} onClose={()=>{setOpenEdit(false)}} onSaved={onChanged} />}
     <div
       className={`relative bg-[var(--bg)] shadow-lg shadow-[#00000077] mx-auto w-full max-w-sm h-[70vh] md:h-[60vh] min-h-[460px] rounded-2xl overflow-hidden`}
       onTouchStart={onTouchStart}
