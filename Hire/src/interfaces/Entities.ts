@@ -1,4 +1,5 @@
 /* Formatos das entidades como a API devolve (campos usados pelo frontend). */
+import type { PriceUnit, ServicePackage } from "../utils/price";
 
 export interface RatingStats {
   average: number;
@@ -65,6 +66,8 @@ export interface ServiceEntity {
   likesNumber?: number;
   /** false = pausado pelo prestador (fora da vitrine, sem pedidos novos) */
   active?: boolean;
+  priceUnit?: PriceUnit;
+  packages?: ServicePackage[] | null;
   imageUrl?: string | null;
   /** Todas as imagens na ordem do prestador (a primeira é a capa) */
   images?: string[] | null;
@@ -92,6 +95,9 @@ export interface HireEntity {
   /** quem cancelou: cliente, prestador ou sistema (pedido expirado) */
   cancelledBy?: "cliente" | "prestador" | "sistema" | null;
   cancelReason?: string | null;
+  /** pacote escolhido e quantidade (horas/m²) */
+  packageName?: string | null;
+  quantity?: number | null;
   user?: { id: number; name: string };
   provider?: ProviderEntity;
   service?: ServiceEntity;

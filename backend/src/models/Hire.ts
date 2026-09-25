@@ -37,6 +37,13 @@ export class Hire {
   @Column({ length: 100, nullable: false })
   description_service: string;
 
+  // Pacote escolhido e quantidade (horas, m²) quando o serviço cobra por unidade
+  @Column({ type: "varchar", length: 40, nullable: true })
+  packageName: string | null;
+
+  @Column({ type: "double", nullable: true })
+  quantity: number | null;
+
   // Quando o pedido foi feito (usado para expirar pedidos sem resposta)
   @CreateDateColumn()
   createdAt: Date;

@@ -5,7 +5,7 @@ import ServiceDetailModal from "../ServiceDetail/ServiceDetail";
 import ServiceEditor from "../../ServiceEditor/ServiceEditor";
 import { serviceAPI, serviceImages, type ServiceData } from "../../../api/ServiceAPI";
 import { useToast } from "../../Toast/ToastContext";
-import { formatCurrency } from "../../../utils/format";
+import { formatServicePrice } from "../../../utils/price";
 
 /* --------------------------------------------------------------------------
  * Componente PostCard com Partículas de Like
@@ -268,7 +268,7 @@ export default function PostCard({
           )}
           <p className="text-sm text-gray-200 line-clamp-2 mb-3">{service.description_service}</p>
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium mb-2">
-            {service.price && <span className="bg-white/10 px-3 flex gap-1 items-center py-1 rounded-full backdrop-blur-sm whitespace-nowrap"><HandCoins size={16}/> {formatCurrency(service.price)}</span>}
+            {service.price && <span className="bg-white/10 px-3 flex gap-1 items-center py-1 rounded-full backdrop-blur-sm whitespace-nowrap"><HandCoins size={16}/> {formatServicePrice(service.price, service.priceUnit, service.packages)}</span>}
             {service.duration && (
               <span className="flex items-center gap-1 bg-white/10 px-3 py-1 rounded-full backdrop-blur-sm whitespace-nowrap">
                 <Clock size={14} /> {service.duration}

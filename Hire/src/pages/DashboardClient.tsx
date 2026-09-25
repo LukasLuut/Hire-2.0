@@ -12,13 +12,13 @@ import {
 import { useNavigate } from "react-router-dom";
 import { serviceAPI, serviceImages, type ServiceData } from "../api/ServiceAPI";
 import LocationBar from "../components/LocationBar";
+import { formatServicePrice } from "../utils/price";
 import ServiceAreaLine from "../components/ServiceAreaLine";
 import { loadLocation, saveLocation, type ClientLocation } from "../utils/location";
 import { providerApi } from "../api/ProviderAPI";
 import ServiceDetail from "../components/ServiceGallery/ServiceDetail/ServiceDetail";
 import { ServicesPageSkeleton } from "../skeletons/ServiceSkeleton/ServicesPageSkeleton";
 import { avatarFor } from "../utils/avatar";
-import { formatCurrency } from "../utils/format";
 
 /**
  * ServiceDashboardSophisticated.tsx
@@ -483,7 +483,7 @@ export default function ServiceDashboardSophisticated() {
                       </p>
                       <div className=" mt-4 flex items-center mb-2 text-[var(--text-highlight)] font-semibold">
                          <HandCoins size={20} className="text-[var(--text)]/70 mr-2" />
-                        {formatCurrency(srv.price)}
+                        {formatServicePrice(srv.price, srv.data.priceUnit, srv.data.packages)}
                       </div>
                       <div className=" flex items-center  justify-between">
                         <div className="flex items-center  gap-3">

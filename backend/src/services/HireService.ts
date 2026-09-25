@@ -36,7 +36,7 @@ export class HireService {
         throw new HttpError(403, "Você não participa desta contratação");
     }
 
-    async create(data: { price: number, description_service: string, firstContact: Date, serviceId: string, scheduledAt?: string }, userId: number) {
+    async create(data: { price: number, description_service: string, firstContact: Date, serviceId: string, scheduledAt?: string, packageIndex?: unknown, quantity?: unknown }, userId: number) {
         const { description_service, firstContact, serviceId } = data;
 
         const service = await this.serviceRepository.findOne({
@@ -46,6 +46,29 @@ export class HireService {
         if (!service) throw new HttpError(404, "Serviço não encontrado");
         if (service.provider?.user?.id === userId) throw new HttpError(400, "Você não pode contratar o próprio serviço");
         if (service.active === false) throw new HttpError(400, "Este serviço está pausado pelo prestador e não recebe pedidos no momento");
+
+        // Preço: "a partir de" e "sob orçamento" pedem orçamento; pacotes e quantidade definem o total
+        if (service.priceUnit === "a_partir_de" || service.priceUnit === "orcamento") {
+            throw new HttpError(400, "O valor deste serviço depende do pedido: peça um orçamento ao prestador");
+        }
+        let unitPrice = service.price;
+        let packageName: string | null = null;
+        if (service.packages?.length) {
+            const index = Number(data.packageIndex);
+            const chosen = Number.isInteger(index) ? service.packages[index] : undefined;
+            if (!chosen) throw new HttpError(400, "Escolha um dos pacotes do serviço");
+            unitPrice = chosen.price;
+            packageName = chosen.name;
+        }
+        let quantity: number | null = null;
+        if (service.priceUnit === "hora" || service.priceUnit === "m2") {
+            quantity = Number(data.quantity);
+            if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 10000) {
+                throw new HttpError(400, service.priceUnit === "hora" ? "Informe quantas horas" : "Informe a área em m²");
+            }
+            quantity = Math.round(quantity * 100) / 100;
+        }
+        const total = Math.round(unitPrice * (quantity ?? 1) * 100) / 100;
 
         // Serviços com agenda: o horário precisa estar na agenda, no futuro e livre
         let scheduledAt: Date | null = null;
@@ -62,8 +85,10 @@ export class HireService {
 
         // Contratação direta usa o preço publicado; valores diferentes só por negociação
         const hire = this.hireRepository.create({
-            price: service.price,
-            description_service: (description_service?.trim() || service.title).slice(0, 100),
+            price: total,
+            packageName,
+            quantity,
+            description_service: (description_service?.trim() || (packageName ? `${service.title} — ${packageName}` : service.title)).slice(0, 100),
             firstContact,
             scheduledAt,
             provider: { id: service.provider.id },

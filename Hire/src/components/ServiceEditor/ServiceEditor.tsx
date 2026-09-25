@@ -12,7 +12,10 @@ import ConfirmModal from "../Common/ConfirmModal";
 import { getErrorMessage } from "../../utils/errors";
 import { uploadUrl } from "../../utils/avatar";
 import { DurationPicker, SlotGrid, WEEK } from "../Schedule";
-import { formatCurrency } from "../../utils/format";
+import { PRICE_UNITS, formatServicePrice, type PriceUnit } from "../../utils/price";
+
+/** Pacote em edição (preço como texto digitado) */
+type PackageDraft = { name: string; description: string; price: string };
 import type { ScheduleSlots } from "../../interfaces/Entities";
 
 /** Imagem na lista do editor: já publicada (path no servidor) ou nova (arquivo) */
@@ -81,6 +84,9 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
   /* --------------------------- Imagens e agenda --------------------------- */
   const [images, setImages] = useState<EditorImage[]>([]);
   const [slots, setSlots] = useState<ScheduleSlots>({});
+  // como o serviço é cobrado e pacotes opcionais
+  const [priceUnit, setPriceUnit] = useState<PriceUnit>("fixo");
+  const [packages, setPackages] = useState<PackageDraft[]>([]);
 
   // Preço digitado (aceita centavos: "150,00")
   const [priceDigits, setPriceDigits] = useState("");
@@ -124,6 +130,8 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
     if (!isOpen) return;
     setImages([]);
     setSlots({});
+    setPriceUnit("fixo");
+    setPackages([]);
     if (!hasService) {
       setService(EMPTY_SERVICE);
       setPriceDigits("");
@@ -151,6 +159,8 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
         setPriceDigits(data.price.toFixed(2).replace(".", ","));
         setImages(data.imagePaths.map((path) => ({ id: path, path, url: uploadUrl(path)! })));
         setSlots(data.scheduleSlots ?? {});
+        setPriceUnit(data.priceUnit ?? "fixo");
+        setPackages((data.packages ?? []).map((pk) => ({ name: pk.name, description: pk.description, price: pk.price.toFixed(2).replace(".", ",") })));
       })
       .catch((err) => showToast(getErrorMessage(err, "Não foi possível carregar o serviço."), "error"));
   }, [isOpen, hasService, serviceId, showToast]);
@@ -253,17 +263,21 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
 
   /** Cria ou atualiza o serviço, esperando a resposta do servidor. */
   const handleSave = async () => {
-    const price = parsePrice(priceDigits);
+    // "sob orçamento" pode ficar sem valor de referência
+    const price = priceUnit === "orcamento" && !priceDigits.trim() ? 0 : parsePrice(priceDigits);
     if (
       !selectedService.categoryId ||
       !selectedService.description_service.trim() ||
       !selectedService.title.trim() ||
       !selectedService.duration.trim() ||
-      !(price > 0)
+      !(price > 0 || (priceUnit === "orcamento" && price === 0))
     ) {
       showToast("Preencha título, descrição, categoria, preço e duração.", "warning")
       return;
     }
+    const pkgs = packages.map((pk) => ({ name: pk.name.trim(), description: pk.description.trim(), price: parsePrice(pk.price) }));
+    const badPkg = pkgs.find((pk) => !pk.name || !(pk.price > 0));
+    if (badPkg) return showToast("Cada pacote precisa de nome e preço.", "warning");
     if (selectedService.description_service.trim().length > 250) return showToast("A descrição pode ter até 250 caracteres.", "warning");
     if (!hasService && !selectedService.acceptedTerms) return showToast("Aceite os termos da plataforma para publicar.", "warning");
     if (!providerId) return showToast("Cadastre sua empresa antes de publicar serviços.", "warning");
@@ -275,6 +289,8 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
     formData.append("description_service", selectedService.description_service.trim());
     formData.append("categoryId", String(selectedService.categoryId));
     formData.append("price", String(price));
+    formData.append("priceUnit", priceUnit);
+    formData.append("packages", JSON.stringify(pkgs));
     formData.append("duration", selectedService.duration.trim());
     formData.append("subcategory", selectedService.subcategory ? selectedService.subcategory.trim() : "");
     formData.append("negotiable", selectedService.negotiable ? "true" : "false");
@@ -412,7 +428,20 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
                 {/* --------------------------- Preço / Duração --------------------------- */}
                 <div className="grid grid-cols-1 gap-4">
                   <label className="flex flex-col">
-                    <span className="text-[var(--text-muted)] text-sm mb-1">Preço (R$)</span>
+                    <span className="text-[var(--text-muted)] text-sm mb-1">Como você cobra</span>
+                    <select
+                      value={priceUnit}
+                      onChange={(e) => setPriceUnit(e.target.value as PriceUnit)}
+                      className="p-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)]"
+                    >
+                      {PRICE_UNITS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
+                    </select>
+                    <span className="text-xs text-[var(--text-muted)] mt-1">{PRICE_UNITS.find((u) => u.value === priceUnit)?.hint}</span>
+                  </label>
+                  <label className="flex flex-col">
+                    <span className="text-[var(--text-muted)] text-sm mb-1">
+                      {priceUnit === "hora" ? "Preço por hora (R$)" : priceUnit === "m2" ? "Preço por m² (R$)" : priceUnit === "visita" ? "Preço por visita (R$)" : priceUnit === "a_partir_de" ? "Valor mínimo (R$)" : priceUnit === "orcamento" ? "Valor de referência (R$, opcional)" : "Preço (R$)"}
+                    </span>
                     <input
                       placeholder="Ex: R$ 200,00"
                       type="text"
@@ -423,6 +452,27 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
                     />
                   </label>
                   <DurationPicker compact value={selectedService.duration || "1 hora"} onChange={(d) => handleChange("duration", d)} />
+                </div>
+
+                {/* --------------------------- Pacotes (opcional) --------------------------- */}
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[var(--text)] font-medium">Pacotes <span className="text-xs text-[var(--text-muted)] font-normal">(opcional, até 3)</span></span>
+                    {packages.length < 3 && (
+                      <button type="button" onClick={() => setPackages((p) => [...p, { name: "", description: "", price: "" }])} className="text-sm text-[var(--primary)] hover:underline">
+                        + Adicionar pacote
+                      </button>
+                    )}
+                  </div>
+                  {packages.length === 0 && <p className="text-xs text-[var(--text-muted)]">Ex.: "Básico" e "Completo" com preços diferentes. O cliente escolhe um ao contratar.</p>}
+                  {packages.map((pk, i) => (
+                    <div key={i} className="grid grid-cols-[1fr_7rem_auto] gap-2 items-start p-2 rounded-lg bg-[var(--bg)] border border-[var(--border-muted)]">
+                      <input aria-label={`Nome do pacote ${i + 1}`} placeholder="Nome (ex.: Completo)" maxLength={40} value={pk.name} onChange={(e) => setPackages((p) => p.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} className="p-2 bg-[var(--bg-light)] border border-[var(--border)] rounded-lg text-[var(--text)] text-sm" />
+                      <input aria-label={`Preço do pacote ${i + 1}`} placeholder="R$" inputMode="decimal" value={pk.price} onChange={(e) => setPackages((p) => p.map((x, j) => (j === i ? { ...x, price: e.target.value.replace(/[^\d.,]/g, "") } : x)))} className="p-2 bg-[var(--bg-light)] border border-[var(--border)] rounded-lg text-[var(--text)] text-sm" />
+                      <button type="button" aria-label={`Remover pacote ${i + 1}`} onClick={() => setPackages((p) => p.filter((_, j) => j !== i))} className="p-2 text-[var(--text-muted)] hover:text-red-500"><Trash2 size={16} /></button>
+                      <input aria-label={`Descrição do pacote ${i + 1}`} placeholder="O que inclui (opcional)" maxLength={120} value={pk.description} onChange={(e) => setPackages((p) => p.map((x, j) => (j === i ? { ...x, description: e.target.value } : x)))} className="col-span-3 p-2 bg-[var(--bg-light)] border border-[var(--border)] rounded-lg text-[var(--text)] text-sm" />
+                    </div>
+                  ))}
                 </div>
 
                 {/* --------------------------- Switches --------------------------- */}
@@ -631,7 +681,9 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
           </div>
           <div>
             <span className="font-semibold text-[var(--text)]">Preço:</span>{" "}
-            {parsePrice(priceDigits) > 0 ? formatCurrency(parsePrice(priceDigits)) : "-"}
+            {parsePrice(priceDigits) > 0 || priceUnit === "orcamento" || packages.length
+              ? formatServicePrice(parsePrice(priceDigits) || 0, priceUnit, packages.map((pk) => ({ ...pk, price: parsePrice(pk.price) || 0 })).filter((pk) => pk.price > 0))
+              : "-"}
           </div>
           <div>
             <span className="font-semibold text-[var(--text)]">Duração:</span>{" "}

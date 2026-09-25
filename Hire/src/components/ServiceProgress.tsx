@@ -156,7 +156,9 @@ export function ServiceProgress({
                 {data.service?.title ?? data.description_service}
               </h2>
               <p className="text-xs text-[var(--text-muted)] mt-1">
-                Nº do pedido: {String(data.id).padStart(4, "0")} · {formatCurrency(data.price)} · <strong className="text-[var(--text)]">{statusLabel}</strong>
+                Nº do pedido: {String(data.id).padStart(4, "0")} · {formatCurrency(data.price)}
+                {data.packageName ? ` · pacote ${data.packageName}` : ""}
+                {data.quantity ? ` · ${data.quantity} ${data.service?.priceUnit === "m2" ? "m²" : "h"}` : ""} · <strong className="text-[var(--text)]">{statusLabel}</strong>
               </p>
               {data.scheduledAt && (
                 <p className="text-xs text-[var(--text)] mt-1">Agendado para {formatDateTime(data.scheduledAt)}</p>

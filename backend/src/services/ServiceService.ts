@@ -1,6 +1,6 @@
 import { AppDataSource } from "../config/data-source";
 import { Hire, StatusEnum } from "../models/Hire";
-import { Service } from "../models/Service";
+import { PRICE_UNITS, PriceUnit, Service, ServicePackage } from "../models/Service";
 import { ServiceLike } from "../models/ServiceLike";
 import { ServiceProvider } from "../models/ServiceProvider";
 import { statsService } from "./StatsService";
@@ -20,6 +20,36 @@ export interface ServiceInput {
   scheduleSlots?: unknown;
   cancellationNotice?: string;
   active?: boolean;
+  priceUnit?: string;
+  packages?: unknown;
+}
+
+/** Unidade de preço válida (padrão: fixo) */
+function priceUnitOf(value: unknown): PriceUnit {
+  return (PRICE_UNITS as readonly string[]).includes(String(value)) ? (value as PriceUnit) : "fixo";
+}
+
+/** Pacotes vindos do formulário (JSON); valida nome, descrição e preço; no máximo 3 */
+function parsePackages(raw: unknown): ServicePackage[] | null {
+  if (raw === undefined || raw === null || raw === "") return null;
+  let list: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      list = JSON.parse(raw);
+    } catch {
+      throw new HttpError(400, "Pacotes inválidos");
+    }
+  }
+  if (!Array.isArray(list)) throw new HttpError(400, "Pacotes inválidos");
+  if (list.length > 3) throw new HttpError(400, "Use no máximo 3 pacotes");
+  const out = list.map((p: any, i: number) => {
+    const name = String(p?.name ?? "").trim().slice(0, 40);
+    const price = Number(p?.price);
+    if (!name) throw new HttpError(400, `Dê um nome ao pacote ${i + 1}`);
+    if (!Number.isFinite(price) || price <= 0) throw new HttpError(400, `Informe o preço do pacote "${name}"`);
+    return { name, description: String(p?.description ?? "").trim().slice(0, 120), price: Math.round(price * 100) / 100 };
+  });
+  return out.length ? out : null;
 }
 
 export class ServiceService {
@@ -105,9 +135,12 @@ export class ServiceService {
 
   async create(data: ServiceInput, userId: number, files: Express.Multer.File[] = []) {
     const provider = await this.providerOf(userId);
-    const price = Number(data.price);
+    const priceUnit = priceUnitOf(data.priceUnit);
+    // "sob orçamento" pode não ter preço de referência
+    const price = priceUnit === "orcamento" && (data.price === undefined || data.price === "" || Number(data.price) === 0) ? 0 : Number(data.price);
     if (!data.title?.trim() || !data.description_service?.trim()) throw new HttpError(400, "Informe título e descrição do serviço");
-    if (!Number.isFinite(price) || price <= 0) throw new HttpError(400, "Informe um preço válido");
+    if (!Number.isFinite(price) || price < 0 || (price === 0 && priceUnit !== "orcamento")) throw new HttpError(400, "Informe um preço válido");
+    const packages = parsePackages(data.packages);
     if (!data.categoryId) throw new HttpError(400, "Escolha uma categoria");
 
     const images = this.buildImages(undefined, files, []);
@@ -121,6 +154,8 @@ export class ServiceService {
       requiresScheduling: data.requiresScheduling,
       duration: data.duration?.trim() || "A combinar",
       price,
+      priceUnit,
+      packages,
       subcategory: data.subcategory?.trim() || undefined,
       imageUrl: images[0] ?? null,
       images,
@@ -172,11 +207,14 @@ export class ServiceService {
     if (data.negotiable !== undefined) service.negotiable = data.negotiable;
     if (data.requiresScheduling !== undefined) service.requiresScheduling = data.requiresScheduling;
     if (data.active !== undefined) service.active = data.active;
+    if (data.priceUnit !== undefined) service.priceUnit = priceUnitOf(data.priceUnit);
     if (data.price !== undefined) {
       const price = Number(data.price);
-      if (!Number.isFinite(price) || price <= 0) throw new HttpError(400, "Informe um preço válido");
+      const ok = Number.isFinite(price) && (price > 0 || (price === 0 && service.priceUnit === "orcamento"));
+      if (!ok) throw new HttpError(400, "Informe um preço válido");
       service.price = price;
     }
+    if (data.packages !== undefined) service.packages = parsePackages(data.packages);
     if (data.categoryId) service.category = { id: Number(data.categoryId) } as any;
     if (data.scheduleSlots !== undefined) service.scheduleSlots = parseSlots(data.scheduleSlots);
     if (data.cancellationNotice !== undefined) service.cancellationNotice = String(data.cancellationNotice).trim() || null;

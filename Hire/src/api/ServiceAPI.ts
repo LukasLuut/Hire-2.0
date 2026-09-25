@@ -1,6 +1,7 @@
 import { apiRequest } from "./ApiClient";
 import { uploadUrl } from "../utils/avatar";
 import type { RatingStats, ScheduleSlots, ServiceEntity } from "../interfaces/Entities";
+import type { PriceUnit, ServicePackage } from "../utils/price";
 
 
 export interface ServiceData {
@@ -26,6 +27,8 @@ export interface ServiceData {
   imagePaths: string[],
   scheduleSlots: ScheduleSlots | null,
   cancellationNotice: string | null,
+  priceUnit: PriceUnit,
+  packages: ServicePackage[],
   /** com a localização do cliente: distância até o prestador e se ele atende a região */
   distanceKm?: number | null,
   servesYou?: boolean,
@@ -66,6 +69,8 @@ export function toServiceData(e: ServiceEntity): ServiceData {
     images: (e.images?.length ? e.images : e.imageUrl ? [e.imageUrl] : []).map((p) => uploadUrl(p)!).filter(Boolean),
     scheduleSlots: e.scheduleSlots ?? null,
     cancellationNotice: e.cancellationNotice ?? null,
+    priceUnit: e.priceUnit ?? "fixo",
+    packages: e.packages ?? [],
     distanceKm: (e as ServiceEntity & { distanceKm?: number | null }).distanceKm,
     servesYou: (e as ServiceEntity & { servesYou?: boolean }).servesYou,
     provider: e.provider

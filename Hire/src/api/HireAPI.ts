@@ -10,7 +10,7 @@ const setStatus = (id: number, body: { status?: string; status_provider?: string
 export const hireAPI = {
 
   /** O cliente vem do token; o prestador é o dono do serviço. */
-  create: async (data: { price: number, serviceId: number, description?: string, scheduledAt?: string }) => {
+  create: async (data: { price: number, serviceId: number, description?: string, scheduledAt?: string, packageIndex?: number, quantity?: number }) => {
     const response = await apiRequest<HireEntity>("/hires", {
       method: "POST",
       headers: auth(),
@@ -19,6 +19,8 @@ export const hireAPI = {
         description_service: data.description?.trim() || "Serviço contratado pela plataforma",
         serviceId: data.serviceId,
         scheduledAt: data.scheduledAt,
+        packageIndex: data.packageIndex,
+        quantity: data.quantity,
       }),
     });
 

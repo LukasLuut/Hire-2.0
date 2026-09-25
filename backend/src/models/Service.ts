@@ -10,6 +10,17 @@ import { ServiceProvider } from "./ServiceProvider";
 import { Category } from "./Category";
 import { Hire } from "./Hire";
 
+// Como o serviço é cobrado
+export const PRICE_UNITS = ["fixo", "a_partir_de", "hora", "m2", "visita", "orcamento"] as const;
+export type PriceUnit = (typeof PRICE_UNITS)[number];
+
+// Variação do serviço com preço próprio (ex.: "Básico", "Completo")
+export interface ServicePackage {
+  name: string;
+  description: string;
+  price: number;
+}
+
 @Entity("services")
 export class Service {
   @PrimaryGeneratedColumn()
@@ -38,6 +49,13 @@ export class Service {
 
   @Column({ default: 0 })
   likesNumber?: number;
+
+  @Column({ type: "varchar", length: 20, default: "fixo" })
+  priceUnit: PriceUnit;
+
+  // Até 3 pacotes; sem pacotes, vale o preço do serviço
+  @Column({ type: "json", nullable: true })
+  packages?: ServicePackage[] | null;
 
   // Pausado = some da vitrine e do perfil público e não recebe pedidos novos
   @Column({ default: true })

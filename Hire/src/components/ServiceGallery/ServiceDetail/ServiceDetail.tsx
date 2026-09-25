@@ -24,6 +24,7 @@ import ServiceNegotiationModal from "../../Negotiation/ServiceNegotiationModal";
 import { SlotPicker } from "../../Schedule";
 import type { HireEntity } from "../../../interfaces/Entities";
 import { formatCurrency } from "../../../utils/format";
+import { formatServicePrice, isQuoteOnly, needsQuantity } from "../../../utils/price";
 import { getErrorMessage } from "../../../utils/errors";
 import { HIRE_STAGE_LABEL, getHireStage } from "../../../utils/hireStatus";
 
@@ -65,6 +66,18 @@ export default function ServiceDetail({
   const [quoteOpen, setQuoteOpen] = useState(false)
   const [slot, setSlot] = useState<string | null>(null)
   const [booked, setBooked] = useState<string[]>([])
+  // preço: pacote escolhido e quantidade (horas/m²)
+  const [pkgIndex, setPkgIndex] = useState<number | null>(null)
+  const [quantity, setQuantity] = useState("")
+  const packages = service.packages ?? []
+  const quoteOnly = isQuoteOnly(service.priceUnit)
+  const qtyUnit = service.priceUnit === "m2" ? "m²" : "horas"
+  const qtyNum = Number(quantity.replace(",", "."))
+  const hireTotal = packages.length
+    ? pkgIndex != null ? packages[pkgIndex].price : null
+    : needsQuantity(service.priceUnit)
+      ? qtyNum > 0 ? Number(service.price) * qtyNum : null
+      : Number(service.price)
   const { showToast } = useToast();
   const { user, provider } = useSession();
   const navigate = useNavigate();
@@ -183,12 +196,18 @@ export default function ServiceDetail({
       showToast("Escolha um horário na agenda.", "warning");
       return;
     }
+    if (hireTotal == null) {
+      showToast(packages.length ? "Escolha um pacote." : `Informe a quantidade de ${qtyUnit}.`, "warning");
+      return;
+    }
     setBusy(true);
     try {
       await hireAPI.create({
-        price: Number(service.price),
+        price: hireTotal,
         serviceId: Number(service.id),
         scheduledAt: slot ?? undefined,
+        packageIndex: packages.length ? pkgIndex! : undefined,
+        quantity: !packages.length && needsQuantity(service.priceUnit) ? qtyNum : undefined,
       });
       showToast("Serviço contratado! Acompanhe em Contratações.", "success");
       setConfirming(null);
@@ -378,7 +397,7 @@ export default function ServiceDetail({
               <div className="grid grid-cols-2 gap-y-2 text-sm">
                 <Info label="Categoria" value={service.category?.name} />
                 <Info label="Subcategoria" value={service.subcategory} />
-                <Info label="Preço" value={formatCurrency(service.price)} />
+                <Info label="Preço" value={formatServicePrice(service.price, service.priceUnit, packages)} />
                 <Info label="Duração" value={service.duration} />
                 <Info
                   label="Negociável"
@@ -426,9 +445,41 @@ export default function ServiceDetail({
                 </p>
                 <p className="text-sm text-[var(--text-muted)] mt-1">
                   {confirming === "hire"
-                    ? `${service.title} com ${providerName} por ${formatCurrency(service.price)}. O prestador recebe o pedido e inicia o serviço.`
+                    ? `${service.title} com ${providerName}. O prestador recebe o pedido e confirma.`
                     : `Confirme só se ${providerName} realmente terminou. Depois você poderá avaliar o prestador.`}
                 </p>
+                {confirming === "hire" && packages.length > 0 && (
+                  <fieldset className="mt-3 flex flex-col gap-2">
+                    <legend className="text-sm font-semibold mb-2">Escolha o pacote</legend>
+                    {packages.map((pk, i) => (
+                      <label key={i} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition ${pkgIndex === i ? "border-[var(--primary)] bg-[var(--primary)]/10" : "border-[var(--border)] hover:border-[var(--primary)]"}`}>
+                        <input type="radio" name="pkg" checked={pkgIndex === i} onChange={() => setPkgIndex(i)} className="mt-1 accent-[var(--primary)]" />
+                        <span className="flex-1">
+                          <span className="flex justify-between gap-2 font-medium"><span>{pk.name}</span><span>{formatCurrency(pk.price)}</span></span>
+                          {pk.description && <span className="block text-xs text-[var(--text-muted)]">{pk.description}</span>}
+                        </span>
+                      </label>
+                    ))}
+                  </fieldset>
+                )}
+                {confirming === "hire" && !packages.length && needsQuantity(service.priceUnit) && (
+                  <label className="mt-3 flex flex-col gap-1">
+                    <span className="text-sm font-semibold">Quantas {qtyUnit}?</span>
+                    <input
+                      inputMode="decimal"
+                      value={quantity}
+                      onChange={(e) => setQuantity(e.target.value.replace(/[^\d.,]/g, ""))}
+                      placeholder={service.priceUnit === "m2" ? "Ex.: 40" : "Ex.: 3"}
+                      className="p-2 w-40 rounded-lg bg-[var(--bg-light)] border border-[var(--border)]"
+                    />
+                    <span className="text-xs text-[var(--text-muted)]">{formatServicePrice(service.price, service.priceUnit)}</span>
+                  </label>
+                )}
+                {confirming === "hire" && (
+                  <p className="mt-3 text-sm">
+                    Total: <strong>{hireTotal != null ? formatCurrency(hireTotal) : "—"}</strong>
+                  </p>
+                )}
                 {confirming === "hire" && service.requiresScheduling && (
                   <div className="mt-3">
                     <p className="text-sm font-semibold mb-2">Escolha o horário de início</p>
@@ -441,7 +492,7 @@ export default function ServiceDetail({
                   </button>
                   <button
                     onClick={confirming === "hire" ? handleNegociar : handleConcluir}
-                    disabled={busy || (confirming === "hire" && service.requiresScheduling && !slot)}
+                    disabled={busy || (confirming === "hire" && ((service.requiresScheduling && !slot) || hireTotal == null))}
                     className="flex-1 flex items-center justify-center gap-2 bg-[var(--primary)] text-white font-semibold py-3 rounded-xl shadow-md hover:scale-[1.02] hover:shadow-lg transition-all disabled:opacity-70">
                     {busy && <Loader2 size={18} className="animate-spin" />}
                     Confirmar
@@ -483,6 +534,23 @@ export default function ServiceDetail({
                     <Star size={18} className="text-yellow-400" /> Avaliar {providerName}
                   </button>
                 )}
+              {quoteOnly ? (
+              <div className="flex gap-3">
+                {/* "a partir de" / "sob orçamento": o preço sai da conversa, não há contratação direta */}
+                <button
+                  onClick={() => setQuoteOpen(true)}
+                  className="flex-1 flex items-center justify-center gap-2 bg-[var(--primary)] text-white font-semibold py-3 rounded-xl shadow-md hover:scale-[1.02] hover:shadow-lg transition-all">
+                  <Handshake size={18} />
+                  Pedir orçamento
+                </button>
+                <button
+                  onClick={handleMensagem}
+                  className="flex-1 flex items-center justify-center gap-2 border border-[var(--primary)] text-[var(--text)] font-semibold py-3 rounded-xl hover:bg-[var(--primary)] hover:text-[var(--bg-light)] hover:scale-[1.02] hover:shadow-lg transition-all">
+                  <MessageCircle size={18} />
+                  Mensagem
+                </button>
+              </div>
+              ) : (
               <div className="flex gap-3">
                 <button
                 onClick={() => setConfirming("hire")}
@@ -497,7 +565,8 @@ export default function ServiceDetail({
                   {service.negotiable ? "Negociar" : "Mensagem"}
                 </button>
               </div>
-              {service.negotiable && (
+              )}
+              {service.negotiable && !quoteOnly && (
                 <button onClick={handleMensagem} className="text-sm text-[var(--text-muted)] hover:text-[var(--primary)] self-center">
                   Só quer tirar uma dúvida? Envie uma mensagem
                 </button>
