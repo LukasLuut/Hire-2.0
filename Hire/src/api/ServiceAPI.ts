@@ -1,6 +1,6 @@
 import { apiRequest } from "./ApiClient";
 import { uploadUrl } from "../utils/avatar";
-import type { RatingStats, ServiceEntity } from "../interfaces/Entities";
+import type { RatingStats, ScheduleSlots, ServiceEntity } from "../interfaces/Entities";
 
 
 export interface ServiceData {
@@ -20,6 +20,12 @@ export interface ServiceData {
   likesNumber: number,
   /** URL absoluta da imagem (ou null) */
   imageUrl: string | null,
+  /** URLs absolutas de todas as imagens (capa primeiro) */
+  images: string[],
+  /** Caminhos como estão no servidor (/uploads/...), usados ao reordenar na edição */
+  imagePaths: string[],
+  scheduleSlots: ScheduleSlots | null,
+  cancellationNotice: string | null,
   provider?:{
     id?: number,
     professionalName?: string,
@@ -49,6 +55,10 @@ export function toServiceData(e: ServiceEntity): ServiceData {
     requiresScheduling: !!e.requiresScheduling,
     likesNumber: e.likesNumber ?? 0,
     imageUrl: uploadUrl(e.imageUrl),
+    imagePaths: e.images?.length ? e.images : e.imageUrl ? [e.imageUrl] : [],
+    images: (e.images?.length ? e.images : e.imageUrl ? [e.imageUrl] : []).map((p) => uploadUrl(p)!).filter(Boolean),
+    scheduleSlots: e.scheduleSlots ?? null,
+    cancellationNotice: e.cancellationNotice ?? null,
     provider: e.provider
       ? {
           id: e.provider.id,
@@ -62,13 +72,14 @@ export function toServiceData(e: ServiceEntity): ServiceData {
   };
 }
 
-const auth = (token: string) => ({ Authorization: "Bearer " + token });
+const auth = (token = localStorage.getItem("token") ?? "") => ({ Authorization: "Bearer " + token });
 
 export const serviceAPI = {
 
   create: async (data: FormData) => {
     return await apiRequest("/services", {
       method: "POST",
+      headers: auth(),
       body: data,
     });
   },
@@ -85,7 +96,7 @@ export const serviceAPI = {
 
   /** Remove um serviço (nome mantido do projeto original). */
   deleteUser: async (id: number) => {
-    return await apiRequest(`/services/${id}`, { method: "DELETE" });
+    return await apiRequest(`/services/${id}`, { method: "DELETE", headers: auth() });
   },
 
   update: async (
@@ -94,6 +105,7 @@ export const serviceAPI = {
   ) => {
     return await apiRequest(`/services/${id}`, {
       method: "PUT",
+      headers: auth(),
       body: data
     });
   },
@@ -106,3 +118,8 @@ export const serviceAPI = {
     return (await apiRequest<number[]>("/services/liked", { headers: auth(token) })) ?? [];
   },
 };
+
+/** Imagens do serviço para exibir; sem fotos, uma arte do DiceBear baseada no título. */
+export function serviceImages(s: ServiceData): string[] {
+  return s.images.length ? s.images : [`https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(s.title)}`];
+}

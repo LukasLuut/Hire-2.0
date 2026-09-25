@@ -12,6 +12,8 @@ import jsPDF from "jspdf";
 import { contractAPI, type ContractEntity } from "../api/ContractAPI";
 import { reaisPorExtenso } from "../utils/extenso";
 import { getErrorMessage } from "../utils/errors";
+import ContractViewer, { SignatureInfo } from "./ContractViwer";
+import type { ContractSignature } from "../api/ContractAPI";
 
 /* --------------------------------------------------------------------------
  * 1. Interface de Tipagem
@@ -39,6 +41,8 @@ interface ContractData {
   cidade_forum: string;
   data_assinatura: string;
   cidade_assinatura: string;
+  /** Garantia combinada na negociação (quando houver) */
+  garantia?: string;
 }
 
 /* --------------------------------------------------------------------------
@@ -85,13 +89,14 @@ function toContractData(c: ContractEntity): ContractData {
     cidade_forum: city,
     data_assinatura: signed.toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" }),
     cidade_assinatura: city,
+    garantia: term("warranty") || undefined,
   };
 }
 
 /** Rota /contract/:id — carrega o contrato real e mostra o documento. */
 export function ContractPreview() {
   const { id } = useParams();
-  const [data, setData] = useState<ContractData | null>(null);
+  const [contract, setContract] = useState<ContractEntity | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -99,9 +104,11 @@ export function ContractPreview() {
     if (!token || !id) return;
     contractAPI
       .getById(Number(id), token)
-      .then((c) => setData(toContractData(c)))
+      .then(setContract)
       .catch((err) => setError(getErrorMessage(err, "Contrato não encontrado.")));
   }, [id]);
+
+  const data = contract ? toContractData(contract) : null;
 
   if (error) {
     return (
@@ -117,13 +124,22 @@ export function ContractPreview() {
       </div>
     );
   }
-  return <ContractDocument data={data} />;
+  return (
+    <ContractDocument data={data} signatures={{ client: contract!.clientSignature, provider: contract!.providerSignature }}>
+      {/* o conteúdo assinado é o próprio texto do contrato (dados + termos) */}
+      <ContractViewer contract={contract!} fingerprintSource={JSON.stringify(data)} onSigned={setContract} />
+    </ContractDocument>
+  );
 }
 
 /* --------------------------------------------------------------------------
  * 3. Função Principal
  * -------------------------------------------------------------------------- */
-export const ContractDocument: React.FC<{ data: ContractData }> = ({ data }) => {
+export const ContractDocument: React.FC<{
+  data: ContractData;
+  signatures?: { client: ContractSignature | null; provider: ContractSignature | null };
+  children?: React.ReactNode;
+}> = ({ data, signatures, children }) => {
   const contractRef = useRef<HTMLDivElement>(null);
 
   /* ----------------------------------------------------------------------
@@ -270,6 +286,12 @@ export const ContractDocument: React.FC<{ data: ContractData }> = ({ data }) => 
             dentro do prazo.
           </p>
 
+          {data.garantia && (
+            <p className="mb-4">
+              <strong>Da Garantia:</strong> {data.garantia}.
+            </p>
+          )}
+
           <h2 className="text-lg font-semibold mt-6 mb-2">5. DA PLATAFORMA INTERMEDIADORA</h2>
           <p className="mb-4">
             A plataforma {data.nome_plataforma} atua exclusivamente como intermediadora tecnológica,
@@ -311,10 +333,12 @@ export const ContractDocument: React.FC<{ data: ContractData }> = ({ data }) => 
             <div>
               <p className="font-semibold">{data.nome_contratante}</p>
               <p>CONTRATANTE</p>
+              {signatures && <SignatureInfo signature={signatures.client} />}
             </div>
             <div>
               <p className="font-semibold">{data.nome_prestador}</p>
               <p>CONTRATADO</p>
+              {signatures && <SignatureInfo signature={signatures.provider} />}
             </div>
             <div>
               <p className="font-semibold">{data.nome_plataforma}</p>
@@ -323,6 +347,8 @@ export const ContractDocument: React.FC<{ data: ContractData }> = ({ data }) => 
           </div>
         </footer>
       </div>
+
+      {children}
     </div>
   );
 };

@@ -1,9 +1,13 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, X, FileText, Upload, Send, XCircle } from "lucide-react";
-import { SmallTooltip } from "./ServiceNegotiationModal"; // aquele tooltip corrigido que você já tem
-import img from '../../../public/img/Danger.png'
+import { SmallTooltip } from "./ServiceNegotiationModal";
 import RejectProposalModal from "./RejectProposalModal";
+import { conversationAPI } from "../../api/ConversationAPI";
+import type { ConversationDetail } from "../../interfaces/Entities";
+import { useToast } from "../Toast/ToastContext";
+import { getErrorMessage } from "../../utils/errors";
+import { uploadUrl } from "../../utils/avatar";
 
 interface Service {
   id?: number;
@@ -18,11 +22,33 @@ interface Service {
 
 export interface ClientProposal {
   clientName: string;
+  serviceTitle: string;
   serviceDescription: string;
   budget: string;
   date: string;
   notes?: string;
-  files?: File[];
+  files: { url: string; name: string }[];
+}
+
+function formatDate(d: string) {
+  if (!d) return "";
+  const date = new Date(d.length === 10 ? d + "T00:00:00" : d);
+  return Number.isNaN(date.getTime()) ? d : date.toLocaleDateString("pt-BR");
+}
+
+/** Pedido do cliente como está salvo na negociação (texto, orçamento e anexos que ele enviou). */
+function toProposal(c: ConversationDetail): ClientProposal {
+  return {
+    clientName: c.client?.name ?? "Cliente",
+    serviceTitle: c.service?.title ?? "",
+    serviceDescription: c.request?.description ?? "",
+    budget: c.request?.budget ?? "",
+    date: formatDate(c.request?.date ?? ""),
+    notes: c.request?.notes ?? "",
+    files: c.messages
+      .filter((m) => m.role === "cliente" && m.attachmentUrl)
+      .map((m) => ({ url: uploadUrl(m.attachmentUrl)!, name: m.attachmentName ?? "Anexo" })),
+  };
 }
 
 /* --------------------------------------------------------------------------
@@ -31,50 +57,112 @@ export interface ClientProposal {
 export default function ServiceResponseModal({
   isOpen,
   onClose,
-  
+  conversationId,
+  onDone,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  
+  conversationId: number | null;
+  /** chamado depois de responder ou recusar (para atualizar a lista do painel) */
+  onDone?: () => void;
 }) {
-  
-  let clientProposal= {
-  clientName: 'Lucas Luut',
-  serviceDescription: 'FAZER UM MEXE AQUI E ALI POR UM PREÇO CAMARADA',
-  budget: '20 pila',
-  date: 'Hoje',
-  notes: 'Não esquece o dinheiro',
-  files:[img]
-  
-}
+  const { showToast } = useToast();
+  const [clientProposal, setClientProposal] = useState<ClientProposal | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [service, setService] = useState<Service>({
-    title: `Proposta para ${clientProposal.clientName}`,
-    description: clientProposal.serviceDescription,
-    price: clientProposal.budget,
+    title: "",
+    description: "",
+    price: "",
     deliveryTime: "",
     attachments: [],
   });
 
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const token = localStorage.getItem("token") ?? "";
 
-  if (!isOpen) return null;
+  // carrega o pedido do cliente e sugere a resposta a partir dele
+  useEffect(() => {
+    if (!isOpen || !conversationId) return;
+    let active = true;
+    setSent(false);
+    setLoadError(null);
+    setClientProposal(null);
+    conversationAPI
+      .get(conversationId, token)
+      .then((c) => {
+        if (!active) return;
+        const proposal = toProposal(c);
+        setClientProposal(proposal);
+        setService({
+          title: proposal.serviceTitle || `Proposta para ${proposal.clientName}`,
+          description: proposal.serviceDescription,
+          price: proposal.budget,
+          deliveryTime: c.service?.duration ?? "",
+          attachments: [],
+        });
+      })
+      .catch((err) => active && setLoadError(getErrorMessage(err, "Não foi possível carregar o pedido.")));
+    return () => {
+      active = false;
+    };
+  }, [isOpen, conversationId, token]);
+
+  // Esc fecha (quando a confirmação de recusa não está aberta)
+  useEffect(() => {
+    if (!isOpen || rejectOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, rejectOpen, onClose]);
+
+  if (!isOpen || !conversationId) return null;
   const handleRefuse=()=>{
     setRejectOpen(true);
-
   }
 
-  const handleSend = () => {
-    setSent(true);
-    setTimeout(() => onClose(), 2000);
+  const handleSend = async () => {
+    if (!service.description.trim() || !String(service.price ?? "").trim()) {
+      showToast("Informe a descrição e o preço da sua proposta.", "warning");
+      return;
+    }
+    setSending(true);
+    try {
+      await conversationAPI.respond(
+        conversationId,
+        { title: service.title, description: service.description, price: String(service.price ?? ""), deadline: service.deliveryTime ?? "" },
+        service.attachments ?? [],
+        token
+      );
+      setSent(true);
+      onDone?.();
+      setTimeout(() => onClose(), 2000);
+    } catch (err) {
+      showToast(getErrorMessage(err, "Não foi possível enviar a proposta."), "error");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleReject = async (reason: string) => {
+    try {
+      await conversationAPI.reject(conversationId, reason, token);
+      onDone?.();
+      return true;
+    } catch (err) {
+      showToast(getErrorMessage(err, "Não foi possível recusar o pedido."), "error");
+      return false;
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
-    const newFiles = Array.from(e.target.files);
-    setService({ ...service, attachments: [...(service.attachments || []), ...newFiles] });
+    const newFiles = Array.from(e.target.files).filter((f) => f.size <= 8 * 1024 * 1024);
+    setService({ ...service, attachments: [...(service.attachments || []), ...newFiles].slice(0, 8) });
+    e.target.value = "";
   };
 
   const modalVariants = {
@@ -95,20 +183,25 @@ export default function ServiceResponseModal({
         exit="exit"
         transition={{ duration: 0.4, ease: "easeOut" }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-3xl md:rounded-2xl bg-[var(--bg)]/80 
-        backdrop-blur-xl border border-[rgba(255,255,255,0.15)] shadow-2xl text-[var(--text)] 
+        className="relative w-full max-w-3xl md:rounded-2xl bg-[var(--bg)]/80
+        backdrop-blur-xl border border-[rgba(255,255,255,0.15)] shadow-2xl text-[var(--text)]
         overflow-y-auto max-h-[90vh] md:max-h-[85vh] p-6 md:p-10"
       >
         {/* Botão X de Fechar */}
         <button
           onClick={onClose}
+          aria-label="Fechar"
           className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 transition"
         >
           <X className="w-5 h-5 text-[var(--text)]" />
         </button>
 
         <AnimatePresence mode="wait">
-          {!sent ? (
+          {!clientProposal ? (
+            <motion.div key="loading" className="py-16 text-center opacity-80">
+              {loadError ?? "Carregando pedido..."}
+            </motion.div>
+          ) : !sent ? (
             <motion.div
               key="content"
               variants={modalVariants}
@@ -124,6 +217,7 @@ export default function ServiceResponseModal({
                 <h2 className="text-xl font-semibold mb-2">
                   Solicitação de {clientProposal.clientName}
                 </h2>
+                {clientProposal.serviceTitle && <p className="text-sm opacity-80 mb-2">Serviço: {clientProposal.serviceTitle}</p>}
                 <div className="bg-black/30 rounded-xl p-4 border border-white/10 space-y-3 text-sm">
                   <p>
                     <strong>Descrição:</strong> {clientProposal.serviceDescription}
@@ -144,15 +238,23 @@ export default function ServiceResponseModal({
                       <strong>Anexos do cliente:</strong>
                       <div className="flex gap-2 mt-2 overflow-x-auto">
                         {clientProposal.files.map((file, i) => (
-                          <div
+                          <a
                             key={i}
-                            className="w-20 h-20 bg-[var(--bg-light)] rounded-lg border border-[var(--border)] flex items-center justify-center text-xs text-center p-1"
+                            href={file.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            title={file.name}
+                            className="w-20 h-20 shrink-0 bg-[var(--bg-light)] rounded-lg border border-[var(--border)] flex flex-col items-center justify-center text-xs text-center p-1 overflow-hidden"
                           >
-                            <FileText className="w-5 h-5 text-[var(--primary)]" />
-                            {file.length > 10
-                              ? file.slice(0, 10) + "..."
-                              : file}
-                          </div>
+                            {/\.(png|jpe?g|gif|webp|svg)$/i.test(file.url) ? (
+                              <img src={file.url} alt={file.name} className="w-full h-full object-cover rounded" />
+                            ) : (
+                              <>
+                                <FileText className="w-5 h-5 text-[var(--primary)]" />
+                                {file.name.length > 10 ? file.name.slice(0, 10) + "..." : file.name}
+                              </>
+                            )}
+                          </a>
                         ))}
                       </div>
                     </div>
@@ -201,8 +303,11 @@ export default function ServiceResponseModal({
                 <div className="space-y-2">
                   <label className="block font-medium">Anexos (opcional)</label>
                   <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center justify-center p-3 border border-[var(--border)] rounded-lg 
+                    onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && fileInputRef.current?.click()}
+                    className="flex items-center justify-center p-3 border border-[var(--border)] rounded-lg
                     bg-[rgba(255,255,255,0.1)] cursor-pointer hover:bg-[rgba(255,255,255,0.15)] transition"
                   >
                     <Upload className="w-5 h-5 mr-2 text-[var(--primary)]" />
@@ -212,6 +317,7 @@ export default function ServiceResponseModal({
                     ref={fileInputRef}
                     type="file"
                     multiple
+                    accept="image/*,application/pdf"
                     className="hidden"
                     onChange={handleFileUpload}
                   />
@@ -220,7 +326,7 @@ export default function ServiceResponseModal({
                       {service.attachments.map((f, i) => (
                         <div
                           key={i}
-                          className="flex items-center gap-1 bg-black/40 border border-[var(--border)] 
+                          className="flex items-center gap-1 bg-black/40 border border-[var(--border)]
                           px-2 py-1 rounded-md text-xs backdrop-blur-sm"
                         >
                           <FileText className="w-3 h-3 text-[var(--primary)]" />
@@ -245,22 +351,21 @@ export default function ServiceResponseModal({
                 </button>
                 <button
                   onClick={handleSend}
-                  className="flex items-center justify-center gap-2 px-6 py-2 rounded-lg bg-[var(--primary)] text-white hover:opacity-90 shadow-md"
+                  disabled={sending}
+                  className="flex items-center justify-center gap-2 px-6 py-2 rounded-lg bg-[var(--primary)] text-white hover:opacity-90 shadow-md disabled:opacity-60"
                 >
                   <Send className="w-5 h-5" />
-                  Enviar proposta de serviço
+                  {sending ? "Enviando..." : "Enviar proposta de serviço"}
                 </button>
               </section>
                  <RejectProposalModal
                     isOpen={rejectOpen}
                     onClose={() => setRejectOpen(false)}
-                    onConfirm={(reason) => {
-                    console.log("Recusado com motivo:", reason);
-                    setRejectOpen(false);
-                }}
+                    onConfirm={handleReject}
+                    onDone={onClose}
                 />
             </motion.div>
-         
+
           ) : (
             /* ------------------------------------------------------------------
              * CONFIRMAÇÃO DE ENVIO
@@ -276,8 +381,8 @@ export default function ServiceResponseModal({
               <CheckCircle2 className="w-16 h-16 text-[var(--primary)]" />
               <h2 className="text-xl font-semibold">Proposta enviada!</h2>
               <p className="opacity-80 text-center max-w-sm">
-                Sua proposta foi enviada ao cliente.  
-                Você será notificado assim que ele responder.
+                Sua proposta foi enviada a {clientProposal.clientName}.
+                A resposta aparece na negociação e no seu chat.
               </p>
             </motion.div>
           )}
@@ -303,19 +408,22 @@ function FormField({
   tooltip?: string;
   isTextArea?: boolean;
 }) {
+  const id = "resp-" + label.toLowerCase().replace(/[^a-z]+/g, "-");
   return (
     <div className="relative">
-      <label className="block font-medium mb-1 text-white">{label}</label>
+      <label htmlFor={id} className="block font-medium mb-1 text-white">{label}</label>
       {isTextArea ? (
         <textarea
-          className="w-full p-3 rounded-lg border border-[var(--border)] bg-black/30 text-white 
+          id={id}
+          className="w-full p-3 rounded-lg border border-[var(--border)] bg-black/30 text-white
           focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
           value={value}
           onChange={(e) => onChange(e.target.value)}
         />
       ) : (
         <input
-          className="w-full p-3 rounded-lg border border-[var(--border)] bg-black/30 text-white 
+          id={id}
+          className="w-full p-3 rounded-lg border border-[var(--border)] bg-black/30 text-white
           focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
           value={value}
           onChange={(e) => onChange(e.target.value)}

@@ -9,8 +9,6 @@
  * -------------------------------------------------------------------------- */
 import { useState, useEffect, useCallback } from "react";
 import { Star, Edit3, MessageSquare, Check } from "lucide-react";
-import ServiceNegotiationModal from "../components/Negotiation/ServiceNegotiationModal";
-import ServiceResponseModal from "../components/Negotiation/ServiceResponseModal";
 import ProviderRegistrationContainer from "../components/ProviderRegistration/ProviderRegistration/Principal/ProviderRegistrationContainer";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { userAPI } from "../api/UserAPI";
@@ -36,8 +34,6 @@ export default function ProfilePage() {
   const { user: sessionUser, provider, loading, refresh, logout } = useSession();
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [openContratar, setOpenContratar]=useState(false)
-  const [isOpenResponse, setIsOpenResponse]=useState(false)
   const [isOpenChat, setIsOpenChat]=useState(false)
   const [registration, setRegistration]=useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -245,16 +241,6 @@ export default function ProfilePage() {
        * SEÇÃO DO CHAT (conversas e negociações)
        * =============================================================== */}
       <ChatInbox isOpen={isOpenChat} onClose={() => setIsOpenChat(false)} />
-
-       {/* ===============================================================
-       * SEÇÃO DE RESPOSTA DE SERVIÇOS
-       * =============================================================== */}
-      <ServiceResponseModal isOpen={isOpenResponse} onClose={()=>{setIsOpenResponse(false)}}/>
-
-       {/* ===============================================================
-       * SEÇÃO DE CRIAÇÃO DE ORÇAMENTO
-       * =============================================================== */}
-      <ServiceNegotiationModal isOpen= {openContratar} onClose={()=>{setOpenContratar(false)}} />
 
         {/* ===============================================================
        * SEÇÃO DE REGISTRO E GALERIA DE SERVIÇOS

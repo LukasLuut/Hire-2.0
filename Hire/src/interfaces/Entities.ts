@@ -58,10 +58,17 @@ export interface ServiceEntity {
   requiresScheduling: boolean;
   likesNumber?: number;
   imageUrl?: string | null;
+  /** Todas as imagens na ordem do prestador (a primeira é a capa) */
+  images?: string[] | null;
+  /** Horários de início por dia da semana: { monday: ["08:00", ...] } */
+  scheduleSlots?: ScheduleSlots | null;
+  cancellationNotice?: string | null;
   category?: CategoryEntity | null;
   provider?: ProviderEntity | null;
   rating?: RatingStats;
 }
+
+export type ScheduleSlots = Partial<Record<"sunday" | "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday", string[]>>;
 
 export interface HireEntity {
   id: number;
@@ -70,6 +77,8 @@ export interface HireEntity {
   firstContact: string;
   status: string;
   status_provider: string;
+  /** Horário reservado na agenda do serviço ("AAAA-MM-DD HH:mm:ss" ou ISO) */
+  scheduledAt?: string | null;
   user?: { id: number; name: string };
   provider?: ProviderEntity;
   service?: ServiceEntity;
@@ -97,6 +106,15 @@ export interface NegotiationTopic {
   tooltip?: string;
   state: "Acordado" | "Pendente" | "Negado";
   content: string;
+  /** Quem propôs o conteúdo atual; só a outra parte pode aceitá-lo */
+  proposedBy?: "cliente" | "prestador" | null;
+}
+
+export interface QuoteRequest {
+  description: string;
+  budget: string;
+  date: string;
+  notes: string;
 }
 
 export interface ConversationSummary {
@@ -107,6 +125,11 @@ export interface ConversationSummary {
   client: { id: number; name: string } | null;
   provider: { id: number; companyName: string; professionalName: string; profileImageUrl?: string | null; userId?: number } | null;
   service: { id: number; title: string; price: number; duration: string; description: string } | null;
+  request: QuoteRequest | null;
+  requestStatus: "PENDENTE" | "RESPONDIDA" | "RECUSADA" | null;
+  rejectReason: string | null;
+  clientAcceptedAt: string | null;
+  providerAcceptedAt: string | null;
   hireId: number | null;
   contractId: number | null;
   updatedAt: string;

@@ -10,6 +10,13 @@ import { useToast } from "../../components/Toast/ToastContext";
 import { useSession } from "../../context/SessionContext";
 import ConfirmModal from "../Common/ConfirmModal";
 import { getErrorMessage } from "../../utils/errors";
+import { uploadUrl } from "../../utils/avatar";
+import { SlotGrid } from "../Schedule";
+import type { ScheduleSlots } from "../../interfaces/Entities";
+
+/** Imagem na lista do editor: já publicada (path no servidor) ou nova (arquivo) */
+type EditorImage = { id: string; path?: string; file?: File; url: string };
+const MAX_IMAGES = 8;
 
 
 interface ModalProps {
@@ -70,9 +77,9 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
     "right"
   );
 
-  /* --------------------------- Imagem --------------------------- */
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  /* --------------------------- Imagens e agenda --------------------------- */
+  const [images, setImages] = useState<EditorImage[]>([]);
+  const [slots, setSlots] = useState<ScheduleSlots>({});
 
   // Preço digitado (aceita centavos: "150,00")
   const [priceDigits, setPriceDigits] = useState("");
@@ -104,11 +111,11 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
   // Carrega o serviço para edição (ou limpa para criar)
   useEffect(() => {
     if (!isOpen) return;
-    setImageFile(null);
+    setImages([]);
+    setSlots({});
     if (!hasService) {
       setService(EMPTY_SERVICE);
       setPriceDigits("");
-      setImagePreview(null);
       return;
     }
     serviceAPI
@@ -127,10 +134,11 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
           requiresScheduling: data.requiresScheduling,
           acceptedTerms: true,
           imageUrl: data.imageUrl ?? "",
-          cancellationNotice: "",
+          cancellationNotice: data.cancellationNotice ?? "",
         });
         setPriceDigits(data.price.toFixed(2).replace(".", ","));
-        setImagePreview(data.imageUrl);
+        setImages(data.imagePaths.map((path) => ({ id: path, path, url: uploadUrl(path)! })));
+        setSlots(data.scheduleSlots ?? {});
       })
       .catch((err) => showToast(getErrorMessage(err, "Não foi possível carregar o serviço."), "error"));
   }, [isOpen, hasService, serviceId, showToast]);
@@ -151,17 +159,21 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
 };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    const files = Array.from(e.target.files ?? []).filter((f) => f.type.startsWith("image/") && f.size <= 8 * 1024 * 1024);
+    e.target.value = "";
+    if (!files.length) return;
+    setImages((prev) =>
+      [...prev, ...files.map((file) => ({ id: `${file.name}-${Math.random()}`, file, url: URL.createObjectURL(file) }))].slice(0, MAX_IMAGES)
+    );
   };
 
-  const removeImage = () => {
-    setImageFile(null);
-    setImagePreview(null);
+  const removeImage = (id: string) => {
+    setImages((prev) => prev.filter((img) => img.id !== id));
+  };
+
+  // a imagem escolhida vira a capa (primeira da lista)
+  const makeCover = (id: string) => {
+    setImages((prev) => [...prev.filter((img) => img.id === id), ...prev.filter((img) => img.id !== id)]);
   };
 
   /* --------------------------- Função de swipe lateral (mobile) --------------------------- */
@@ -240,20 +252,26 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
       showToast("Preencha título, descrição, categoria, preço e duração.", "warning")
       return;
     }
-    if (!hasService && !imageFile) return showToast("Selecione uma imagem", "warning");
     if (!providerId) return showToast("Cadastre sua empresa antes de publicar serviços.", "warning");
+    const hasSlots = Object.values(slots).some((t) => t && t.length > 0);
+    if (selectedService.requiresScheduling && !hasSlots) return showToast("Escolha ao menos um horário na agenda.", "warning");
 
     const formData = new FormData();
     formData.append("title", selectedService.title.trim());
     formData.append("description_service", selectedService.description_service.trim());
     formData.append("categoryId", String(selectedService.categoryId));
-    formData.append("providerId", String(providerId));
     formData.append("price", String(price));
     formData.append("duration", selectedService.duration.trim());
     formData.append("subcategory", selectedService.subcategory ? selectedService.subcategory.trim() : "");
     formData.append("negotiable", selectedService.negotiable ? "true" : "false");
     formData.append("requiresScheduling", selectedService.requiresScheduling ? "true" : "false");
-    if (imageFile) formData.append("image", imageFile);
+    if (selectedService.requiresScheduling) {
+      formData.append("scheduleSlots", JSON.stringify(slots));
+      formData.append("cancellationNotice", (selectedService.cancellationNotice ?? "").trim());
+    }
+    // imagens: as já publicadas que ficaram (na ordem) + as novas; a primeira é a capa
+    formData.append("keepImages", JSON.stringify(images.filter((i) => i.path).map((i) => i.path)));
+    images.forEach((img) => img.file && formData.append("images", img.file));
 
     setSaving(true);
     try {
@@ -427,71 +445,69 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
                     />
                   </label>
 
-                  
+                  {/* Agenda: horários em que o cliente pode marcar o início */}
+                  {selectedService.requiresScheduling && (
+                    <div className="flex flex-col gap-3">
+                      <span className="text-sm text-[var(--text-muted)]">Horários disponíveis para o cliente escolher</span>
+                      <SlotGrid slots={slots} onChange={setSlots} serviceType={categoryName} />
+                      <label className="flex flex-col">
+                        <span className="text-[var(--text-muted)] text-sm mb-1">Prazo para cancelamento</span>
+                        <input
+                          type="text"
+                          placeholder="Ex: até 24h antes"
+                          value={selectedService.cancellationNotice ?? ""}
+                          onChange={(e) => handleChange("cancellationNotice", e.target.value)}
+                          className="p-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)]"
+                        />
+                      </label>
+                    </div>
+                  )}
+
+
                 </div>
 
                 {/* --------------------------- Editor de imagens --------------------------- */}
-                {/* <div className="mt-4">
-                  <h4 className="font-semibold mb-2">Imagens do serviço</h4>
+                <div className="mt-4">
+                  <h4 className="font-semibold mb-1">Imagens do serviço</h4>
+                  <p className="text-xs text-[var(--text-muted)] mb-2">A primeira é a capa. Toque em uma imagem para torná-la capa.</p>
                   <div className="flex gap-2 flex-wrap">
-                    {selectedService.imageUrl && (
-                    <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-[var(--border)]">
-                      <img
-                        src={selectedService.imageUrl}
-                        alt="Imagem do serviço"
-                        className="w-full h-full object-cover"
-                      />
+                    {images.map((img, i) => (
+                    <div key={img.id} className={`relative w-24 h-24 rounded-lg overflow-hidden border ${i === 0 ? "border-[var(--primary)] border-2" : "border-[var(--border)]"}`}>
+                      <button type="button" onClick={() => makeCover(img.id)} className="w-full h-full" aria-label={i === 0 ? "Capa do serviço" : `Usar imagem ${i + 1} como capa`}>
+                        <img
+                          src={img.url}
+                          alt={i === 0 ? "Capa do serviço" : `Imagem ${i + 1} do serviço`}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                      {i === 0 && <span className="absolute bottom-0 left-0 right-0 text-[10px] text-center bg-[var(--primary)] text-white">Capa</span>}
 
                       <button
-                        onClick={removeImage}
+                        type="button"
+                        onClick={() => removeImage(img.id)}
+                        aria-label={`Remover imagem ${i + 1}`}
                         className="absolute top-1 right-1 bg-[var(--bg-dark)]/70 p-1 rounded-full text-white hover:bg-red-600 transition"
                       >
                         <Trash2 size={14} />
                       </button>
                     </div>
-                  )}
+                    ))}
 
-                    <button
-                      onClick={addImage}
-                      className="flex items-center justify-center w-24 h-24 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--bg-dark)]/20 transition"
-                    >
-                      <PlusCircle size={24} />
-                    </button>
-                  </div>
-                </div> */}
-                <div className="mt-4">
-                  <h4 className="font-semibold mb-2">Imagem do serviço</h4>
-
-                  <div className="flex gap-2 flex-wrap">
-                    {imagePreview ? (
-                      <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-[var(--border)]">
-                        <img
-                          src={imagePreview}
-                          alt="Imagem do serviço"
-                          className="w-full h-full object-cover"
-                        />
-
-                        <button
-                          type="button"
-                          onClick={removeImage}
-                          className="absolute top-1 right-1 bg-[var(--bg-dark)]/70 p-1 rounded-full text-white hover:bg-red-600 transition"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    ) : (
+                    {images.length < MAX_IMAGES && (
                       <>
                         <label
                           htmlFor="imageUpload"
                           className="flex items-center justify-center w-24 h-24 rounded-lg border border-[var(--border)] text-[var(--text-muted)] cursor-pointer hover:bg-[var(--bg-dark)]/20 transition"
                         >
                           <PlusCircle size={24} />
+                          <span className="sr-only">Adicionar imagens</span>
                         </label>
 
                         <input
                           id="imageUpload"
                           type="file"
                           accept="image/*"
+                          multiple
                           onChange={ handleImageChange }
                           className="hidden"
                         />
@@ -542,9 +558,9 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
       onDragEnd={handleDragEnd}
     >
       {/* --------------------------- Imagem principal --------------------------- */}
-    {imagePreview && (
+    {images[0] && (
       <img
-        src={imagePreview ? imagePreview : selectedService.imageUrl}
+        src={images[0].url}
         alt={selectedService.title}
         className="w-full h-64 object-cover rounded-lg mb-4"
       />
@@ -591,10 +607,10 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
         </div>
 
         {/* --------------------------- Lista de imagens adicionais --------------------------- */}
-        {imagePreview && (
+        {images[0] && (
           <div className="flex gap-2 mt-4 overflow-x-auto">
             <img
-              src={imagePreview}
+              src={images[0].url}
               alt="Preview da imagem"
               className="w-24 h-24 object-cover rounded-lg border border-[var(--border)]"
             />

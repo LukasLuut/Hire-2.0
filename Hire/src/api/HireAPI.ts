@@ -10,14 +10,15 @@ const setStatus = (id: number, body: { status?: string; status_provider?: string
 export const hireAPI = {
 
   /** O cliente vem do token; o prestador é o dono do serviço. */
-  create: async (data: { price: number, serviceId: number, description?: string }) => {
+  create: async (data: { price: number, serviceId: number, description?: string, scheduledAt?: string }) => {
     const response = await apiRequest<HireEntity>("/hires", {
       method: "POST",
       headers: auth(),
       body: JSON.stringify({
         price: data.price,
         description_service: data.description?.trim() || "Serviço contratado pela plataforma",
-        serviceId: data.serviceId
+        serviceId: data.serviceId,
+        scheduledAt: data.scheduledAt,
       }),
     });
 
@@ -41,6 +42,11 @@ export const hireAPI = {
   concludeHireProvider: (id: number) => setStatus(id, { status_provider: "CONCLUIDO" }),
 
   beginHireProvider: (id: number) => setStatus(id, { status_provider: "EM ANDAMENTO" }),
+
+  /** Horários já reservados com o prestador do serviço (para esconder na agenda). */
+  bookedSlots: async (serviceId: number): Promise<string[]> => {
+    return (await apiRequest<string[]>(`/hires/booked/${serviceId}`, { headers: auth() })) ?? [];
+  },
 
   getHireByProviderId: async (id: number): Promise<HireEntity[]> => {
     return (await apiRequest<HireEntity[]>(`/hires/provider/${id}`, { headers: auth() })) ?? [];

@@ -6,10 +6,8 @@ import ProfilePage from "./pages/ProfilePage";
 import DashboardPrestador from "./pages/DashboardPrestador";
 import AuthPage from "./pages/AuthPage";
 import ProviderPublicPage from "./pages/ProviderPublicPage";
-// import ContractViewer from "./components/ContractViwer";
 import { ContractPreview } from "./components/ContractPreview";
 import NegotiationRoom from "./components/Negotiation/NegotiationRoom";
-import ScheduleConfigurator from "./components/Schedule";
 import ServiceDashboardSophisticated from "./pages/DashboardClient";
 import Accessibility from "./components/Accessibility";
 import { ServiceProgressContainer } from "./components/ServiceProgressContainer";
@@ -66,12 +64,10 @@ export default function App() {
           <Route path="/provider/:id" element={<RequireAuth><ProviderPublicPage /></RequireAuth>} />
 
           {/* Contratos */}
-          {/* <Route path="/contract/viewer" element={<ContractViewer />} /> */}
           <Route path="/contract/:id" element={<RequireAuth><ContractPreview /></RequireAuth>} />
 
           {/* Negociação e agendamento */}
-          <Route path="/negotiation" element={<NegotiationRoom />} />
-          <Route path="/schedule" element={<ScheduleConfigurator />} />
+          <Route path="/negotiation/:id" element={<RequireAuth><NegotiationRoom /></RequireAuth>} />
 
           {/* Rota fallback */}
           <Route path="*" element={<RootRedirect />} />

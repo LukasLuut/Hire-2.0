@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, Clock, Tag as TagIcon, Heart, HandCoins, SquarePen, Star } from "lucide-react";
 import ServiceDetailModal from "../ServiceDetail/ServiceDetail";
 import ServiceEditor from "../../ServiceEditor/ServiceEditor";
-import { serviceAPI, type ServiceData } from "../../../api/ServiceAPI";
+import { serviceAPI, serviceImages, type ServiceData } from "../../../api/ServiceAPI";
 import { useToast } from "../../Toast/ToastContext";
 import { formatCurrency } from "../../../utils/format";
 
@@ -25,9 +25,7 @@ export default function PostCard({
   onChanged?: () => void;
 }) {
   const { showToast } = useToast();
-  const imagesLink = [
-    service.imageUrl ?? `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(service.title)}`,
-  ];
+  const imagesLink = serviceImages(service);
 
   const [index, setIndex] = useState(0);
   const total = imagesLink.length;

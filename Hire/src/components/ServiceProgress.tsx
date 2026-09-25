@@ -19,7 +19,7 @@ import { toServiceData } from "../api/ServiceAPI";
 import { useToast } from "./Toast/ToastContext";
 import type { HireEntity } from "../interfaces/Entities";
 import { HIRE_STEPS, HIRE_STAGE_LABEL, HIRE_STAGE_LABEL_PROVIDER, getHireStage, stepIndex } from "../utils/hireStatus";
-import { formatCurrency, formatDate } from "../utils/format";
+import { formatCurrency, formatDate, formatDateTime } from "../utils/format";
 import { defaultAvatar, uploadUrl } from "../utils/avatar";
 import { getErrorMessage } from "../utils/errors";
 
@@ -152,6 +152,9 @@ export function ServiceProgress({
               <p className="text-xs text-[var(--text-muted)] mt-1">
                 Nº do pedido: {String(data.id).padStart(4, "0")} · {formatCurrency(data.price)} · <strong className="text-[var(--text)]">{statusLabel}</strong>
               </p>
+              {data.scheduledAt && (
+                <p className="text-xs text-[var(--text)] mt-1">Agendado para {formatDateTime(data.scheduledAt)}</p>
+              )}
             </div>
 
 

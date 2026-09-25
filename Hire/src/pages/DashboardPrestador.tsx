@@ -8,8 +8,10 @@ import {
   Archive,
   ChevronDown,
   ChevronUp,
+  FileText,
 } from "lucide-react";
-import ServiceEditor from "../components/ServiceEditor/ServiceEditor";
+import { ServiceCreationWizardModal } from "../components/ServiceCreator/ServiceCreationWizardModal";
+import ServiceResponseModal from "../components/Negotiation/ServiceResponseModal";
 import { useNavigate } from "react-router-dom";
 import ChatInbox from "../components/Chat/ChatInbox";
 import { ProviderProfileSkeleton } from "../skeletons/ProviderProfileSkeleton/ProviderProfileSkeleton";
@@ -19,7 +21,7 @@ import { reviewAPI } from "../api/ReviewAPI";
 import { conversationAPI } from "../api/ConversationAPI";
 import type { ConversationSummary, HireEntity, ReviewEntity } from "../interfaces/Entities";
 import { HIRE_STAGE_LABEL_PROVIDER, getHireStage } from "../utils/hireStatus";
-import { formatCurrency, formatDate } from "../utils/format";
+import { formatCurrency, formatDate, formatDateTime } from "../utils/format";
 import { uploadUrl } from "../utils/avatar";
 
 type Notification = { id: string; text: string; date: number };
@@ -37,6 +39,7 @@ export default function DashboardPrestador() {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isOpenChat, setIsOpenChat]=useState(false);
   const [galleryKey, setGalleryKey] = useState(0);
+  const [responding, setResponding] = useState<number | null>(null);
 
   // mobile accordion (drawer alternative per sua escolha 'b')
   const [panelOpen, setPanelOpen] = useState(false);
@@ -64,7 +67,11 @@ export default function DashboardPrestador() {
   }, [sessionLoading, provider, navigate]);
 
   // Notificações recentes: novos pedidos, avaliações e mensagens de clientes
+  // Pedidos de orçamento aguardando resposta
+  const pendingRequests = conversations.filter((c) => c.status === "OPEN" && c.requestStatus === "PENDENTE");
+
   const notifications: Notification[] = [
+    ...pendingRequests.map((c) => ({ id: `q${c.id}`, text: `Pedido de orçamento — ${c.client?.name ?? "Cliente"} (${c.service?.title ?? "serviço"})`, date: new Date(c.updatedAt).getTime() })),
     ...(bookings ?? [])
       .filter((b) => getHireStage(b) === "requested")
       .map((b) => ({ id: `h${b.id}`, text: `Novo pedido — ${b.user?.name ?? "Cliente"} (${b.service?.title ?? "serviço"})`, date: new Date(b.firstContact).getTime() })),
@@ -91,7 +98,7 @@ export default function DashboardPrestador() {
       { loading ?
         <ProviderProfileSkeleton/> :
       <div className="min-h-screen bg-[var(--bg-dark)] pt-25 text-[var(--text)] px-4 sm:px-6 md:px-8 lg:px-10 py-6">
-        {/* header */}        
+        {/* header */}
         <div className="max-w-[90%] mx-auto flex flex-col lg:flex-row gap-6">
           {/* aside (desktop) visible at right; on mobile it will be an accordion below header */}
           {provider && <ProviderHero key={galleryKey} provider={provider} />}
@@ -108,7 +115,7 @@ export default function DashboardPrestador() {
                 </button>
                 <button onClick={()=>{setIsOpenChat(true)}} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)] hover:border-[var(--highlight)]">
                   <MessageSquare /> <span className="text-sm">Mensagens</span>
-                </button>                
+                </button>
                 <button onClick={()=>navigate("/progress")} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)] hover:border-[var(--highlight)]">
                   <Archive /> <span className="text-sm">Relatórios</span>
                 </button>
@@ -147,7 +154,7 @@ export default function DashboardPrestador() {
                   {panelOpen ? <ChevronUp /> : <ChevronDown />}
                 </div>
               </motion.button>
-              
+
               <AnimatePresence>
                 {panelOpen && (
                   <motion.div
@@ -187,16 +194,39 @@ export default function DashboardPrestador() {
             </div>
             <div >
 
-            {openCreateService&&( <div className="fixed inset-0 z-20 "><ServiceEditor serviceId={null} isOpen={openCreateService} onClose={() => setOpenCreateService(false)} onSaved={() => setGalleryKey((k) => k + 1)} /></div>)}
+            <ServiceCreationWizardModal isOpen={openCreateService} onClose={() => setOpenCreateService(false)} onCreated={() => setGalleryKey((k) => k + 1)} />
             </div>
             {/* right column inside main (bookings + reviews) */}
             <aside className="lg:col-span-1">
+              {pendingRequests.length > 0 && (
+                <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mb-4 bg-[var(--bg-light)]/30 backdrop-blur-xl rounded-2xl p-4 border border-[var(--primary)]/60">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold">Pedidos de orçamento</h4>
+                    <div className="text-xs text-[var(--text-muted)]">{pendingRequests.length} aguardando</div>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    {pendingRequests.slice(0, 4).map((c) => (
+                      <div key={c.id} className="flex items-start gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)]">
+                        <FileText size={18} className="text-[var(--primary)] mt-0.5 shrink-0" />
+                        <div className="flex-1 text-sm min-w-0">
+                          <div className="font-medium">{c.client?.name ?? "Cliente"}</div>
+                          <div className="text-xs text-[var(--text-muted)] truncate">{c.service?.title}</div>
+                          {c.request?.budget && <div className="text-xs mt-1">Orçamento: {c.request.budget}</div>}
+                        </div>
+                        <button onClick={() => setResponding(c.id)} className="px-3 py-1.5 rounded-lg bg-[var(--primary)] text-white text-xs font-semibold">
+                          Responder
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="bg-[var(--bg-light)]/30 backdrop-blur-xl rounded-2xl p-4 border border-[var(--border)]">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-semibold">Reservas recentes</h4>
                   <div className="text-xs text-[var(--text-muted)]">Próximas</div>
                 </div>
-                
+
                 <div className="flex flex-col gap-3">
                   {bookings === null && <div className="h-16 rounded-lg bg-[var(--bg)]/40 animate-pulse" />}
                   {bookings?.length === 0 && (
@@ -212,7 +242,7 @@ export default function DashboardPrestador() {
                         </div>
                         <div className="flex-1 text-sm">
                           <div className="font-medium">{b.user?.name ?? "Cliente"}</div>
-                          <div className="text-[var(--text-muted)] text-xs">{formatDate(b.firstContact)}</div>
+                          <div className="text-[var(--text-muted)] text-xs">{b.scheduledAt ? `Agendado: ${formatDateTime(b.scheduledAt)}` : formatDate(b.firstContact)}</div>
                           <div className="text-xs mt-1">{svc?.title}</div>
                         </div>
                         <div className="text-right text-xs">
@@ -230,7 +260,7 @@ export default function DashboardPrestador() {
               </motion.div>
 
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mt-4 bg-[var(--bg-light)]/30 backdrop-blur-xl rounded-2xl p-4 border border-[var(--border)]">
-                <div className="flex items-center justify-between mb-3"> 
+                <div className="flex items-center justify-between mb-3">
                   <h4 className="font-semibold">Avaliações recentes</h4>
                   <div className="text-xs text-[var(--text-muted)]">Últimas</div>
                 </div>
@@ -263,10 +293,11 @@ export default function DashboardPrestador() {
 
         {/* CHAT */}
         <ChatInbox isOpen={isOpenChat} onClose={() => { setIsOpenChat(false); load(); }} />
+        <ServiceResponseModal isOpen={responding !== null} conversationId={responding} onClose={() => setResponding(null)} onDone={load} />
         {/* main content: services + bookings */}
-        
+
       </div>
-      }      
+      }
     </LayoutGroup>
   );
 }

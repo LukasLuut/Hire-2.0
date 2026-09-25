@@ -2,6 +2,8 @@ import { AppDataSource } from "../config/data-source";
 import { Hire, StatusEnum } from "../models/Hire";
 import { ServiceProvider } from "../models/ServiceProvider";
 import { Service } from "../models/Service";
+import { fitsSchedule, parseLocalDateTime } from "../utils/schedule";
+import { MoreThan, Not } from "typeorm";
 
 /** Erro com status HTTP, usado pelo controller para responder 403/404. */
 export class HttpError extends Error {
@@ -32,8 +34,8 @@ export class HireService {
         throw new HttpError(403, "Você não participa desta contratação");
     }
 
-    async create(data: { price: number, description_service: string, firstContact: Date, serviceId: string }, userId: number) {
-        const { price, description_service, firstContact, serviceId } = data;
+    async create(data: { price: number, description_service: string, firstContact: Date, serviceId: string, scheduledAt?: string }, userId: number) {
+        const { description_service, firstContact, serviceId } = data;
 
         const service = await this.serviceRepository.findOne({
             where: { id: Number(serviceId) },
@@ -42,10 +44,25 @@ export class HireService {
         if (!service) throw new HttpError(404, "Serviço não encontrado");
         if (service.provider?.user?.id === userId) throw new HttpError(400, "Você não pode contratar o próprio serviço");
 
+        // Serviços com agenda: o horário precisa estar na agenda, no futuro e livre
+        let scheduledAt: Date | null = null;
+        if (service.requiresScheduling) {
+            scheduledAt = parseLocalDateTime(data.scheduledAt);
+            if (!scheduledAt) throw new HttpError(400, "Escolha um horário na agenda do serviço");
+            if (scheduledAt.getTime() <= Date.now()) throw new HttpError(400, "Escolha um horário futuro");
+            if (!fitsSchedule(service.scheduleSlots, scheduledAt)) throw new HttpError(400, "Este horário não está disponível na agenda do prestador");
+            const taken = await this.hireRepository.findOne({
+                where: { provider: { id: service.provider.id }, scheduledAt, status: Not(StatusEnum.CANCELADO) },
+            });
+            if (taken) throw new HttpError(409, "Este horário acabou de ser reservado. Escolha outro.");
+        }
+
+        // Contratação direta usa o preço publicado; valores diferentes só por negociação
         const hire = this.hireRepository.create({
-            price,
-            description_service,
+            price: service.price,
+            description_service: (description_service?.trim() || service.title).slice(0, 100),
             firstContact,
+            scheduledAt,
             provider: { id: service.provider.id },
             user: { id: userId },
             service: { id: service.id }
@@ -109,6 +126,17 @@ export class HireService {
         return await this.hireRepository.find({ relations: this.fullRelations, where: {
             provider: {id: id}
         }, order: { id: "DESC" }});
+    }
+
+    /** Horários futuros já reservados com o prestador do serviço (sem dados das pessoas). */
+    async bookedSlots(serviceId: number) {
+        const service = await this.serviceRepository.findOne({ where: { id: serviceId }, relations: { provider: true } });
+        if (!service) throw new HttpError(404, "Serviço não encontrado");
+        const hires = await this.hireRepository.find({
+            where: { provider: { id: service.provider.id }, scheduledAt: MoreThan(new Date()), status: Not(StatusEnum.CANCELADO) },
+            select: { id: true, scheduledAt: true },
+        });
+        return hires.map((h) => h.scheduledAt);
     }
 
     async getListByUserId(userId: number) {

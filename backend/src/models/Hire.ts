@@ -34,6 +34,10 @@ export class Hire {
   @Column({ length: 100, nullable: false })
   description_service: string;
 
+  // Horário escolhido pelo cliente na agenda do serviço (quando o serviço exige agendamento)
+  @Column({ type: "datetime", nullable: true })
+  scheduledAt: Date | null;
+
   // Contrato
   @OneToMany(() => Contract, (contract) => contract.hire)
   contracts: Contract[];

@@ -9,14 +9,19 @@ export default function RejectProposalModal({
   isOpen,
   onClose,
   onConfirm,
+  onDone,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (reason: string) => void;
+  /** Envia a recusa; devolve false se falhou (o modal continua aberto) */
+  onConfirm: (reason: string) => Promise<boolean | void> | boolean | void;
+  /** Chamado depois da animação de sucesso (ex.: fechar o modal do pedido) */
+  onDone?: () => void;
 }) {
   const [reason, setReason] = useState("");
   const [success, setSuccess] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [sending, setSending] = useState(false);
 
   if (!isOpen) return null;
 
@@ -29,26 +34,34 @@ export default function RejectProposalModal({
     }, 400);
   };
 
-  // Handler de confirmação com animação de sucesso
-  const handleConfirm = () => {
+  // Handler de confirmação: envia, mostra a animação de sucesso e fecha
+  const handleConfirm = async () => {
+    if (sending) return;
+    setSending(true);
+    const ok = await onConfirm(reason.trim());
+    setSending(false);
+    if (ok === false) return;
     setSuccess(true);
     setTimeout(() => {
       setClosing(true);
       setTimeout(() => {
-        onConfirm(reason);
         setSuccess(false);
         setClosing(false);
         setReason("");
         onClose();
+        onDone?.();
       }, 400);
     }, 1600);
   };
 
   return (
-    
+
         <AnimatePresence>
         <motion.div
             className="fixed inset-0 bg-black/90  flex items-center justify-center z-50 p-4"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="reject-title"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -62,8 +75,8 @@ export default function RejectProposalModal({
             }}
             exit={{ scale: 0.8, opacity: 0, filter: "blur(6px)" }}
             transition={{ type: "spring", stiffness: 120, damping: 12 }}
-            className="relative w-full max-w-md bg-[rgba(20,20,20,0.6)] 
-                        border border-[rgba(255,255,255,0.15)] 
+            className="relative w-full max-w-md bg-[rgba(20,20,20,0.6)]
+                        border border-[rgba(255,255,255,0.15)]
                         backdrop-blur-2xl rounded-2xl shadow-2xl p-6
                         flex flex-col items-center text-center"
             >
@@ -71,6 +84,7 @@ export default function RejectProposalModal({
             {!success && (
                 <button
                 onClick={handleClose}
+                aria-label="Fechar"
                 className="absolute top-4 right-4 text-white/70 hover:text-white transition"
                 >
                 <X size={20} />
@@ -83,23 +97,25 @@ export default function RejectProposalModal({
                 {/* Ícone e texto principal */}
                 <div className="flex flex-col items-center gap-4 mb-4">
                     <AlertTriangle className="w-12 h-12 text-[var(--primary)]" />
-                    <h2 className="text-lg font-semibold text-white">
+                    <h2 id="reject-title" className="text-lg font-semibold text-white">
                     Recusar proposta de serviço
                     </h2>
                     <p className="text-sm text-white/80 max-w-sm">
-                    Tem certeza de que deseja recusar esta proposta? Você pode
-                    opcionalmente informar o motivo abaixo para ajudar o cliente a
-                    entender.
+                    Tem certeza de que deseja recusar este pedido? A negociação será
+                    encerrada. Você pode informar o motivo abaixo para ajudar o
+                    cliente a entender.
                     </p>
                 </div>
 
                 {/* Campo opcional de motivo */}
                 <textarea
                     placeholder="Motivo (opcional)"
+                    aria-label="Motivo da recusa (opcional)"
+                    maxLength={500}
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
                     className="w-full p-3 rounded-lg bg-[var(--bg-dark)] text-[var(--text)] text-sm
-                            outline-none border border-transparent focus:border-[var(--primary)] 
+                            outline-none border border-transparent focus:border-[var(--primary)]
                             resize-none min-h-[80px] mb-6"
                 />
 
@@ -114,9 +130,10 @@ export default function RejectProposalModal({
 
                     <button
                     onClick={handleConfirm}
-                    className="flex-1 py-2 rounded-lg bg-[var(--primary)] text-white hover:opacity-90 transition"
+                    disabled={sending}
+                    className="flex-1 py-2 rounded-lg bg-[var(--primary)] text-white hover:opacity-90 transition disabled:opacity-60"
                     >
-                    Confirmar recusa
+                    {sending ? "Enviando..." : "Confirmar recusa"}
                     </button>
                 </div>
                 </>
@@ -141,6 +158,6 @@ export default function RejectProposalModal({
             </motion.div>
         </motion.div>
         </AnimatePresence>
- 
+
   );
 }

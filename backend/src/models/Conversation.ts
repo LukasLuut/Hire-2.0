@@ -27,6 +27,22 @@ export interface NegotiationTopic {
   tooltip?: string;
   state: "Acordado" | "Pendente" | "Negado";
   content: string;
+  /** Quem propôs o conteúdo atual; só a outra parte pode marcá-lo como acordado */
+  proposedBy?: "cliente" | "prestador" | null;
+}
+
+export enum RequestStatus {
+  PENDENTE = "PENDENTE",
+  RESPONDIDA = "RESPONDIDA",
+  RECUSADA = "RECUSADA",
+}
+
+// Pedido de orçamento enviado pelo cliente (modal "Iniciar negociação")
+export interface QuoteRequest {
+  description: string;
+  budget: string;
+  date: string;
+  notes: string;
 }
 
 // Conversa/negociação entre um cliente e um prestador, opcionalmente sobre um serviço
@@ -55,6 +71,22 @@ export class Conversation {
 
   @Column({ type: "json", nullable: true })
   topics: NegotiationTopic[] | null;
+
+  @Column({ type: "json", nullable: true })
+  request: QuoteRequest | null;
+
+  @Column({ type: "enum", enum: RequestStatus, nullable: true })
+  requestStatus: RequestStatus | null;
+
+  @Column({ type: "varchar", length: 500, nullable: true })
+  rejectReason: string | null;
+
+  // Aceite final do acordo por cada parte; os dois aceites geram contratação + contrato
+  @Column({ type: "datetime", nullable: true })
+  clientAcceptedAt: Date | null;
+
+  @Column({ type: "datetime", nullable: true })
+  providerAcceptedAt: Date | null;
 
   @OneToMany(() => Message, (message) => message.conversation)
   messages: Message[];

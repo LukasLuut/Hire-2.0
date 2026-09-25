@@ -9,6 +9,15 @@ import { ServiceProvider } from "./ServiceProvider";
 import { Hire } from "./Hire";
 import { User } from "./User";
 
+export interface ContractSignature {
+  name: string;
+  signedAt: string;
+  userAgent: string;
+  ip?: string | null;
+  geolocation?: { latitude: number; longitude: number } | null;
+  hash: string;
+}
+
 @Entity("contracts")
 export class Contract {
   @PrimaryGeneratedColumn()
@@ -37,5 +46,12 @@ export class Contract {
 
   @ManyToOne(() => User, (user) => user.contracts)
   user: User;
+
+  // Assinatura eletrônica de cada parte (nome digitado, data, navegador, hash do documento)
+  @Column({ type: "json", nullable: true })
+  clientSignature: ContractSignature | null;
+
+  @Column({ type: "json", nullable: true })
+  providerSignature: ContractSignature | null;
 
 }

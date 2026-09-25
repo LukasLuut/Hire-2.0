@@ -12,6 +12,14 @@ const STATUS_LABEL: Record<ConversationSummary["status"], string> = {
   CLOSED: "Encerrada",
 };
 
+/** Situação mostrada na lista: pedidos de orçamento têm rótulos próprios. */
+function statusOf(c: ConversationSummary) {
+  if (c.requestStatus === "RECUSADA") return "Pedido recusado";
+  if (c.status === "OPEN" && c.requestStatus === "PENDENTE") return c.myRole === "prestador" ? "Orçamento a responder" : "Aguardando orçamento";
+  if (c.status === "OPEN" && c.requestStatus === "RESPONDIDA" && c.myRole === "cliente") return "Orçamento recebido";
+  return STATUS_LABEL[c.status];
+}
+
 /* --------------------------------------------------------------------------
  * ChatInbox — conversas/negociações do usuário (como cliente ou prestador).
  * Ao escolher uma, abre a sala de negociação (ServiceFormalizerModal).
@@ -126,7 +134,7 @@ export default function ChatInbox({ isOpen, onClose, initialConversationId = nul
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-medium truncate">{name ?? "Contato"}</span>
-                        <span className="text-xs text-[var(--text-muted)] shrink-0">{STATUS_LABEL[c.status]}</span>
+                        <span className="text-xs text-[var(--text-muted)] shrink-0">{statusOf(c)}</span>
                       </div>
                       <div className="text-xs text-[var(--text-muted)] truncate">{c.service?.title ?? "Conversa geral"}</div>
                       {c.lastMessage && <div className="text-sm text-[var(--text-muted)] truncate mt-0.5">{c.lastMessage.text}</div>}

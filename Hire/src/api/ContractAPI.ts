@@ -25,10 +25,33 @@ export interface ContractEntity {
     cnpj?: string | null;
   } | null;
   terms: NegotiationTopic[];
+  myRole: "cliente" | "prestador";
+  clientSignature: ContractSignature | null;
+  providerSignature: ContractSignature | null;
+}
+
+export interface ContractSignature {
+  name: string;
+  signedAt: string;
+  userAgent: string;
+  geolocation?: { latitude: number; longitude: number } | null;
+  hash: string;
 }
 
 export const contractAPI = {
   getById: async (id: number, token: string) => {
     return await apiRequest<ContractEntity>(`/contracts/${id}`, { headers: { Authorization: "Bearer " + token } });
+  },
+
+  sign: async (
+    id: number,
+    data: { name: string; hash: string; accepted: boolean; geolocation?: { latitude: number; longitude: number } | null },
+    token: string
+  ) => {
+    return await apiRequest<ContractEntity>(`/contracts/${id}/sign`, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token },
+      body: JSON.stringify(data),
+    });
   },
 };

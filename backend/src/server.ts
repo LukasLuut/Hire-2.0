@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import express, { Application } from "express";
+import express, { Application, NextFunction, Request, Response } from "express";
 import { AppDataSource } from "./config/data-source";
 import router from "./routes/index";
 import cors from "cors";
@@ -24,6 +24,13 @@ AppDataSource.initialize()
     );
     app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
     app.use(router);
+
+    // Erros lançados por middlewares (ex.: upload inválido) viram JSON legível para o frontend
+    app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+      if (res.headersSent) return next(err);
+      const tooBig = err?.code === "LIMIT_FILE_SIZE";
+      res.status(err?.status ?? 400).json({ message: tooBig ? "Arquivo maior que 8 MB" : err?.message ?? "Requisição inválida" });
+    });
 
     app.listen(PORTA, () => {
       console.log(`Server running in port: ${PORTA}`);

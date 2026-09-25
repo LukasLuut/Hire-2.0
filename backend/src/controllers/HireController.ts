@@ -19,6 +19,15 @@ export class HireController {
         }
     }
 
+    bookedSlots = async (req: Request, res: Response) => {
+        try {
+            res.json(await hireService.bookedSlots(Number(req.params.serviceId)));
+        }
+        catch(err: any) {
+            fail(res, err);
+        }
+    }
+
     getById = async (req: Request, res: Response) => {
         try {
             const hire = await hireService.getById(Number(req.params.id), userId(req));

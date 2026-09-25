@@ -42,6 +42,18 @@ export class Service {
   @Column({ type: "varchar", length: 255, nullable: true })
   imageUrl?: string | null;
 
+  // Todas as imagens na ordem escolhida pelo prestador; a primeira é a capa (imageUrl)
+  @Column({ type: "json", nullable: true })
+  images?: string[] | null;
+
+  // Agenda do serviço: horários de início por dia da semana, ex.: { "monday": ["08:00", "10:00"] }
+  @Column({ type: "json", nullable: true })
+  scheduleSlots?: Record<string, string[]> | null;
+
+  // Antecedência mínima para cancelar um horário agendado, ex.: "até 24h antes"
+  @Column({ type: "varchar", length: 100, nullable: true })
+  cancellationNotice?: string | null;
+
   @ManyToOne(() => ServiceProvider, (provider) => provider.services, {
     onDelete: "CASCADE",
   })

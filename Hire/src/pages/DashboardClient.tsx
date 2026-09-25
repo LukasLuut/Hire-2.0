@@ -10,7 +10,7 @@ import {
   HandCoins,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { serviceAPI, type ServiceData } from "../api/ServiceAPI";
+import { serviceAPI, serviceImages, type ServiceData } from "../api/ServiceAPI";
 import { providerApi } from "../api/ProviderAPI";
 import ServiceDetail from "../components/ServiceGallery/ServiceDetail/ServiceDetail";
 import { ServicesPageSkeleton } from "../skeletons/ServiceSkeleton/ServicesPageSkeleton";
@@ -68,7 +68,7 @@ function toCard(e: ServiceData): Service {
     shortDescription: e.description_service,
     description: e.description_service,
     category: e.category.name,
-    images: [e.imageUrl ?? `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(e.title)}`],
+    images: serviceImages(e),
     rating: e.rating,
     ratingCount: e.ratingCount,
     price: e.price,

@@ -51,6 +51,8 @@ interface Topic {
   // content aqui é string livre (pode conter resumo do tópico). Para campos específicos
   // usamos inputs no UI e sincronizamos esse content quando necessário.
   content: string;
+  // quem propôs o conteúdo atual (só a outra parte pode aceitar)
+  proposedBy?: "cliente" | "prestador" | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -224,10 +226,14 @@ export default function ServiceNegotiationModal({
     if (saveTimer.current) clearTimeout(saveTimer.current);
     const run = async () => {
       try {
-        await conversationAPI.updateTopics(conversationId, next, token, note);
+        const saved = await conversationAPI.updateTopics(conversationId, next, token, note);
         dirtyRef.current = false;
+        setTopics(saved.topics as Topic[]);
+        setConversation((c) => (c ? { ...c, ...saved } : c));
         if (note) await refreshMessages();
       } catch (err) {
+        // volta ao que está salvo (a próxima busca traz os tópicos do servidor)
+        dirtyRef.current = false;
         showToast(getErrorMessage(err, "Não foi possível salvar o tópico."), "error");
       }
     };
@@ -236,7 +242,10 @@ export default function ServiceNegotiationModal({
   }
 
   function updateTopic(key: TopicKey, patch: Partial<Topic>) {
-    const next = topics.map((t) => (t.key === key ? { ...t, ...patch } : t));
+    // editar o texto transforma o tópico numa proposta sua, até a outra parte aceitar
+    const next = topics.map((t) =>
+      t.key === key ? { ...t, ...patch, ...(patch.content !== undefined ? { state: "Pendente" as TopicState, proposedBy: myRole } : {}) } : t
+    );
     setTopics(next);
     // mudança de estado salva na hora (e avisa no chat); digitação espera uma pausa
     saveTopics(next, patch.state ? `"${keyToLabel(key)}" marcado como ${patch.state}.` : undefined, !!patch.state);
@@ -257,7 +266,7 @@ export default function ServiceNegotiationModal({
 
   // enviar resumo de alteração do tópico para o chat (Propor alteração)
   function proposeChange(key: TopicKey, summary: string) {
-    const next = topics.map((t) => (t.key === key ? { ...t, state: "Pendente" as TopicState, content: summary } : t));
+    const next = topics.map((t) => (t.key === key ? { ...t, state: "Pendente" as TopicState, content: summary, proposedBy: myRole } : t));
     setTopics(next);
     saveTopics(next, `Proposta de alteração em "${keyToLabel(key)}": ${summary || "(vazio)"}`, true);
     setExpandedTopic(key);
@@ -271,12 +280,52 @@ export default function ServiceNegotiationModal({
   /* ---------------------------- finalização/encerrar ---------------------- */
 
   const allAgreed = topics.length > 0 && topics.every((t) => t.state === "Acordado");
+  const iAccepted = !!(myRole === "cliente" ? conversation?.clientAcceptedAt : conversation?.providerAcceptedAt);
+  const otherAccepted = !!(myRole === "cliente" ? conversation?.providerAcceptedAt : conversation?.clientAcceptedAt);
+
+  // Só quem NÃO propôs o conteúdo atual pode marcá-lo como acordado
+  function StateButtons({ t }: { t: Topic }) {
+    const mine = t.proposedBy === myRole;
+    const canAgree = isOpenNegotiation && !mine && !!t.content?.trim() && t.state !== "Acordado";
+    return (
+      <>
+        <p className="text-xs text-[var(--text-muted)] mt-3">
+          {t.state === "Acordado"
+            ? "Acordado pelas duas partes."
+            : !t.content?.trim()
+              ? "Preencha e proponha para a outra parte aceitar."
+              : mine
+                ? `Proposto por você — aguardando ${counterpart ?? "a outra parte"} aceitar.`
+                : `Proposto por ${counterpart ?? "a outra parte"} — aceite ou proponha outra coisa.`}
+        </p>
+        <div className="flex gap-2 mt-2">
+          <button
+            onClick={() => updateTopic(t.key, { state: "Acordado" })}
+            disabled={!canAgree}
+            title={mine ? "A outra parte precisa aceitar a sua proposta" : undefined}
+            className="px-1 md:px-3 py-1 rounded bg-green-500/20 text-green-600 hover:bg-green-500/30 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Acordado
+          </button>
+          <button onClick={() => updateTopic(t.key, { state: "Pendente" })} disabled={!isOpenNegotiation} className="px-1 md:px-3 py-1 rounded bg-yellow-500/20 text-yellow-600 hover:bg-yellow-500/30 disabled:opacity-40">Pendente</button>
+          <button onClick={() => updateTopic(t.key, { state: "Negado" })} disabled={!isOpenNegotiation} className="px-1 md:px-3 py-1 rounded bg-red-500/20 text-red-600 hover:bg-red-500/30 disabled:opacity-40">Negado</button>
+
+          <button onClick={() => proposeChange(t.key, t.content)} disabled={!isOpenNegotiation} className="ml-auto px-1 md:px-3 py-1 rounded bg-[var(--text-highlight)] text-black hover:brightness-105 disabled:opacity-40">Propor alteração</button>
+        </div>
+      </>
+    );
+  }
 
   async function handleFormalize() {
     if (!conversationId) return;
     try {
-      const result = await conversationAPI.formalize(conversationId, token);
+      const result = await conversationAPI.accept(conversationId, token);
       await refreshMessages();
+      if (!result.formalized) {
+        setConfirming(null);
+        showToast(`Seu aceite foi registrado. Falta ${counterpart ?? `o ${result.waitingFor}`} aceitar o acordo.`, "success");
+        return;
+      }
       showToast(`Serviço formalizado. Contrato ${result.code} gerado.`, "success");
       onFormalize?.(result);
       setTimeout(() => {
@@ -413,6 +462,11 @@ export default function ServiceNegotiationModal({
                           ? "Negociação formalizada."
                           : "Negociação encerrada."
                         : "Use o chat para alinhar cada tópico. Alterações podem ser propostas e serão enviadas ao chat."}
+                    {conversation && (
+                      <button onClick={() => { onClose(); navigate(`/negotiation/${conversation.id}`); }} className="ml-1 text-[var(--primary)] underline">
+                        Abrir sala de negociação
+                      </button>
+                    )}
                     {conversation?.contractId && (
                       <button onClick={() => { onClose(); navigate(`/contract/${conversation.contractId}`); }} className="ml-1 text-[var(--primary)] underline">
                         Ver contrato
@@ -462,16 +516,6 @@ export default function ServiceNegotiationModal({
                             return (
                               <>
                                 <label className="flex flex-col mb-2">
-                                  <span className="text-[var(--text-muted)] text-sm">Título / Resumo</span>
-                                  <input
-                                    value={t.content}
-                                    onChange={(e) => updateTopic(t.key, { content: e.target.value })}
-                                    placeholder="Resuma o serviço aqui (ex: Design de logo + 2 revisões)"
-                                    className="mt-1 p-2 bg-[var(--bg-light)] border border-[var(--border)] rounded text-[var(--text)]"
-                                  />
-                                </label>
-
-                                <label className="flex flex-col mb-2">
                                   <span className="text-[var(--text-muted)] text-sm">Descrição detalhada</span>
                                   <textarea
                                     value={t.content}
@@ -482,33 +526,7 @@ export default function ServiceNegotiationModal({
                                   />
                                 </label>
 
-                                <div className="flex gap-2 mt-2">
-                                  <button
-                                    onClick={() => updateTopic(t.key, { state: "Acordado" })}
-                                    className="px-1 md:px-3 py-1 rounded bg-green-500/20 text-green-600 hover:bg-green-500/30"
-                                  >
-                                    Acordado
-                                  </button>
-                                  <button
-                                    onClick={() => updateTopic(t.key, { state: "Pendente" })}
-                                    className="px-1 md:px-3 py-1 rounded bg-[var(--primary)]/20 text-[var(--primary)]/90 hover:bg-[var(--primary)]/40"
-                                  >
-                                    Pendente
-                                  </button>
-                                  <button
-                                    onClick={() => updateTopic(t.key, { state: "Negado" })}
-                                    className="px-1 md:px-3 py-1 rounded bg-red-500/20 text-red-600 hover:bg-red-500/30"
-                                  >
-                                    Negado
-                                  </button>
-
-                                  <button
-                                    onClick={() => proposeChange(t.key, t.content)}
-                                    className="ml-auto px-1 md:px-3 py-1 rounded bg-[var(--highlight)] text-black hover:brightness-105"
-                                  >
-                                    Propor alteração
-                                  </button>
-                                </div>
+                                <StateButtons t={t} />
                               </>
                             );
                           case "payment":
@@ -536,13 +554,7 @@ export default function ServiceNegotiationModal({
                                   </label>
                                 </div>
 
-                                <div className="flex gap-2 mt-3">
-                                  <button onClick={() => updateTopic(t.key, { state: "Acordado" })} className="px-1 md:px-3 py-1 rounded bg-green-500/20 text-green-600 hover:bg-green-500/30">Acordado</button>
-                                  <button onClick={() => updateTopic(t.key, { state: "Pendente" })} className="px-1 md:px-3 py-1 rounded bg-yellow-500/20 text-yellow-600 hover:bg-yellow-500/30">Pendente</button>
-                                  <button onClick={() => updateTopic(t.key, { state: "Negado" })} className="px-1 md:px-3 py-1 rounded bg-red-500/20 text-red-600 hover:bg-red-500/30">Negado</button>
-
-                                  <button onClick={() => proposeChange(t.key, t.content)} className="ml-auto px-1 md:px-3 py-1 rounded bg-[var(--highlight)] text-black hover:brightness-105">Propor alteração</button>
-                                </div>
+                                <StateButtons t={t} />
                               </>
                             );
                           case "start":
@@ -558,13 +570,7 @@ export default function ServiceNegotiationModal({
                                   />
                                 </label>
 
-                                <div className="flex gap-2 mt-3">
-                                  <button onClick={() => updateTopic(t.key, { state: "Acordado" })} className="px-1 md:px-3 py-1 rounded bg-green-500/20 text-green-600 hover:bg-green-500/30">Acordado</button>
-                                  <button onClick={() => updateTopic(t.key, { state: "Pendente" })} className="px-1 md:px-3 py-1 rounded bg-yellow-500/20 text-yellow-600 hover:bg-yellow-500/30">Pendente</button>
-                                  <button onClick={() => updateTopic(t.key, { state: "Negado" })} className="px-1 md:px-3 py-1 rounded bg-red-500/20 text-red-600 hover:bg-red-500/30">Negado</button>
-
-                                  <button onClick={() => proposeChange(t.key, t.content)} className="ml-auto px-1 md:px-3 py-1 rounded bg-[var(--highlight)] text-black hover:brightness-105">Propor alteração</button>
-                                </div>
+                                <StateButtons t={t} />
                               </>
                             );
                           case "duration":
@@ -580,19 +586,19 @@ export default function ServiceNegotiationModal({
                                   />
                                 </label>
 
-                                <div className="flex gap-2 mt-3">
-                                  <button onClick={() => updateTopic(t.key, { state: "Acordado" })} className="px-1 md:px-3 py-1 rounded bg-green-500/20 text-green-600 hover:bg-green-500/30">Acordado</button>
-                                  <button onClick={() => updateTopic(t.key, { state: "Pendente" })} className="px-1 md:px-3 py-1 rounded bg-yellow-500/20 text-yellow-600 hover:bg-yellow-500/30">Pendente</button>
-                                  <button onClick={() => updateTopic(t.key, { state: "Negado" })} className="px-1 md:px-3 py-1 rounded bg-red-500/20 text-red-600 hover:bg-red-500/30">Negado</button>
-
-                                  <button onClick={() => proposeChange(t.key, t.content)} className="ml-auto px-1 md:px-3 py-1 rounded bg-[var(--highlight)] text-black hover:brightness-105">Propor alteração</button>
-                                </div>
+                                <StateButtons t={t} />
                               </>
                             );
                           case "finalize":
                             return (
                               <>
-                                <p className="text-[var(--text-muted)]">Neste tópico você pode formalizar ou encerrar a negociação. Formalizar fica disponível apenas quando todos os tópicos estiverem marcados como "Acordado".</p>
+                                <p className="text-[var(--text-muted)]">Neste tópico você pode formalizar ou encerrar a negociação. Formalizar fica disponível quando todos os tópicos estiverem "Acordado"; o contrato é gerado quando as duas partes confirmarem.</p>
+                                {isOpenNegotiation && (iAccepted || otherAccepted) && (
+                                  <p className="text-sm mt-2 text-[var(--text)]">
+                                    {iAccepted ? "Você já aceitou o acordo." : `${counterpart} já aceitou o acordo.`}{" "}
+                                    {iAccepted && !otherAccepted ? `Aguardando ${counterpart}.` : !iAccepted ? "Falta o seu aceite." : ""}
+                                  </p>
+                                )}
 
                                 <div className="flex gap-2 mt-4">
                                   <button
@@ -604,11 +610,11 @@ export default function ServiceNegotiationModal({
                                   </button>
 
                                   <button
-                                    disabled={!allAgreed || !isOpenNegotiation}
+                                    disabled={!allAgreed || !isOpenNegotiation || iAccepted}
                                     onClick={() => setConfirming("formalize")}
-                                    className={`px-1 md:px-3 py-2 rounded font-semibold ${allAgreed && isOpenNegotiation ? "bg-green-500/20 text-green-600 hover:bg-green-500/30" : "bg-[var(--border)] text-[var(--text-muted)] cursor-not-allowed"}`}
+                                    className={`px-1 md:px-3 py-2 rounded font-semibold ${allAgreed && isOpenNegotiation && !iAccepted ? "bg-green-500/20 text-green-600 hover:bg-green-500/30" : "bg-[var(--border)] text-[var(--text-muted)] cursor-not-allowed"}`}
                                   >
-                                    Formalizar Serviço
+                                    {iAccepted ? "Aceite enviado" : "Formalizar Serviço"}
                                   </button>
 
                                   {/* botão para enviar resumo pro chat */}
@@ -616,7 +622,7 @@ export default function ServiceNegotiationModal({
                                     onClick={() => {
                                       sendMessage(myRole, `Pedido de formalização: ${allAgreed ? "todos os tópicos estão acordados" : "ainda há tópicos pendentes"}.`);
                                     }}
-                                    className="ml-auto px-1 md:px-3 py-2 rounded bg-[var(--highlight)] text-black hover:brightness-105"
+                                    className="ml-auto px-1 md:px-3 py-2 rounded bg-[var(--text-highlight)] text-black hover:brightness-105"
                                   >
                                     Enviar resumo ao chat
                                   </button>
@@ -691,6 +697,7 @@ export default function ServiceNegotiationModal({
                   
                   <CheckCircle size={40} className="mx-auto text-green-500" />
                   <p className="mt-3 text-[var(--text)] font-semibold">Confirmar formalização?</p>
+                  <p className="mt-1 text-sm text-[var(--text-muted)] max-w-xs">{otherAccepted ? "O contrato será gerado agora." : `O contrato é gerado quando ${counterpart ?? "a outra parte"} também confirmar.`}</p>
                   <div className="flex gap-3 justify-center mt-4">
                     <button onClick={() => setConfirming(null)} className="px-3 py-2 rounded bg-[var(--border)] text-[var(--text-muted)]">Cancelar</button>
                     <button onClick={handleFormalize} className="px-3 py-2 rounded bg-green-500 text-white">Confirmar</button>

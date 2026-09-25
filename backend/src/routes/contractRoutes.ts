@@ -5,11 +5,9 @@ import { authMiddleware } from '../middlewares/authMidlleware';
 const contractRouter = Router();
 const controller = new ContractController();
 
-contractRouter.post('/', controller.create.bind(controller));
-contractRouter.get('/', controller.list.bind(controller));
-contractRouter.get('/:id', authMiddleware, controller.getById.bind(controller));
-contractRouter.put('/:id', controller.update.bind(controller));
-contractRouter.delete('/:id', controller.delete.bind(controller));
+// Contratos só nascem da negociação (POST /conversations/:id/accept) e só as partes os acessam
+contractRouter.use(authMiddleware);
+contractRouter.get('/:id', controller.getById.bind(controller));
+contractRouter.post('/:id/sign', controller.sign.bind(controller));
 
 export default contractRouter;
-

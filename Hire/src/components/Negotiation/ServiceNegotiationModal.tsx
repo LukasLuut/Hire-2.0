@@ -1,4 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { conversationAPI } from "../../api/ConversationAPI";
+import { useToast } from "../Toast/ToastContext";
+import { getErrorMessage } from "../../utils/errors";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageCircle,
@@ -31,19 +35,30 @@ import {
 /* Props:
  * - isOpen: controla visibilidade externa
  * - onClose: função para fechar (passada pelo pai)
- * - service: dados mínimos do serviço (title, provider)
+ * - service: dados mínimos do serviço (id, título, nome do prestador)
+ * - onSent: chamado com o id da negociação criada pelo pedido
  */
 
+export interface NegotiationTarget {
+  id: number;
+  title: string;
+  providerName: string;
+}
 
 export default function ServiceNegotiationModal({
   isOpen,
   onClose,
-  
+  service,
+  onSent,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  
+  service: NegotiationTarget | null;
+  onSent?: (conversationId: number) => void;
 }) {
+  const navigate = useNavigate();
+  const { showToast } = useToast();
+  const providerName = service?.providerName || "o prestador";
   /* ---------------------------
    * Estados principais
    * --------------------------- */
@@ -58,26 +73,41 @@ export default function ServiceNegotiationModal({
   const [files, setFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  
+
 
   // para animar o fechamento com bounce + blur
   const [isClosing, setIsClosing] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [conversationId, setConversationId] = useState<number | null>(null);
 
-  // abertura temporária do modal de resposta de solicitação de serviço
-  const[, setIsOpenResponse]=useState(false)
+  // chave no localStorage para rascunhos (um rascunho por serviço)
+  const DRAFT_KEY = `serviceDraft_v1_${service?.id ?? "geral"}`;
 
-  // chave no localStorage para rascunhos
-  const DRAFT_KEY = "serviceDraft_v1";
+  // miniaturas das imagens anexadas (liberadas quando a lista muda)
+  const previews = useMemo(() => files.map((f) => (f.type.startsWith("image/") ? URL.createObjectURL(f) : "")), [files]);
+  useEffect(() => () => previews.forEach((u) => u && URL.revokeObjectURL(u)), [previews]);
 
   useEffect(() => {
     if (!isOpen) {
       // reset internal state when modal closed (opcional)
       setStep(1);
       setIsClosing(false);
+      setConversationId(null);
+      setFormData({ serviceDescription: "", budget: "", date: "", notes: "" });
+      setFiles([]);
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  // Esc fecha
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && handleClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  if (!isOpen || !service) return null;
+  const today = new Date().toISOString().slice(0, 10);
 
   /* ---------------------------
    * Funções auxiliares
@@ -86,11 +116,11 @@ export default function ServiceNegotiationModal({
     // Validações leves no passo 2 (form)
     if (step === 2) {
       if (!formData.serviceDescription.trim()) {
-        alert("Por favor, descreva o serviço desejado antes de continuar.");
+        showToast("Descreva o serviço desejado antes de continuar.", "warning");
         return;
       }
       if (!formData.budget.trim()) {
-        alert("Por favor, informe o orçamento.");
+        showToast("Informe o orçamento.", "warning");
         return;
       }
     }
@@ -103,7 +133,9 @@ export default function ServiceNegotiationModal({
     if (!e.target.files) return;
     const arr = Array.from(e.target.files);
     // limitar número / tamanho se quiser (ex: 6 arquivos)
-    setFiles((prev) => [...prev, ...arr].slice(0, 8));
+    const tooBig = arr.filter((f) => f.size > 8 * 1024 * 1024);
+    if (tooBig.length) showToast("Arquivos acima de 8 MB foram ignorados.", "warning");
+    setFiles((prev) => [...prev, ...arr.filter((f) => f.size <= 8 * 1024 * 1024)].slice(0, 8));
     // limpar input para permitir reupload do mesmo arquivo se necessário
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -126,17 +158,21 @@ export default function ServiceNegotiationModal({
     };
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-      alert("Rascunho salvo com sucesso! (arquivos não são persistidos no rascunho)");
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao salvar rascunho.");
+      showToast(files.length ? "Rascunho salvo. Os anexos não ficam no rascunho." : "Rascunho salvo.", "success");
+    } catch {
+      showToast("Não foi possível salvar o rascunho.", "error");
     }
   };
 
   const loadDraft = () => {
-    const raw = localStorage.getItem(DRAFT_KEY);
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(DRAFT_KEY);
+    } catch {
+      raw = null;
+    }
     if (!raw) {
-      alert("Nenhum rascunho encontrado.");
+      showToast("Nenhum rascunho salvo para este serviço.", "warning");
       return;
     }
     try {
@@ -144,18 +180,14 @@ export default function ServiceNegotiationModal({
       setFormData(parsed.formData || formData);
       // não podemos restaurar arquivos reais — apenas mostrar metadados
       const meta: { name: string }[] = parsed.filesMeta || [];
-      if (meta.length > 0) {
-        alert(
-          `Rascunho carregado. Atenção: ${meta.length} arquivo(s) referenciados no rascunho não foram restaurados automaticamente. Reanexe-os se necessário.`
-        );
-      } else {
-        alert("Rascunho carregado.");
-      }
+      showToast(
+        meta.length > 0 ? `Rascunho carregado. Reanexe ${meta.length} arquivo(s), se precisar.` : "Rascunho carregado.",
+        "success"
+      );
       // limpar arquivos atuais (pois os metadados não permitem reconstituir File objects)
       setFiles([]);
-    } catch (err) {
-      console.error(err);
-      alert("Erro ao carregar rascunho.");
+    } catch {
+      showToast("Não foi possível carregar o rascunho.", "error");
     }
   };
 
@@ -165,12 +197,34 @@ export default function ServiceNegotiationModal({
    * - depois de enviar, passamos à etapa 4 (confirmação)
    * --------------------------- */
   const submitProposal = async () => {
-    // Mock de envio — substituir pela chamada real ao backend
-    // Ex.: const res = await api.post("/proposals", { formData, ... })
-    // mostrar carregamento, tratar erros, etc.
-    setStep(4);
-    // opcional: limpar rascunho salvo no localStorage
-    localStorage.removeItem(DRAFT_KEY);
+    if (sending) return;
+    setSending(true);
+    try {
+      const token = localStorage.getItem("token") ?? "";
+      const conv = await conversationAPI.request(
+        {
+          serviceId: service.id,
+          description: formData.serviceDescription,
+          budget: formData.budget,
+          date: formData.date,
+          notes: formData.notes,
+        },
+        files,
+        token
+      );
+      setConversationId(conv.id);
+      onSent?.(conv.id);
+      setStep(4);
+      try {
+        localStorage.removeItem(DRAFT_KEY);
+      } catch {
+        /* sem acesso ao armazenamento: ignora */
+      }
+    } catch (err) {
+      showToast(getErrorMessage(err, "Não foi possível enviar a proposta."), "error");
+    } finally {
+      setSending(false);
+    }
   };
 
   /* ---------------------------
@@ -179,7 +233,6 @@ export default function ServiceNegotiationModal({
    * --------------------------- */
   const handleClose = () => {
     setIsClosing(true);
-    setIsOpenResponse(true);
     // esperar 420ms (mesma duração da animação) antes de realmente fechar
     setTimeout(() => {
       setIsClosing(false);
@@ -213,7 +266,7 @@ export default function ServiceNegotiationModal({
     bg-[var(--bg)]/80
     backdrop-blur-[20px]
     backdrop-saturate-[160%]
-    
+
   `;
 
   return (
@@ -254,7 +307,7 @@ export default function ServiceNegotiationModal({
             "h-full sm:h-auto sm:rounded-2xl sm:mx-auto " +
             containerClass
           }
-          
+
         >
           {/* ---------------------------
            * Close (X) — sempre visível no canto superior direito
@@ -262,7 +315,7 @@ export default function ServiceNegotiationModal({
           <button
             aria-label="Fechar"
             onClick={handleClose}
-            className="absolute right-3 top-3 z-20 flex items-center justify-center rounded-full p-2 
+            className="absolute right-3 top-3 z-20 flex items-center justify-center rounded-full p-2
               bg-[rgba(255,255,255,0.03)] hover:bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.06)]"
             title="Fechar"
           >
@@ -277,7 +330,7 @@ export default function ServiceNegotiationModal({
               <div className="text-sm font-medium">
                 Passo {step} de 4
               </div>
-              <div className="text-xs  opacity-80"><p>PROVEDOR DE SERVIÇO</p></div>
+              <div className="text-xs  opacity-80"><p>{providerName}</p></div>
             </div>
 
             <div className="w-full h-2 bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden">
@@ -325,7 +378,7 @@ export default function ServiceNegotiationModal({
                       Iniciar Negociação
                     </button>
 
-                   
+
                   </div>
                 </motion.div>
               )}
@@ -340,12 +393,14 @@ export default function ServiceNegotiationModal({
                   transition={{ duration: 0.35 }}
                   className="space-y-4"
                 >
-                  <h3 className="text-lg font-semibold text-center">Solicitação para PROVEDOR DE SERVIÇO</h3>
+                  <h3 className="text-lg font-semibold text-center">Solicitação para {providerName}</h3>
+                  <p className="text-sm text-center opacity-80 -mt-2">{service.title}</p>
 
                   {/* -- Campo: Serviço (textarea, opaco) */}
                   <div className="relative">
-                    <label className="block text-sm font-medium mb-1">Serviço desejado</label>
+                    <label htmlFor="neg-serviceDescription" className="block text-sm font-medium mb-1">Serviço desejado</label>
                     <textarea
+                      id="neg-serviceDescription"
                       value={formData.serviceDescription}
                       onChange={(e) => setFormData({ ...formData, serviceDescription: e.target.value })}
                       placeholder="Descreva o que você precisa..."
@@ -357,8 +412,9 @@ export default function ServiceNegotiationModal({
 
                   {/* -- Campo: Orçamento */}
                   <div className="relative">
-                    <label className="block text-sm font-medium mb-1">Orçamento</label>
+                    <label htmlFor="neg-budget" className="block text-sm font-medium mb-1">Orçamento</label>
                     <input
+                      id="neg-budget"
                       value={formData.budget}
                       onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
                       placeholder="Ex: R$ 500"
@@ -370,20 +426,23 @@ export default function ServiceNegotiationModal({
 
                   {/* -- Campo: Data */}
                   <div className="relative">
-                    <label className="block text-sm font-medium mb-1">Data desejada</label>
+                    <label htmlFor="neg-date" className="block text-sm font-medium mb-1">Data desejada</label>
                     <input
+                      id="neg-date"
                       value={formData.date}
                       onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                       className="w-full p-3 rounded-lg border border-[rgba(255,255,255,0.06)] bg-[var(--bg-light)] text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
                       type="date"
+                      min={today}
                     />
                     <SmallTooltip text="Escolha uma data de início ou entrega, se necessário." />
                   </div>
 
                   {/* -- Campo: Observações */}
                   <div className="relative">
-                    <label className="block text-sm font-medium mb-1">Observações</label>
+                    <label htmlFor="neg-notes" className="block text-sm font-medium mb-1">Observações</label>
                     <textarea
+                      id="neg-notes"
                       value={formData.notes}
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                       placeholder="Detalhes adicionais, preferências ou dúvidas..."
@@ -397,7 +456,10 @@ export default function ServiceNegotiationModal({
                   <div>
                     <label className="block text-sm font-medium mb-1">Anexos (opcional)</label>
                     <div
+                      role="button"
+                      tabIndex={0}
                       onClick={() => fileInputRef.current?.click()}
+                      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && fileInputRef.current?.click()}
                       className="flex items-center gap-2 p-3 rounded-lg border border-[rgba(255,255,255,0.06)] cursor-pointer select-none"
                       style={{ background: "rgba(255,255,255,0.02)" }}
                     >
@@ -424,6 +486,7 @@ export default function ServiceNegotiationModal({
                               onClick={() => removeFileAt(i)}
                               className="ml-1 text-xs opacity-80 hover:opacity-100"
                               title="Remover"
+                              aria-label={`Remover ${f.name}`}
                             >
                               ✕
                             </button>
@@ -497,7 +560,7 @@ export default function ServiceNegotiationModal({
                         <strong className="text-sm">Anexos</strong>
                         <div className="mt-2 flex gap-2 flex-wrap">
                           {files.map((f, i) => {
-                            const url = URL.createObjectURL(f);
+                            const url = previews[i];
                             return (
                               <div
                                 key={i}
@@ -537,10 +600,11 @@ export default function ServiceNegotiationModal({
                       </button>
                       <button
                         onClick={submitProposal}
-                        className="px-4 py-2 rounded-md text-white font-medium"
+                        disabled={sending}
+                        className="px-4 py-2 rounded-md text-white font-medium disabled:opacity-60"
                         style={{ background: "var(--primary)" }}
                       >
-                        Enviar proposta
+                        {sending ? "Enviando..." : "Enviar proposta"}
                       </button>
                     </div>
                   </div>
@@ -565,10 +629,21 @@ export default function ServiceNegotiationModal({
 
                   <h3 className="text-xl font-semibold mt-3">Proposta enviada!</h3>
                   <p className="text-sm mt-2 opacity-90">
-                    Sua solicitação foi enviada para <strong>PROVEDOR DE SERVIÇO</strong>. Você será notificado assim que o prestador responder.
+                    Sua solicitação foi enviada para <strong>{providerName}</strong>. A resposta aparece na negociação e no seu chat.
                   </p>
 
-                  <div className="mt-6 flex justify-center">
+                  <div className="mt-6 flex justify-center gap-3">
+                    {conversationId && (
+                      <button
+                        onClick={() => {
+                          onClose();
+                          navigate(`/negotiation/${conversationId}`);
+                        }}
+                        className="px-5 py-2 rounded-lg font-medium border border-[var(--primary)] text-[var(--primary)]"
+                      >
+                        Abrir negociação
+                      </button>
+                    )}
                     <button
                       onClick={handleClose}
                       className="px-5 py-2 rounded-lg text-white font-medium"
@@ -576,16 +651,16 @@ export default function ServiceNegotiationModal({
                     >
                       Fechar
                     </button>
-                   
+
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
         </motion.div>
-        
+
       </AnimatePresence>
-       
+
     </div>
   );
 }
@@ -609,8 +684,8 @@ export function SmallTooltip({ text }: { text: string }) {
       <Info className="w-4 h-4 text-[var(--text-muted)] cursor-pointer opacity-70 hover:opacity-100 transition" />
       {visible && (
         <div
-          className="absolute -top-1 right-6 text-xs text-[var(--text)] bg-[var(--bg-light)] 
-          border border-[var(--border)] rounded-md p-2 w-52 shadow-lg backdrop-blur-md 
+          className="absolute -top-1 right-6 text-xs text-[var(--text)] bg-[var(--bg-light)]
+          border border-[var(--border)] rounded-md p-2 w-52 shadow-lg backdrop-blur-md
           animate-fadeIn"
         >
           {text}

@@ -9,6 +9,7 @@ const controller = new HireController()
 hireRouter.use(authMiddleware);
 
 hireRouter.post('/', controller.create.bind(controller));
+hireRouter.get('/booked/:serviceId', controller.bookedSlots.bind(controller));
 hireRouter.get('/me', controller.getMine.bind(controller));
 hireRouter.get('/provider/:id', controller.getByProviderId.bind(controller));
 hireRouter.get('/:id', controller.getById.bind(controller));

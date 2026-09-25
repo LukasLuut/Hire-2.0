@@ -20,6 +20,8 @@ import { useToast } from "../../../components/Toast/ToastContext";
 import { useSession } from "../../../context/SessionContext";
 import ChatInbox from "../../Chat/ChatInbox";
 import ReviewModal from "../../Reviews/ReviewModal";
+import ServiceNegotiationModal from "../../Negotiation/ServiceNegotiationModal";
+import { SlotPicker } from "../../Schedule";
 import type { HireEntity } from "../../../interfaces/Entities";
 import { formatCurrency } from "../../../utils/format";
 import { getErrorMessage } from "../../../utils/errors";
@@ -60,6 +62,9 @@ export default function ServiceDetail({
   const [busy, setBusy] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
   const [chatId, setChatId] = useState<number | null>(null)
+  const [quoteOpen, setQuoteOpen] = useState(false)
+  const [slot, setSlot] = useState<string | null>(null)
+  const [booked, setBooked] = useState<string[]>([])
   const { showToast } = useToast();
   const { user, provider } = useSession();
   const navigate = useNavigate();
@@ -86,11 +91,11 @@ export default function ServiceDetail({
 
   // Esc fecha o modal
   useEffect(() => {
-    if (!isOpen || imageModalOpen || reviewOpen || chatId) return;
+    if (!isOpen || imageModalOpen || reviewOpen || chatId || quoteOpen) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, imageModalOpen, reviewOpen, chatId, onClose]);
+  }, [isOpen, imageModalOpen, reviewOpen, chatId, quoteOpen, onClose]);
 
   const slideNext = () => {
     setDirection(1);
@@ -145,6 +150,13 @@ export default function ServiceDetail({
     if (token) serviceAPI.likedIds(token).then((ids) => setLiked(ids.includes(service.id))).catch(() => {});
   }, [isOpen, service.id, service.likesNumber, loadMyHire, token]);
 
+  // agenda: horários já reservados com o prestador (carrega ao abrir a confirmação)
+  useEffect(() => {
+    if (confirming !== "hire" || !service.requiresScheduling) return;
+    setSlot(null);
+    hireAPI.bookedSlots(service.id).then(setBooked).catch(() => setBooked([]));
+  }, [confirming, service.id, service.requiresScheduling]);
+
   const stage = myHire ? getHireStage(myHire) : null;
   const hasHire = !!myHire && stage !== "done";
 
@@ -167,11 +179,16 @@ export default function ServiceDetail({
       showToast("Não foi possível identificar o prestador deste serviço.", "warning");
       return;
     }
+    if (service.requiresScheduling && !slot) {
+      showToast("Escolha um horário na agenda.", "warning");
+      return;
+    }
     setBusy(true);
     try {
       await hireAPI.create({
         price: Number(service.price),
         serviceId: Number(service.id),
+        scheduledAt: slot ?? undefined,
       });
       showToast("Serviço contratado! Acompanhe em Contratações.", "success");
       setConfirming(null);
@@ -228,9 +245,9 @@ export default function ServiceDetail({
             custom={direction}
             variants={variants}
             initial={{ scale: 0.8, opacity: 0 }}
-             animate={{ 
-          scale: [0.8,  1], 
-          opacity: 1 
+             animate={{
+          scale: [0.8,  1],
+          opacity: 1
         }}
         exit={{ scale: [1,  0.7], opacity: 0 }}
         transition={{
@@ -363,6 +380,9 @@ export default function ServiceDetail({
                   label="Agendamento"
                   value={service.requiresScheduling ? "Sim" : "Não"}
                 />
+                {service.requiresScheduling && service.cancellationNotice && (
+                  <Info label="Cancelamento" value={service.cancellationNotice} spanFull />
+                )}
 
               </div>
 
@@ -392,13 +412,19 @@ export default function ServiceDetail({
                     ? `${service.title} com ${providerName} por ${formatCurrency(service.price)}. O prestador recebe o pedido e inicia o serviço.`
                     : `Confirme só se ${providerName} realmente terminou. Depois você poderá avaliar o prestador.`}
                 </p>
+                {confirming === "hire" && service.requiresScheduling && (
+                  <div className="mt-3">
+                    <p className="text-sm font-semibold mb-2">Escolha o horário de início</p>
+                    <SlotPicker slots={service.scheduleSlots} booked={booked} value={slot} onChange={setSlot} />
+                  </div>
+                )}
                 <div className="flex gap-3 mt-4">
                   <button onClick={() => setConfirming(null)} disabled={busy} className="flex-1 py-3 rounded-xl border border-[var(--border)] hover:bg-[var(--bg-light)] transition">
                     Voltar
                   </button>
                   <button
                     onClick={confirming === "hire" ? handleNegociar : handleConcluir}
-                    disabled={busy}
+                    disabled={busy || (confirming === "hire" && service.requiresScheduling && !slot)}
                     className="flex-1 flex items-center justify-center gap-2 bg-[var(--primary)] text-white font-semibold py-3 rounded-xl shadow-md hover:scale-[1.02] hover:shadow-lg transition-all disabled:opacity-70">
                     {busy && <Loader2 size={18} className="animate-spin" />}
                     Confirmar
@@ -448,12 +474,17 @@ export default function ServiceDetail({
                   {stage === "done" ? "Contratar novamente" : "Contratar"}
                 </button>
                 <button
-                  onClick={handleMensagem}
+                  onClick={service.negotiable ? () => setQuoteOpen(true) : handleMensagem}
                   className="flex-1 flex items-center justify-center gap-2 border border-[var(--primary)] text-[var(--text)] font-semibold py-3 rounded-xl hover:bg-[var(--primary)] hover:text-[var(--bg-light)] hover:scale-[1.02] hover:shadow-lg transition-all">
                   <MessageCircle size={18} />
-                  Negociar
+                  {service.negotiable ? "Negociar" : "Mensagem"}
                 </button>
               </div>
+              {service.negotiable && (
+                <button onClick={handleMensagem} className="text-sm text-[var(--text-muted)] hover:text-[var(--primary)] self-center">
+                  Só quer tirar uma dúvida? Envie uma mensagem
+                </button>
+              )}
               </div>
               }
             </div>
@@ -469,6 +500,12 @@ export default function ServiceDetail({
 
           <ChatInbox isOpen={!!chatId} initialConversationId={chatId} onClose={() => setChatId(null)} />
 
+          <ServiceNegotiationModal
+            isOpen={quoteOpen}
+            onClose={() => setQuoteOpen(false)}
+            service={{ id: service.id, title: service.title, providerName }}
+          />
+
           {myHire && (
             <ReviewModal
               open={reviewOpen}
@@ -481,7 +518,7 @@ export default function ServiceDetail({
             />
           )}
 
-        
+
         </motion.div>
       )}
     </AnimatePresence>
@@ -556,6 +593,7 @@ function ImageGalleryModal({
         >
           <button
             onClick={onClose}
+            aria-label="Fechar galeria"
             className="absolute top-4 right-4 text-white hover:text-[var(--primary)]"
           >
             <X size={26} />
