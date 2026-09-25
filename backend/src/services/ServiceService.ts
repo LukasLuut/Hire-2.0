@@ -92,15 +92,17 @@ export class ServiceService {
 
   /** Acrescenta a nota do serviço e a nota do prestador (avaliações reais). */
   async withStats(services: Service[]) {
-    const [serviceStats, providerStats] = await Promise.all([
+    const providerIds = [...new Set(services.map((s) => s.provider?.id).filter(Boolean) as number[])];
+    const [serviceStats, providerStats, late] = await Promise.all([
       statsService.forServices(services.map((s) => s.id)),
-      statsService.forProviders([...new Set(services.map((s) => s.provider?.id).filter(Boolean) as number[])]),
+      statsService.forProviders(providerIds),
+      statsService.lateCancellations(providerIds),
     ]);
     return services.map((s) => ({
       ...s,
       rating: serviceStats.get(s.id) ?? { average: 0, count: 0 },
       provider: s.provider
-        ? { ...s.provider, rating: providerStats.get(s.provider.id) ?? { average: 0, count: 0 } }
+        ? { ...s.provider, rating: providerStats.get(s.provider.id) ?? { average: 0, count: 0 }, lateCancellations: late.get(s.provider.id) ?? 0 }
         : s.provider,
     }));
   }

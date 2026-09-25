@@ -71,6 +71,16 @@ export function durationToMinutes(text: string) {
   return value * unitMultipliers[unitIndex];
 }
 
+/** Prazo de cancelamento em horas ("até 24h antes" → 24, "2 dias" → 48); sem prazo → 0. Igual ao servidor. */
+export function noticeHours(text?: string | null) {
+  const m = String(text ?? '').toLowerCase().match(/(\d+)\s*(h|horas?|d|dias?)\b/);
+  if (!m) return 0;
+  return Number(m[1]) * (m[2].startsWith('d') ? 24 : 1);
+}
+
+/** Opções do prazo de cancelamento no editor */
+export const NOTICE_OPTIONS = ['', 'até 2h antes', 'até 12h antes', 'até 24h antes', 'até 48h antes'];
+
 /** Agenda devolvida por GET /hires/booked/:serviceId */
 export type BusinessHours = Record<string, { start: string; end: string }>;
 export type Agenda = { busy: { start: string; end: string }[]; hours: BusinessHours; durationMinutes: number };
@@ -277,7 +287,7 @@ const formatMinutes = (m: number) => (m % 1440 === 0 ? formatDuration(m / 1440, 
  * O valor é "AAAA-MM-DDTHH:mm" no horário local.
  * -------------------------------------------------------------------------- */
 const pad = (n: number) => String(n).padStart(2, '0');
-const localKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+export const localDateTimeKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
 export function SlotPicker({
   slots,
@@ -285,9 +295,12 @@ export function SlotPicker({
   value,
   onChange,
   days = 14,
+  hide,
 }: {
   slots: ScheduleSlots | null;
   agenda: Agenda | null;
+  /** horário a omitir (ex.: o atual, ao propor outro) no formato "AAAA-MM-DDTHH:mm" */
+  hide?: string;
   value: string | null;
   onChange: (value: string) => void;
   days?: number;
@@ -308,12 +321,12 @@ export function SlotPicker({
         at.setHours(h, m);
         const start = at.getTime();
         const end = start + minutes * 60000;
-        return start > now && fitsHours(agenda?.hours, day, t, minutes) && !busy.some(([s, e]) => start < e && s < end);
+        return start > now && localDateTimeKey(at) !== hide && fitsHours(agenda?.hours, day, t, minutes) && !busy.some(([s, e]) => start < e && s < end);
       });
       if (times.length) list.push({ date, times });
     }
     return list;
-  }, [slots, agenda, days]);
+  }, [slots, agenda, days, hide]);
 
   if (options.length === 0) {
     return <p className="text-sm text-[var(--text-muted)]">Nenhum horário livre nas próximas semanas. Envie uma mensagem ao prestador.</p>;
@@ -329,7 +342,7 @@ export function SlotPicker({
           </div>
           <div className="flex flex-wrap gap-2">
             {times.map((t) => {
-              const key = `${localKey(date).slice(0, 10)}T${t}`;
+              const key = `${localDateTimeKey(date).slice(0, 10)}T${t}`;
               const on = value === key;
               return (
                 <button

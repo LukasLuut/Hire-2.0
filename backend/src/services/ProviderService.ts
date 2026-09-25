@@ -132,10 +132,10 @@ export class ProviderService {
   /** Nota média, total de avaliações, serviços concluídos e nível. */
   private async decorate<T extends ServiceProvider>(providers: T[]) {
     const ids = providers.map((p) => p.id);
-    const [ratings, completed] = await Promise.all([statsService.forProviders(ids), statsService.completedHires(ids)]);
+    const [ratings, completed, late] = await Promise.all([statsService.forProviders(ids), statsService.completedHires(ids), statsService.lateCancellations(ids)]);
     return providers.map((p) => {
       const done = completed.get(p.id) ?? 0;
-      return { ...p, rating: ratings.get(p.id) ?? StatsService.empty(), completedHires: done, level: StatsService.level(done) };
+      return { ...p, rating: ratings.get(p.id) ?? StatsService.empty(), completedHires: done, level: StatsService.level(done), lateCancellations: late.get(p.id) ?? 0 };
     });
   }
 

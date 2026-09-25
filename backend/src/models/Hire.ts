@@ -63,6 +63,17 @@ export class Hire {
   @Column({ type: "datetime", nullable: true })
   scheduledAt: Date | null;
 
+  // Pedido de novo horário aguardando a outra parte aceitar
+  @Column({ type: "datetime", nullable: true })
+  rescheduleTo: Date | null;
+
+  @Column({ type: "varchar", length: 20, nullable: true })
+  rescheduleBy: "cliente" | "prestador" | null;
+
+  // Cancelado depois do prazo de cancelamento do serviço (pesa na reputação de quem cancelou)
+  @Column({ type: "boolean", default: false })
+  lateCancel: boolean;
+
   // Duração reservada na agenda (minutos), copiada do serviço na contratação
   @Column({ type: "int", nullable: true })
   durationMinutes: number | null;

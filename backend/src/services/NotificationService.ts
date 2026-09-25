@@ -107,6 +107,9 @@ export class NotificationService {
       order: { id: "DESC" },
     });
     for (const h of myHires) {
+      if (h.rescheduleTo && h.rescheduleBy === "prestador") {
+        items.push({ kind: "hire.reschedule", title: "Responda ao novo horário proposto", description: `${title(h)} — ${h.provider?.companyName || h.provider?.professionalName || "prestador"}`, link: "/hires", at: h.firstContact });
+      }
       if (h.status === StatusEnum.PENDENTE && h.status_provider === StatusEnum.CONCLUIDO) {
         items.push({ kind: "hire.confirm", title: "Confirme a conclusão", description: `${title(h)} — o prestador marcou como entregue`, link: "/hires", at: h.firstContact });
       }
@@ -120,6 +123,9 @@ export class NotificationService {
         order: { id: "DESC" },
       });
       for (const h of received) {
+        if (h.rescheduleTo && h.rescheduleBy === "cliente") {
+          items.push({ kind: "hire.reschedule", title: "Responda ao novo horário proposto", description: `${title(h)} — ${h.user?.name ?? "cliente"}`, link: "/progress", at: h.firstContact });
+        }
         if (h.status_provider === StatusEnum.PENDENTE) {
           items.push({ kind: "hire.answer", title: "Aceite ou recuse o novo pedido", description: `${title(h)} — ${h.user?.name ?? "cliente"}`, link: "/progress", at: h.firstContact });
         } else if (h.status_provider === StatusEnum.ACEITO) {

@@ -50,9 +50,18 @@ export const hireAPI = {
   beginHireProvider: (id: number) => setStatus(id, { status_provider: "EM ANDAMENTO" }),
 
   /** Agenda do serviço: períodos ocupados do prestador, expediente e duração (para montar os horários livres). */
-  bookedSlots: async (serviceId: number): Promise<Agenda> => {
-    return (await apiRequest<Agenda>(`/hires/booked/${serviceId}`, { headers: auth() })) ?? { busy: [], hours: {}, durationMinutes: 60 };
+  bookedSlots: async (serviceId: number, excludeHireId?: number): Promise<Agenda> => {
+    const q = excludeHireId ? `?exclude=${excludeHireId}` : "";
+    return (await apiRequest<Agenda>(`/hires/booked/${serviceId}${q}`, { headers: auth() })) ?? { busy: [], hours: {}, durationMinutes: 60 };
   },
+
+  /** Pede um novo horário; a outra parte aceita ou recusa. */
+  reschedule: (id: number, scheduledAt: string) =>
+    apiRequest<HireEntity>(`/hires/${id}/reschedule`, { method: "POST", headers: auth(), body: JSON.stringify({ scheduledAt }) }),
+
+  /** Aceita/recusa o novo horário (quem pediu usa accept = false para desistir). */
+  answerReschedule: (id: number, accept: boolean) =>
+    apiRequest<HireEntity>(`/hires/${id}/reschedule/answer`, { method: "POST", headers: auth(), body: JSON.stringify({ accept }) }),
 
   getHireByProviderId: async (id: number): Promise<HireEntity[]> => {
     return (await apiRequest<HireEntity[]>(`/hires/provider/${id}`, { headers: auth() })) ?? [];

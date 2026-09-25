@@ -105,7 +105,7 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
               title="Editar perfil"            >
               <Edit3 size={18} />
             </button>
-            )}           
+            )}
           </div>
           {/* Info principal */}
           <div className="flex items-center md:items-start  flex-col gap-2">
@@ -177,6 +177,14 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
           >
             Nível {provider.level ?? "Iniciante"}
           </span>
+          {!!provider.lateCancellations && (
+            <span
+              className="px-3 py-1 rounded-full text-xs sm:text-sm border border-amber-500/40 bg-amber-500/10 text-amber-500"
+              title="Cancelamentos de pedidos aceitos depois do prazo, nos últimos 12 meses"
+            >
+              {provider.lateCancellations} cancelamento(s) em cima da hora
+            </span>
+          )}
         </div>
       </div>
 

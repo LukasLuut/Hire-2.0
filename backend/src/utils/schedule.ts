@@ -55,6 +55,16 @@ export function durationMinutes(text: unknown): number {
   return u.startsWith("min") ? n : u.startsWith("h") ? n * 60 : u.startsWith("d") ? n * 1440 : n * 10080;
 }
 
+/**
+ * Prazo de cancelamento em horas a partir do texto do serviço:
+ * "até 24h antes" → 24, "48 horas" → 48, "2 dias" → 48. Sem prazo → 0.
+ */
+export function noticeHours(text: unknown): number {
+  const m = String(text ?? "").toLowerCase().match(/(\d+)\s*(h|horas?|d|dias?)\b/);
+  if (!m) return 0;
+  return Number(m[1]) * (m[2].startsWith("d") ? 24 : 1);
+}
+
 export type BusinessHours = Record<string, { start: string; end: string }>;
 
 const toMinutes = (hhmm: string) => {

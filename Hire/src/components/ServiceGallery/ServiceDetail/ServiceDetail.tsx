@@ -384,6 +384,11 @@ export default function ServiceDetail({
                     Prestador: {providerName}
                   </button>
                 )}
+                {!!service.provider?.lateCancellations && (
+                  <span className="mt-2 ml-3 text-xs text-amber-500" title="Cancelamentos de pedidos aceitos depois do prazo, nos últimos 12 meses">
+                    {service.provider.lateCancellations} cancelamento(s) em cima da hora
+                  </span>
+                )}
                 {!window.location.pathname.startsWith("/service/") && (
                   <button
                     onClick={() => { onClose(); navigate(`/service/${service.id}`); }}

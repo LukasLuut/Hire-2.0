@@ -43,6 +43,7 @@ export interface ServiceData {
     baseState?: string | null,
     attendsOnline?: boolean,
     serviceRadiusKm?: number,
+    lateCancellations?: number,
   },
 }
 
@@ -85,6 +86,7 @@ export function toServiceData(e: ServiceEntity): ServiceData {
           baseState: e.provider.baseState,
           attendsOnline: e.provider.attendsOnline,
           serviceRadiusKm: e.provider.serviceRadiusKm,
+          lateCancellations: e.provider.lateCancellations ?? 0,
         }
       : undefined,
   };

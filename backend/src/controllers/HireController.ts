@@ -21,7 +21,7 @@ export class HireController {
 
     bookedSlots = async (req: Request, res: Response) => {
         try {
-            res.json(await hireService.bookedSlots(Number(req.params.serviceId)));
+            res.json(await hireService.bookedSlots(Number(req.params.serviceId), Number(req.query.exclude) || undefined));
         }
         catch(err: any) {
             fail(res, err);
@@ -55,6 +55,22 @@ export class HireController {
         }
         catch(err: any) {
             fail(res, err);
+        }
+    }
+
+    requestReschedule = async (req: Request, res: Response) => {
+        try {
+            res.json(await hireService.requestReschedule(Number(req.params.id), req.body?.scheduledAt, userId(req)));
+        } catch (e: any) {
+            fail(res, e);
+        }
+    }
+
+    answerReschedule = async (req: Request, res: Response) => {
+        try {
+            res.json(await hireService.answerReschedule(Number(req.params.id), req.body?.accept === true, userId(req)));
+        } catch (e: any) {
+            fail(res, e);
         }
     }
 

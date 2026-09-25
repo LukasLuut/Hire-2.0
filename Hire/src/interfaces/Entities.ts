@@ -52,6 +52,8 @@ export interface ProviderEntity {
   rating?: RatingStats;
   completedHires?: number;
   level?: string;
+  /** cancelamentos em cima da hora nos últimos 12 meses */
+  lateCancellations?: number;
 }
 
 export interface ServiceEntity {
@@ -95,6 +97,13 @@ export interface HireEntity {
   /** quem cancelou: cliente, prestador ou sistema (pedido expirado) */
   cancelledBy?: "cliente" | "prestador" | "sistema" | null;
   cancelReason?: string | null;
+  /** cancelado depois do prazo de cancelamento do serviço */
+  lateCancel?: boolean;
+  /** pedido de novo horário aguardando a outra parte */
+  rescheduleTo?: string | null;
+  rescheduleBy?: "cliente" | "prestador" | null;
+  /** (lista do prestador) cancelamentos em cima da hora deste cliente */
+  clientLateCancellations?: number;
   /** pacote escolhido e quantidade (horas/m²) */
   packageName?: string | null;
   quantity?: number | null;

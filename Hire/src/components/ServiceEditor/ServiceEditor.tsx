@@ -11,7 +11,7 @@ import { useSession } from "../../context/SessionContext";
 import ConfirmModal from "../Common/ConfirmModal";
 import { getErrorMessage } from "../../utils/errors";
 import { uploadUrl } from "../../utils/avatar";
-import { DurationPicker, SlotGrid, WEEK, durationToMinutes } from "../Schedule";
+import { DurationPicker, SlotGrid, WEEK, durationToMinutes, NOTICE_OPTIONS } from "../Schedule";
 import { PRICE_UNITS, formatServicePrice, type PriceUnit } from "../../utils/price";
 
 /** Pacote em edição (preço como texto digitado) */
@@ -532,13 +532,17 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
                       <SlotGrid slots={slots} onChange={setSlots} serviceType={categoryName} minutes={durationToMinutes(selectedService.duration || "1 hora")} hours={Object.fromEntries((provider?.availabilities ?? []).map((a) => [a.day, { start: a.start, end: a.end }]))} />
                       <label className="flex flex-col">
                         <span className="text-[var(--text-muted)] text-sm mb-1">Prazo para cancelamento</span>
-                        <input
-                          type="text"
-                          placeholder="Ex: até 24h antes"
+                        <select
                           value={selectedService.cancellationNotice ?? ""}
                           onChange={(e) => handleChange("cancellationNotice", e.target.value)}
                           className="p-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)]"
-                        />
+                        >
+                          {/* textos antigos digitados à mão continuam aparecendo */}
+                          {[...NOTICE_OPTIONS, ...(NOTICE_OPTIONS.includes(selectedService.cancellationNotice ?? "") ? [] : [selectedService.cancellationNotice ?? ""])].map((o) => (
+                            <option key={o} value={o}>{o || "Sem prazo mínimo"}</option>
+                          ))}
+                        </select>
+                        <span className="text-xs text-[var(--text-muted)] mt-1">Quem cancelar um pedido aceito depois desse prazo fica com o cancelamento registrado no perfil.</span>
                       </label>
                     </div>
                   )}
