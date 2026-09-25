@@ -61,6 +61,7 @@ export class AuthController {
   
       const valid = await user.validatePassword(password)
       if (!valid) return res.status(401).json({ message: 'Senha inválida' })
+      if (user.blocked) return res.status(403).json({ message: 'Conta suspensa pela administração' + (user.blockedReason ? `: ${user.blockedReason}` : '') })
   
       const safe: any = { ...user }
       delete safe.password // Remove a senha antes de enviar os dados ao cliente

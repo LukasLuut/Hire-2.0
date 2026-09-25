@@ -1,5 +1,6 @@
 // Importa tipos do Express para lidar com requisições e respostas
 import { Request, Response } from 'express';
+import { isAdmin } from "../utils/access";
 
 import { User } from '../models/User';
 import { AppDataSource } from '../config/data-source';
@@ -60,7 +61,7 @@ export class UserController {
         try {
             // const user = await service.findById(Number(req.params.id));
             const user = await userService.findById((req as any).user.id)
-            res.json(user)
+            res.json({ ...user, isAdmin: await isAdmin(user.id) })
         } catch (e: any) {
             res.status(400).json({ message: e.message })
         }

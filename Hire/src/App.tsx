@@ -14,6 +14,7 @@ const ApresentationPage = lazy(() => import("./pages/ApresentationPage"));
 const NegotiationsPage = lazy(() => import("./pages/NegotiationsPage"));
 const ServicePage = lazy(() => import("./pages/ServicePage"));
 const PendingPage = lazy(() => import("./pages/PendingPage"));
+const AdminPage = lazy(() => import("./pages/AdminPage"));
 const ForgotPasswordPage = lazy(() => import("./pages/AccountPages").then((m) => ({ default: m.ForgotPasswordPage })));
 const ResetPasswordPage = lazy(() => import("./pages/AccountPages").then((m) => ({ default: m.ResetPasswordPage })));
 const VerifyEmailPage = lazy(() => import("./pages/AccountPages").then((m) => ({ default: m.VerifyEmailPage })));
@@ -87,6 +88,7 @@ export default function App() {
           <Route path="/verificar-email" element={<VerifyEmailPage />} />
           <Route path="/apresentacao" element={<ApresentationPage />} />
           <Route path="/business" element={<RequireAuth><DashboardPrestador /></RequireAuth>} />
+          <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
           <Route path="/client" element={<RequireAuth><div className="pt-20"><ServiceDashboardSophisticated /></div></RequireAuth>} />
           <Route path="/progress" element={<RequireAuth><ServiceProgressContainer viewFor="provider" /></RequireAuth>} />
           <Route path="/hires" element={<RequireAuth><ServiceProgressContainer viewFor="client" /></RequireAuth>} />

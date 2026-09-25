@@ -7,7 +7,7 @@ import NotificationBell from "./NotificationBell";
 
 export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (t: "dark"|"light") => void }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { token, provider, logout } = useSession();
+  const { token, provider, user, logout } = useSession();
   const navigate = useNavigate();
 
   // "Business" só aparece para quem já é prestador
@@ -18,6 +18,7 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
         { label: "Negociações", to: "/negotiations" },
         { label: "Pendências", to: "/pendencias" },
         ...(provider ? [{ label: "Business", to: "/business" }] : []),
+        ...(user?.isAdmin ? [{ label: "Admin", to: "/admin" }] : []),
       ]
     : [];
 

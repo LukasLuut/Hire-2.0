@@ -10,4 +10,6 @@ export interface User {
     emailVerified?: boolean,
     /** receber os avisos também por e-mail */
     emailNotifications?: boolean,
+    /** acesso ao painel de administração */
+    isAdmin?: boolean,
 }

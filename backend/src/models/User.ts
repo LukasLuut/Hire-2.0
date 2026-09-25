@@ -52,6 +52,17 @@ export class User {
   @Column({ default: true })
   emailNotifications: boolean;
 
+  // "admin" acessa o painel de administração
+  @Column({ type: "varchar", length: 20, default: "user" })
+  role: "user" | "admin";
+
+  // Conta suspensa pela administração: não entra nem usa a API
+  @Column({ default: false })
+  blocked: boolean;
+
+  @Column({ type: "varchar", length: 300, nullable: true })
+  blockedReason: string | null;
+
   @OneToOne(() => Address, (address) => address.user, { cascade: true })
   @JoinColumn()
   address: Address;

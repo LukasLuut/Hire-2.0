@@ -11,6 +11,7 @@ import contractRouter from './contractRoutes'
 import reviewRouter from './reviewRoutes'
 import conversationRouter from './conversationRoutes'
 import notificationRouter from './notificationRoutes';
+import adminRouter from './adminRoutes';
 
 const router = Router()
 
@@ -25,5 +26,6 @@ router.use('/contracts', contractRouter);
 router.use('/reviews', reviewRouter);
 router.use('/conversations', conversationRouter);
 router.use('/notifications', notificationRouter);
+router.use('/admin', adminRouter);
 
 export default router

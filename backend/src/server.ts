@@ -7,6 +7,7 @@ import path from "path";
 import { jwtSecret } from "./utils/jwt";
 import { HireService } from "./services/HireService";
 import { registerNotificationMailer } from "./services/NotificationMailer";
+import { loadBlockedUsers } from "./utils/access";
 
 const app: Application = express();
 const PORTA: number = 8080;
@@ -40,6 +41,9 @@ AppDataSource.initialize()
 
     // Avisos também por e-mail (para quem confirmou o e-mail e quer receber)
     registerNotificationMailer();
+
+    // contas suspensas (consultadas pelo authMiddleware)
+    loadBlockedUsers().catch((err) => console.error("Falha ao carregar contas suspensas:", err.message));
 
     // Pedidos sem resposta expiram (verificação ao subir e a cada 10 minutos)
     const hires = new HireService();

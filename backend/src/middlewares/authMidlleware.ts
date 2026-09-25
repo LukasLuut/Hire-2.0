@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import { verifyToken } from '../utils/jwt'
+import { isBlocked } from '../utils/access'
 
 // Middleware para proteger rotas que exigem autenticação
 export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
@@ -14,6 +15,10 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
   const decoded = verifyToken(authHeader.split(' ')[1])
   if (!decoded) {
     return res.status(401).json({ message: 'Token inválido' })
+  }
+
+  if (isBlocked(Number((decoded as any).id))) {
+    return res.status(403).json({ message: 'Conta suspensa pela administração' })
   }
 
   // req.user terá id, nome e e-mail do usuário logado

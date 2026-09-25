@@ -112,7 +112,7 @@ export class UserService {
   async findByEmail(email: string) {
     return this.repo.findOne({
       where: { email },
-      select: ["id", "name", "email", "password", "cpf_cnpj", "address", "about"],
+      select: ["id", "name", "email", "password", "cpf_cnpj", "address", "about", "blocked", "blockedReason"],
     });
   }
 }
