@@ -48,6 +48,10 @@ export class User {
   @Column({ default: false })
   emailVerified: boolean;
 
+  // Receber os avisos do app também por e-mail (vale só com e-mail confirmado)
+  @Column({ default: true })
+  emailNotifications: boolean;
+
   @OneToOne(() => Address, (address) => address.user, { cascade: true })
   @JoinColumn()
   address: Address;

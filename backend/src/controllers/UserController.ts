@@ -28,6 +28,14 @@ export class UserController {
         }
     }
 
+    preferences = async (req: Request, res: Response) => {
+        try {
+            res.json(await userService.updatePreferences((req as any).user.id, req.body ?? {}))
+        } catch (e: any) {
+            res.status(400).json({ message: e.message })
+        }
+    }
+
     update = async (req: Request, res: Response) => {
         try {
             const user = await userService.update((req as any).user.id, req.body)

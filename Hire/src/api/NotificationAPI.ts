@@ -29,6 +29,9 @@ export const notificationAPI = {
   list: () => apiRequest<NotificationList>("/notifications", { headers: auth() }),
   pending: async () => (await apiRequest<PendingItem[]>("/notifications/pending", { headers: auth() })) ?? [],
   readAll: () => apiRequest<NotificationList>("/notifications/read", { method: "POST", headers: auth() }),
+  /** Liga/desliga os avisos por e-mail da conta. */
+  setEmailPreference: (on: boolean) =>
+    apiRequest<{ emailNotifications: boolean }>("/users/me/preferences", { method: "PUT", headers: auth(), body: JSON.stringify({ emailNotifications: on }) }),
   read: (id: number) => apiRequest<NotificationList>(`/notifications/${id}/read`, { method: "POST", headers: auth() }),
 };
 

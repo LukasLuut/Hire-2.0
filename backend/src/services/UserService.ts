@@ -77,6 +77,15 @@ export class UserService {
     return this.repo.save(user);
   }
 
+  /** Preferências da conta (hoje: avisos por e-mail). */
+  async updatePreferences(id: number, data: { emailNotifications?: unknown }) {
+    const user = await this.repo.findOne({ where: { id } });
+    if (!user) throw new Error("Usuário não encontrado");
+    if (data.emailNotifications !== undefined) user.emailNotifications = data.emailNotifications === true || data.emailNotifications === "true";
+    await this.repo.save(user);
+    return { emailNotifications: user.emailNotifications };
+  }
+
   async remove(id: number) {
     const user = await this.repo.findOne({ where: { id } });
     if (!user) throw new Error("Usuário não encontrado");

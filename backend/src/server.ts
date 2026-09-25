@@ -6,6 +6,7 @@ import cors from "cors";
 import path from "path";
 import { jwtSecret } from "./utils/jwt";
 import { HireService } from "./services/HireService";
+import { registerNotificationMailer } from "./services/NotificationMailer";
 
 const app: Application = express();
 const PORTA: number = 8080;
@@ -36,6 +37,9 @@ AppDataSource.initialize()
       const tooBig = err?.code === "LIMIT_FILE_SIZE";
       res.status(err?.status ?? 400).json({ message: tooBig ? "Arquivo maior que 8 MB" : err?.message ?? "Requisição inválida" });
     });
+
+    // Avisos também por e-mail (para quem confirmou o e-mail e quer receber)
+    registerNotificationMailer();
 
     // Pedidos sem resposta expiram (verificação ao subir e a cada 10 minutos)
     const hires = new HireService();

@@ -8,4 +8,6 @@ export interface User {
     acceptedAt?: Date,
     /** e-mail confirmado pelo link enviado no cadastro */
     emailVerified?: boolean,
+    /** receber os avisos também por e-mail */
+    emailNotifications?: boolean,
 }

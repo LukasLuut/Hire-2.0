@@ -63,8 +63,16 @@ export class ProviderService {
     ) as unknown as ServiceProvider;
 
     await this.saveRelations(providerSaved, { subcategories, links, availabilities: data.availabilities });
+    await this.syncEmailPreference(user.id, (data as any).emailNotification);
 
     return providerSaved;
+  }
+
+  /** A opção "avisos por e-mail" do cadastro vale para a conta inteira. */
+  private async syncEmailPreference(userId: number, value: unknown) {
+    if (value === undefined) return;
+    const on = value === true || value === "true";
+    await this.userRepository.update(userId, { emailNotifications: on });
   }
 
   // Grava subcategorias, links e disponibilidade; com replace, apaga os anteriores antes
@@ -217,6 +225,7 @@ export class ProviderService {
 
     const saved = await this.providerRepository.save(provider);
     await this.saveRelations(saved, { subcategories, links, availabilities }, true);
+    await this.syncEmailPreference(id, data.emailNotification);
 
     return this.getById(id);
   }

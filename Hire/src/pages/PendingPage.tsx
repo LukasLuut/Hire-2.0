@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { ClipboardCheck, Bell, ArrowRight } from "lucide-react";
 import { notificationAPI, timeAgo, type NotificationItem, type PendingItem } from "../api/NotificationAPI";
 import { NOTIFICATIONS_REFRESH } from "../components/NotificationBell";
+import { useSession } from "../context/SessionContext";
+import { useToast } from "../components/Toast/ToastContext";
 
 /* --------------------------------------------------------------------------
  * /pendencias — central de pendências.
@@ -16,6 +18,22 @@ export default function PendingPage() {
   const [pending, setPending] = useState<PendingItem[] | null>(null);
   const [notices, setNotices] = useState<NotificationItem[]>([]);
   const [error, setError] = useState(false);
+  const { user, refresh } = useSession();
+  const { showToast } = useToast();
+  const [savingPref, setSavingPref] = useState(false);
+
+  const toggleEmail = async (on: boolean) => {
+    setSavingPref(true);
+    try {
+      await notificationAPI.setEmailPreference(on);
+      await refresh();
+      showToast(on ? "Você vai receber os avisos também por e-mail." : "Avisos por e-mail desligados.", "success");
+    } catch {
+      showToast("Não foi possível salvar a preferência.", "error");
+    } finally {
+      setSavingPref(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setError(false);
@@ -52,7 +70,28 @@ export default function PendingPage() {
         <h1 className="text-3xl font-bold flex items-center gap-3 mb-2">
           <ClipboardCheck className="text-[var(--primary)]" /> Central de pendências
         </h1>
-        <p className="text-[var(--text-muted)] mb-8">O que precisa de você agora, como cliente e como prestador.</p>
+        <p className="text-[var(--text-muted)] mb-4">O que precisa de você agora, como cliente e como prestador.</p>
+
+        {/* Preferência: avisos também por e-mail */}
+        {user && (
+          <label className="mb-8 flex items-start gap-3 p-4 rounded-2xl bg-[var(--bg-light)] border border-[var(--border)] cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-1 w-4 h-4 accent-[var(--primary)]"
+              checked={user.emailNotifications !== false}
+              disabled={savingPref}
+              onChange={(e) => toggleEmail(e.target.checked)}
+            />
+            <span className="text-sm">
+              <span className="font-medium">Receber estes avisos também por e-mail</span>
+              <span className="block text-[var(--text-muted)]">
+                {user.emailVerified === false
+                  ? `Confirme seu e-mail (${user.email}) para começar a receber.`
+                  : `Enviamos para ${user.email}.`}
+              </span>
+            </span>
+          </label>
+        )}
 
         {error ? (
           <p className="text-[var(--text-muted)]">

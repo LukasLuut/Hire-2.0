@@ -67,12 +67,11 @@ export class NotificationService {
         link: input.link ?? "",
       })
     );
+    // ouvintes (e-mail, tempo real) rodam em segundo plano: não atrasam a resposta da API
     for (const l of listeners) {
-      try {
-        await l(userId, saved);
-      } catch {
-        /* um ouvinte com problema não impede o aviso */
-      }
+      Promise.resolve()
+        .then(() => l(userId, saved))
+        .catch((err) => console.error("Falha ao processar aviso:", err?.message ?? err));
     }
     return saved;
   }
