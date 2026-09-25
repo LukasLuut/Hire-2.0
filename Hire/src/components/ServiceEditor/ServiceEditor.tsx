@@ -143,6 +143,7 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
           subcategory: data.subcategory,
           negotiable: data.negotiable,
           requiresScheduling: data.requiresScheduling,
+          active: data.active,
           acceptedTerms: true,
           imageUrl: data.imageUrl ?? "",
           cancellationNotice: data.cancellationNotice ?? "",
@@ -278,6 +279,7 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
     formData.append("subcategory", selectedService.subcategory ? selectedService.subcategory.trim() : "");
     formData.append("negotiable", selectedService.negotiable ? "true" : "false");
     formData.append("requiresScheduling", selectedService.requiresScheduling ? "true" : "false");
+    if (hasService) formData.append("active", selectedService.active === false ? "false" : "true");
     if (selectedService.requiresScheduling) {
       formData.append("scheduleSlots", JSON.stringify(slots));
       formData.append("cancellationNotice", (selectedService.cancellationNotice ?? "").trim());
@@ -439,6 +441,24 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
                          after:bg-[var(--bg-light)] after:rounded-full after:transition-all checked:after:translate-x-5"
                     />
                   </label>
+
+                  {/* Ativo / pausado (só na edição) */}
+                  {hasService && (
+                    <label className="flex items-center justify-between">
+                      <span className="text-[var(--text)]">
+                        Serviço ativo
+                        <span className="block text-xs text-[var(--text-muted)]">Pausado, ele some da vitrine e não recebe pedidos novos.</span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={selectedService.active !== false}
+                        onChange={(e) => handleChange("active", e.target.checked)}
+                        className="relative w-10 h-5 shrink-0 appearance-none bg-[var(--border)] rounded-full cursor-pointer transition-all duration-300
+                           checked:bg-[var(--primary)] after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4
+                           after:bg-[var(--bg-light)] after:rounded-full after:transition-all checked:after:translate-x-5"
+                      />
+                    </label>
+                  )}
 
                   {/* Requer agendamento */}
                   <label className="flex items-center justify-between">

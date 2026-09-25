@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight, Clock, Tag as TagIcon, Heart, HandCoins, SquarePen, Star } from "lucide-react";
+import { ArrowLeft, ArrowRight, Clock, Tag as TagIcon, Heart, HandCoins, SquarePen, Star, Pause, Play } from "lucide-react";
 import ServiceDetailModal from "../ServiceDetail/ServiceDetail";
 import ServiceEditor from "../../ServiceEditor/ServiceEditor";
 import { serviceAPI, serviceImages, type ServiceData } from "../../../api/ServiceAPI";
@@ -107,6 +107,21 @@ export default function PostCard({
 
     const [openEdit, setOpenEdit] = useState<boolean>(false);
 
+    const [toggling, setToggling] = useState(false);
+    // Pausar / reativar direto no card (dono)
+    const handleToggleActive = async () => {
+      setToggling(true);
+      try {
+        await serviceAPI.setActive(service.id, !service.active);
+        showToast(service.active ? "Serviço pausado. Ele saiu da vitrine." : "Serviço reativado.", "success");
+        onChanged?.();
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Não foi possível alterar o serviço.", "error");
+      } finally {
+        setToggling(false);
+      }
+    };
+
     const handleEdit = () => {
       setOpenEdit((prev) => !prev)
     }
@@ -135,12 +150,19 @@ export default function PostCard({
         />
       </AnimatePresence>
 
+      {/* Pausado: aviso bem visível para o dono */}
+      {!service.active && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-full bg-black/70 text-white text-xs font-semibold border border-white/20">
+          Pausado — fora da vitrine
+        </div>
+      )}
+
       {/* Overlay gradient */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
 
       {/* Desktop arrows (só com mais de uma imagem) */}
       {total > 1 && (
-      
+
         <div className="absolute -top-20 inset-0 flex items-center justify-between px-4 z-20">
           <button onClick={prev} aria-label="Imagem anterior" className="p-2 rounded-full bg-black/40 hover:bg-black/60 transition">
             <ArrowLeft className="text-white" />
@@ -149,22 +171,32 @@ export default function PostCard({
             <ArrowRight className="text-white" />
           </button>
         </div>
-      
+
 
       )}
       {/* Botão like canto superior */}
       { !noEdit && (
         <div className="absolute top-4 px-3 z-20 flex flex-row justify-between min-w-full items-top ">
-        
+
         <button
           onClick={handleEdit}
           aria-label={`Editar ${service.title}`}
           className="p-2 w-9 h-9 rounded-full bg-[var(--primary)]/40 backdrop-blur-md hover:bg-[var(--primary)]/70"
         >
           <SquarePen className=" w-5 h-5 text-white" />
-          
+
         </button>
-       
+
+        <button
+          onClick={handleToggleActive}
+          disabled={toggling}
+          aria-label={service.active ? `Pausar ${service.title}` : `Reativar ${service.title}`}
+          title={service.active ? "Pausar serviço" : "Reativar serviço"}
+          className="p-2 w-9 h-9 mr-auto ml-2 rounded-full bg-black/40 backdrop-blur-md hover:bg-[var(--primary)]/70 disabled:opacity-50"
+        >
+          {service.active ? <Pause className="w-5 h-5 text-white" /> : <Play className="w-5 h-5 text-white" />}
+        </button>
+
         <button
           onPointerDown={startHold}
           onPointerUp={endHold}
@@ -176,7 +208,7 @@ export default function PostCard({
           <Heart className={`w-5 h-5 text-white ${liked ? "fill-[var(--primary)]" : ""}`} />
           <span className="text-xs absolut text-white/90">{likeCount}</span>
         </button>
-        
+
         </div>
       )}
 
@@ -247,7 +279,7 @@ export default function PostCard({
             {service.negotiable && <span className="bg-yellow-500/30 px-2 py-1 rounded-full text-yellow-200 text-xs whitespace-nowrap">Negociável</span>}
             {service.requiresScheduling && <span className="bg-blue-500/30 px-2 py-1 rounded-full text-blue-200 text-xs whitespace-nowrap">Exige agendamento</span>}
           </div>
-          <button 
+          <button
           onClick={handleDetail}
           className="mt-2 w-full text-center bg-[var(--primary)]/80 hover:bg-[var(--primary)] py-2 rounded-xl font-medium text-white shadow-lg shadow-[var(--primary)]/20">
             Ver detalhes
@@ -255,14 +287,14 @@ export default function PostCard({
         </div>
       </div>
     </div>
-    <ServiceDetailModal 
+    <ServiceDetailModal
     service={service}
     images={imagesLink}
     isOpen={open}
     onClose={()=>{setOpen(false)}}
     onEdit={noEdit ? undefined : () => { setOpen(false); setOpenEdit(true); }}
     />
-    
+
 </div>
 
   );

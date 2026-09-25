@@ -57,6 +57,8 @@ export interface ServiceEntity {
   negotiable: boolean;
   requiresScheduling: boolean;
   likesNumber?: number;
+  /** false = pausado pelo prestador (fora da vitrine, sem pedidos novos) */
+  active?: boolean;
   imageUrl?: string | null;
   /** Todas as imagens na ordem do prestador (a primeira é a capa) */
   images?: string[] | null;

@@ -39,6 +39,10 @@ export class Service {
   @Column({ default: 0 })
   likesNumber?: number;
 
+  // Pausado = some da vitrine e do perfil público e não recebe pedidos novos
+  @Column({ default: true })
+  active: boolean;
+
   @Column({ type: "varchar", length: 255, nullable: true })
   imageUrl?: string | null;
 

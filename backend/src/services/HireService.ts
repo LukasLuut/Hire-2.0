@@ -43,6 +43,7 @@ export class HireService {
         });
         if (!service) throw new HttpError(404, "Serviço não encontrado");
         if (service.provider?.user?.id === userId) throw new HttpError(400, "Você não pode contratar o próprio serviço");
+        if (service.active === false) throw new HttpError(400, "Este serviço está pausado pelo prestador e não recebe pedidos no momento");
 
         // Serviços com agenda: o horário precisa estar na agenda, no futuro e livre
         let scheduledAt: Date | null = null;

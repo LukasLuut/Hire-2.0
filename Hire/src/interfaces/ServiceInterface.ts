@@ -13,6 +13,8 @@ export interface Service {
     imageUrl?: string;
     acceptedTerms?: boolean;
     cancellationNotice?: string;
+    /** false = pausado */
+    active?: boolean;
 };
 
 // "id": 28,

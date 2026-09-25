@@ -137,7 +137,8 @@ export class ProviderService {
     });
     if (!provider) throw new Error("Prestador não encontrado");
     const [decorated] = await this.decorate([provider]);
-    const services = await serviceService.withStats(provider.services.map((s) => ({ ...s, provider } as any)));
+    // perfil público mostra só os serviços ativos
+    const services = await serviceService.withStats(provider.services.filter((s) => s.active !== false).map((s) => ({ ...s, provider } as any)));
     return {
       ...decorated,
       user: publicUser(provider.user),

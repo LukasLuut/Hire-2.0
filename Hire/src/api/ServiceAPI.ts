@@ -47,7 +47,7 @@ export function toServiceData(e: ServiceEntity): ServiceData {
     category: e.category ? { id: e.category.id, name: e.category.name, description: e.category.description } : { id: 0, name: "Sem categoria" },
     subcategory: e.subcategory && e.subcategory !== "Has no subcategory" ? e.subcategory : "",
     price: Number(e.price),
-    active: true,
+    active: e.active !== false,
     duration: e.duration ?? "",
     rating: e.rating?.average ?? 0,
     ratingCount: e.rating?.count ?? 0,
@@ -108,6 +108,13 @@ export const serviceAPI = {
       headers: auth(),
       body: data
     });
+  },
+
+  /** Pausa ou reativa um serviço (só o dono). */
+  setActive: async (id: number, active: boolean) => {
+    const form = new FormData();
+    form.append("active", active ? "true" : "false");
+    return await apiRequest(`/services/${id}`, { method: "PUT", headers: auth(), body: form });
   },
 
   toggleLike: async (id: number, token: string) => {

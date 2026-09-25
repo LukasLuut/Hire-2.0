@@ -398,6 +398,15 @@ export default function ServiceDetail({
                   </button>
                 )}
               </div>
+              ) : !service.active ? (
+              <p className="mt-4 p-4 rounded-xl bg-[var(--bg)] border border-[var(--border)] text-sm text-[var(--text-muted)]">
+                Este serviço está pausado pelo prestador e não recebe pedidos no momento.
+                {service.provider?.id && (
+                  <button onClick={() => { onClose(); navigate(`/provider/${service.provider!.id}`); }} className="ml-1 text-[var(--primary)] underline">
+                    Ver outros serviços de {providerName}
+                  </button>
+                )}
+              </p>
               ) : confirming ? (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}

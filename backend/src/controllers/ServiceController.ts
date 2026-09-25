@@ -85,6 +85,7 @@ export class ServiceController {
                     ...req.body,
                     negotiable: negotiable === undefined ? undefined : toBoolean(negotiable),
                     requiresScheduling: requiresScheduling === undefined ? undefined : toBoolean(requiresScheduling),
+                    active: req.body.active === undefined ? undefined : toBoolean(req.body.active),
                 };
 
                 const { id } = req.params;

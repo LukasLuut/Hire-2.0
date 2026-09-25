@@ -18,6 +18,7 @@ export interface ServiceInput {
   categoryId: string | number;
   scheduleSlots?: unknown;
   cancellationNotice?: string;
+  active?: boolean;
 }
 
 export class ServiceService {
@@ -121,8 +122,9 @@ export class ServiceService {
     return await this.serviceRepository.save(service);
   }
 
+  /** Vitrine: só serviços ativos (pausados continuam acessíveis pelo id). */
   async list() {
-    const services = await this.serviceRepository.find({ relations: { category: true, provider: true }, order: { id: "DESC" } });
+    const services = await this.serviceRepository.find({ where: { active: true }, relations: { category: true, provider: true }, order: { id: "DESC" } });
     return this.withStats(services);
   }
 
@@ -141,6 +143,7 @@ export class ServiceService {
     if (data.subcategory !== undefined) service.subcategory = String(data.subcategory).trim() || undefined;
     if (data.negotiable !== undefined) service.negotiable = data.negotiable;
     if (data.requiresScheduling !== undefined) service.requiresScheduling = data.requiresScheduling;
+    if (data.active !== undefined) service.active = data.active;
     if (data.price !== undefined) {
       const price = Number(data.price);
       if (!Number.isFinite(price) || price <= 0) throw new HttpError(400, "Informe um preço válido");
