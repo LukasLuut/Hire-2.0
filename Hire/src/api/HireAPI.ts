@@ -4,7 +4,7 @@ import type { HireEntity } from "../interfaces/Entities";
 // Todas as rotas de contratação exigem login
 const auth = (token = localStorage.getItem("token")) => ({ Authorization: "Bearer " + token });
 
-const setStatus = (id: number, body: { status?: string; status_provider?: string }) =>
+const setStatus = (id: number, body: { status?: string; status_provider?: string; reason?: string }) =>
   apiRequest<HireEntity>(`/hires/${id}`, { method: "PUT", headers: auth(), body: JSON.stringify(body) });
 
 export const hireAPI = {
@@ -34,8 +34,11 @@ export const hireAPI = {
   deleteHire: (id: number) => apiRequest(`/hires/${id}`, { method: "DELETE", headers: auth() }),
 
   /** Cancela pelo lado de quem chama; o backend encerra os dois lados. */
-  cancelHire: (id: number, as: "client" | "provider" = "client") =>
-    setStatus(id, as === "client" ? { status: "CANCELADO" } : { status_provider: "CANCELADO" }),
+  cancelHire: (id: number, as: "client" | "provider" = "client", reason = "") =>
+    setStatus(id, as === "client" ? { status: "CANCELADO", reason } : { status_provider: "CANCELADO", reason }),
+
+  /** Prestador aceita o pedido (depois disso pode iniciar). */
+  acceptHire: (id: number) => setStatus(id, { status_provider: "ACEITO" }),
 
   concludeHire: (id: number) => setStatus(id, { status: "CONCLUIDO" }),
 

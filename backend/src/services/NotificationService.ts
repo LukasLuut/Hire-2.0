@@ -116,13 +116,15 @@ export class NotificationService {
     // ---------- como prestador
     if (provider) {
       const received = await hireRepo.find({
-        where: { provider: { id: provider.id }, status: StatusEnum.PENDENTE, status_provider: In([StatusEnum.PENDENTE, StatusEnum.EM_ANDAMENTO]) },
+        where: { provider: { id: provider.id }, status: StatusEnum.PENDENTE, status_provider: In([StatusEnum.PENDENTE, StatusEnum.ACEITO, StatusEnum.EM_ANDAMENTO]) },
         relations: { service: true, user: true },
         order: { id: "DESC" },
       });
       for (const h of received) {
         if (h.status_provider === StatusEnum.PENDENTE) {
-          items.push({ kind: "hire.start", title: "Novo pedido para iniciar", description: `${title(h)} — ${h.user?.name ?? "cliente"}`, link: "/progress", at: h.firstContact });
+          items.push({ kind: "hire.answer", title: "Aceite ou recuse o novo pedido", description: `${title(h)} — ${h.user?.name ?? "cliente"}`, link: "/progress", at: h.firstContact });
+        } else if (h.status_provider === StatusEnum.ACEITO) {
+          items.push({ kind: "hire.start", title: "Inicie o serviço aceito", description: `${title(h)} — ${h.user?.name ?? "cliente"}`, link: "/progress", at: h.firstContact });
         } else {
           items.push({ kind: "hire.deliver", title: "Marque como concluído quando terminar", description: title(h), link: "/progress", at: h.firstContact });
         }

@@ -67,6 +67,8 @@ test("pedido de orçamento → resposta → consentimento mútuo → contrato as
   assert.equal((await req("POST", `/conversations/${cid}/accept`, t.lim)).s, 403);
   const a2 = (await req("POST", `/conversations/${cid}/accept`, t.ele)).j;
   assert.equal(a2.formalized, true);
+  const hire = (await req("GET", `/hires/${a2.hireId}`, t.cli)).j;
+  assert.equal(hire.status_provider, "ACEITO", "acordo fechado gera pedido já aceito");
 
   const ctr = a2.contractId;
   assert.equal((await req("GET", `/contracts/${ctr}`, t.lim)).s, 404);

@@ -81,6 +81,11 @@ export interface HireEntity {
   status_provider: string;
   /** Horário reservado na agenda do serviço ("AAAA-MM-DD HH:mm:ss" ou ISO) */
   scheduledAt?: string | null;
+  createdAt?: string;
+  acceptedAt?: string | null;
+  /** quem cancelou: cliente, prestador ou sistema (pedido expirado) */
+  cancelledBy?: "cliente" | "prestador" | "sistema" | null;
+  cancelReason?: string | null;
   user?: { id: number; name: string };
   provider?: ProviderEntity;
   service?: ServiceEntity;

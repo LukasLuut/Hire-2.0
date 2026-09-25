@@ -36,7 +36,10 @@ test("etapas em ordem: não pula, não volta, não cancela depois de entregue", 
   const { id } = await newHire();
   assert.equal((await setStatus(id, t.cli, { status_provider: "EM ANDAMENTO" })).s, 403, "cliente não inicia");
   assert.equal((await setStatus(id, t.ele, { status_provider: "CONCLUIDO" })).s, 400, "não pula para entregue");
+  assert.equal((await setStatus(id, t.ele, { status_provider: "EM ANDAMENTO" })).s, 400, "não inicia sem aceitar");
   assert.equal((await setStatus(id, t.cli, { status: "CONCLUIDO" })).s, 400, "cliente não confirma antes");
+  assert.equal((await setStatus(id, t.ele, { status_provider: "ACEITO" })).s, 200);
+  assert.equal((await setStatus(id, t.ele, { status_provider: "ACEITO" })).s, 400, "não aceita duas vezes");
   assert.equal((await setStatus(id, t.ele, { status_provider: "EM ANDAMENTO" })).s, 200);
   assert.equal((await setStatus(id, t.ele, { status_provider: "EM ANDAMENTO" })).s, 400, "não inicia duas vezes");
   assert.equal((await setStatus(id, t.ele, { status_provider: "CONCLUIDO" })).s, 200);
@@ -49,6 +52,7 @@ test("etapas em ordem: não pula, não volta, não cancela depois de entregue", 
 
 test("avaliações mútuas com fotos depois de concluída", async () => {
   const { id } = await newHire();
+  await setStatus(id, t.ele, { status_provider: "ACEITO" });
   await setStatus(id, t.ele, { status_provider: "EM ANDAMENTO" });
   await setStatus(id, t.ele, { status_provider: "CONCLUIDO" });
   await setStatus(id, t.cli, { status: "CONCLUIDO" });

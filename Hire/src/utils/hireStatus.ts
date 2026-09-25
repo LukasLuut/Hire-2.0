@@ -3,7 +3,7 @@
  *   status_provider: PENDENTE → EM ANDAMENTO → CONCLUIDO (prestador)
  *   status:          PENDENTE → CONCLUIDO                (confirmação do cliente)
  * -------------------------------------------------------------------------- */
-export type HireStage = "requested" | "in_progress" | "delivered" | "done" | "cancelled";
+export type HireStage = "requested" | "accepted" | "in_progress" | "delivered" | "done" | "cancelled";
 
 export interface HireLike {
   status?: string;
@@ -15,18 +15,21 @@ export function getHireStage(hire: HireLike): HireStage {
   if (hire.status === "CONCLUIDO") return "done";
   if (hire.status_provider === "CONCLUIDO") return "delivered";
   if (hire.status_provider === "EM ANDAMENTO") return "in_progress";
+  if (hire.status_provider === "ACEITO") return "accepted";
   return "requested";
 }
 
 export const HIRE_STEPS: { id: Exclude<HireStage, "cancelled">; label: string }[] = [
   { id: "requested", label: "Solicitado" },
+  { id: "accepted", label: "Aceito" },
   { id: "in_progress", label: "Em andamento" },
   { id: "delivered", label: "Entregue pelo prestador" },
   { id: "done", label: "Concluído" },
 ];
 
 export const HIRE_STAGE_LABEL: Record<HireStage, string> = {
-  requested: "Aguardando início",
+  requested: "Aguardando aceite do prestador",
+  accepted: "Aceito — aguardando início",
   in_progress: "Em andamento",
   delivered: "Aguardando sua confirmação",
   done: "Concluído",
@@ -35,7 +38,8 @@ export const HIRE_STAGE_LABEL: Record<HireStage, string> = {
 
 /** Rótulo do status visto pelo prestador (o "delivered" significa outra coisa para ele). */
 export const HIRE_STAGE_LABEL_PROVIDER: Record<HireStage, string> = {
-  requested: "Novo pedido",
+  requested: "Novo pedido — aceite ou recuse",
+  accepted: "Aceito — aguardando início",
   in_progress: "Em andamento",
   delivered: "Aguardando confirmação do cliente",
   done: "Concluído",

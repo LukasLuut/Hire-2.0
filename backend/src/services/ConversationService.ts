@@ -5,7 +5,7 @@ import { notificationService } from "./NotificationService";
 import { Message, MessageRole } from "../models/Message";
 import { ServiceProvider } from "../models/ServiceProvider";
 import { Service } from "../models/Service";
-import { Hire } from "../models/Hire";
+import { Hire, StatusEnum } from "../models/Hire";
 import { Contract } from "../models/Contract";
 
 // Mesmos tópicos iniciais do modal de negociação do frontend
@@ -306,6 +306,9 @@ export class ConversationService {
         user: { id: conv.client.id },
         provider: { id: conv.provider.id },
         service: conv.service ? { id: conv.service.id } : undefined,
+        // o acordo já foi aceito pelas duas partes: o pedido nasce aceito
+        status_provider: StatusEnum.ACEITO,
+        acceptedAt: now,
       })
     );
 

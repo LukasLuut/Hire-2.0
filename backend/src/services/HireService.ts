@@ -3,7 +3,7 @@ import { Hire, StatusEnum } from "../models/Hire";
 import { ServiceProvider } from "../models/ServiceProvider";
 import { Service } from "../models/Service";
 import { fitsSchedule, parseLocalDateTime } from "../utils/schedule";
-import { MoreThan, Not } from "typeorm";
+import { LessThan, MoreThan, Not } from "typeorm";
 import { notificationService } from "./NotificationService";
 import { User } from "../models/User";
 
@@ -89,16 +89,16 @@ export class HireService {
 
     /**
      * Cada lado só altera o próprio status:
-     * - cliente: CONCLUIDO (depois do prestador) ou CANCELADO;
-     * - prestador: EM ANDAMENTO, CONCLUIDO ou CANCELADO.
-     * Cancelar encerra os dois lados.
+     * - cliente: CONCLUIDO (depois do prestador) ou CANCELADO (antes de começar);
+     * - prestador: ACEITO → EM ANDAMENTO → CONCLUIDO, ou CANCELADO (recusar/cancelar).
+     * Cancelar encerra os dois lados e guarda quem cancelou e o motivo.
      */
-    async update(id: number, data: Partial<Hire>, requesterId: number) {
+    async update(id: number, data: Partial<Hire> & { reason?: string }, requesterId: number) {
         const { hire, role } = await this.loadWithRole(id, requesterId);
         const next = role === "client" ? data.status : data.status_provider;
         const allowed = role === "client"
             ? [StatusEnum.CONCLUIDO, StatusEnum.CANCELADO]
-            : [StatusEnum.EM_ANDAMENTO, StatusEnum.CONCLUIDO, StatusEnum.CANCELADO];
+            : [StatusEnum.ACEITO, StatusEnum.EM_ANDAMENTO, StatusEnum.CONCLUIDO, StatusEnum.CANCELADO];
 
         if (!next || !allowed.includes(next)) throw new HttpError(403, "Alteração não permitida para o seu papel nesta contratação");
         if (hire.status === StatusEnum.CANCELADO || hire.status === StatusEnum.CONCLUIDO) {
@@ -110,10 +110,17 @@ export class HireService {
             throw new HttpError(400, "O prestador do serviço precisa concluir o serviço primeiro. Entre em contato com seu prestador.");
         }
 
-        // Etapas em ordem: solicitado → em andamento → entregue; sem pular nem voltar
+        // Etapas em ordem: solicitado → aceito → em andamento → entregue; sem pular nem voltar
         const current = hire.status_provider;
-        if (role === "provider" && next === StatusEnum.EM_ANDAMENTO && current !== StatusEnum.PENDENTE) {
-            throw new HttpError(400, "O serviço só pode ser iniciado enquanto estiver aguardando início");
+        if (role === "provider" && next === StatusEnum.ACEITO && current !== StatusEnum.PENDENTE) {
+            throw new HttpError(400, "Este pedido já foi respondido");
+        }
+        if (role === "provider" && next === StatusEnum.EM_ANDAMENTO && current !== StatusEnum.ACEITO) {
+            throw new HttpError(400, current === StatusEnum.PENDENTE ? "Aceite o pedido antes de iniciar o serviço" : "O serviço só pode ser iniciado depois de aceito");
+        }
+        // o cliente cancela só antes de o serviço começar
+        if (role === "client" && next === StatusEnum.CANCELADO && current === StatusEnum.EM_ANDAMENTO) {
+            throw new HttpError(400, "O serviço já começou. Fale com o prestador pela conversa.");
         }
         if (role === "provider" && next === StatusEnum.CONCLUIDO && current !== StatusEnum.EM_ANDAMENTO) {
             throw new HttpError(400, "Inicie o serviço antes de marcá-lo como concluído");
@@ -126,6 +133,11 @@ export class HireService {
         if (next === StatusEnum.CANCELADO) {
             hire.status = StatusEnum.CANCELADO;
             hire.status_provider = StatusEnum.CANCELADO;
+            hire.cancelledBy = role === "client" ? "cliente" : "prestador";
+            hire.cancelReason = String(data.reason ?? "").trim().slice(0, 300) || null;
+        } else if (role === "provider" && next === StatusEnum.ACEITO) {
+            hire.status_provider = StatusEnum.ACEITO;
+            hire.acceptedAt = new Date();
         } else if (role === "client") {
             hire.status = next;
         } else {
@@ -144,12 +156,15 @@ export class HireService {
         const providerName = hire.provider?.companyName || hire.provider?.professionalName || "O prestador";
         if (next === StatusEnum.CANCELADO) {
             const target = role === "client" ? providerUserId : clientId;
+            const refused = role === "provider" && !hire.acceptedAt;
             await notificationService.notify(target, {
-                type: "hire.cancelled",
-                title: `Pedido cancelado: ${title}`,
-                body: role === "client" ? `${hire.user?.name ?? "O cliente"} cancelou o pedido.` : `${providerName} recusou ou cancelou o pedido.`,
+                type: refused ? "hire.refused" : "hire.cancelled",
+                title: `${refused ? "Pedido recusado" : "Pedido cancelado"}: ${title}`,
+                body: `${role === "client" ? hire.user?.name ?? "O cliente" : providerName} ${refused ? "recusou" : "cancelou"} o pedido.${hire.cancelReason ? ` Motivo: ${hire.cancelReason}` : ""}`,
                 link: role === "client" ? "/progress" : "/hires",
             });
+        } else if (role === "provider" && next === StatusEnum.ACEITO) {
+            await notificationService.notify(clientId, { type: "hire.accepted", title: `Pedido aceito: ${title}`, body: `${providerName} aceitou seu pedido.`, link: "/hires" });
         } else if (role === "provider" && next === StatusEnum.EM_ANDAMENTO) {
             await notificationService.notify(clientId, { type: "hire.started", title: `Serviço iniciado: ${title}`, body: `${providerName} começou o serviço.`, link: "/hires" });
         } else if (role === "provider" && next === StatusEnum.CONCLUIDO) {
@@ -157,6 +172,34 @@ export class HireService {
         } else if (role === "client" && next === StatusEnum.CONCLUIDO) {
             await notificationService.notify(providerUserId, { type: "hire.done", title: `Serviço concluído: ${title}`, body: `${hire.user?.name ?? "O cliente"} confirmou a conclusão. Avalie o cliente.`, link: "/progress" });
         }
+    }
+
+    /**
+     * Pedidos sem resposta expiram: depois de HIRE_EXPIRY_HOURS (padrão 48 h) ou
+     * quando o horário agendado chega sem aceite. O horário volta a ficar livre.
+     */
+    async expireStale() {
+        const hours = Number(process.env.HIRE_EXPIRY_HOURS) || 48;
+        const limit = new Date(Date.now() - hours * 3_600_000);
+        const now = new Date();
+        const stale = await this.hireRepository.find({
+            where: [
+                { status: StatusEnum.PENDENTE, status_provider: StatusEnum.PENDENTE, createdAt: LessThan(limit) },
+                { status: StatusEnum.PENDENTE, status_provider: StatusEnum.PENDENTE, scheduledAt: LessThan(now) },
+            ],
+            relations: { user: true, provider: { user: true }, service: true },
+        });
+        for (const hire of stale) {
+            hire.status = StatusEnum.CANCELADO;
+            hire.status_provider = StatusEnum.CANCELADO;
+            hire.cancelledBy = "sistema";
+            hire.cancelReason = "Expirado: o prestador não respondeu a tempo";
+            await this.hireRepository.save(hire);
+            const title = hire.service?.title ?? hire.description_service;
+            await notificationService.notify(hire.user?.id, { type: "hire.expired", title: `Pedido expirou: ${title}`, body: "O prestador não respondeu a tempo. Você pode contratar outro profissional.", link: "/hires" });
+            await notificationService.notify(hire.provider?.user?.id, { type: "hire.expired", title: `Pedido expirado: ${title}`, body: "O pedido foi cancelado por falta de resposta.", link: "/progress" });
+        }
+        return stale.length;
     }
 
     async remove(id: number, requesterId: number) {
@@ -170,6 +213,7 @@ export class HireService {
         const provider = await this.providerRepository.findOne({ where: { id }, relations: { user: true } });
         if (!provider) throw new HttpError(404, "Prestador não encontrado");
         if (provider.user?.id !== requesterId) throw new HttpError(403, "Acesso restrito ao prestador");
+        await this.expireStale(); // a lista já chega sem pedidos vencidos
 
         return await this.hireRepository.find({ relations: this.fullRelations, where: {
             provider: {id: id}
@@ -188,6 +232,7 @@ export class HireService {
     }
 
     async getListByUserId(userId: number) {
+        await this.expireStale();
         return await this.hireRepository.find({ relations: this.fullRelations, where: {
             user: { id: userId }
         }, order: { id: "DESC" }});

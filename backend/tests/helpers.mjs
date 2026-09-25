@@ -52,3 +52,25 @@ export function nextWeekday(dow, hhmm) {
   const p = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${hhmm}`;
 }
+
+/**
+ * Acesso direto ao banco de desenvolvimento (lê o backend/.env), só para
+ * simular a passagem do tempo nos testes (ex.: pedido feito há 3 dias).
+ */
+export async function db(sql, params = []) {
+  const { default: dotenv } = await import("dotenv");
+  const { fileURLToPath } = await import("node:url");
+  const path = await import("node:path");
+  dotenv.config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".env"), quiet: true });
+  const mysql = await import("mysql2/promise");
+  const conn = await mysql.createConnection({
+    host: process.env.DB_HOST, port: Number(process.env.DB_PORT), user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD, database: process.env.DB_NAME,
+  });
+  try {
+    const [rows] = await conn.execute(sql, params);
+    return rows;
+  } finally {
+    await conn.end();
+  }
+}

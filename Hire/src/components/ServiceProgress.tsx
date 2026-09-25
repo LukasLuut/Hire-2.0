@@ -37,9 +37,10 @@ export type ServiceProgressProps = {
   onChanged: () => void;
 };
 
-type Action = "begin" | "deliver" | "confirm" | "cancel";
+type Action = "accept" | "begin" | "deliver" | "confirm" | "cancel";
 
 const ACTION_TEXT: Record<Action, { title: string; confirm: string; done: string }> = {
+  accept: { title: "Aceitar este pedido?", confirm: "Aceitar pedido", done: "Pedido aceito. O cliente foi avisado." },
   begin: { title: "Iniciar este serviço?", confirm: "Iniciar serviço", done: "Serviço iniciado!" },
   deliver: { title: "Marcar como concluído?", confirm: "Marcar como concluído", done: "Serviço marcado como concluído. Agora o cliente confirma." },
   confirm: { title: "Confirmar conclusão?", confirm: "Confirmar conclusão", done: "Conclusão confirmada!" },
@@ -67,6 +68,7 @@ export function ServiceProgress({
   const [reviewed, setReviewed] = useState<boolean | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [rehireOpen, setRehireOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const [chatId, setChatId] = useState<number | null>(null);
   // depois de confirmar a conclusão, a lista só recarrega quando o modal de avaliação fecha
   // (senão o card vai para "Encerradas" e o modal some junto)
@@ -102,10 +104,11 @@ export function ServiceProgress({
     if (!pending) return;
     setBusy(true);
     try {
+      if (pending === "accept") await hireAPI.acceptHire(data.id);
       if (pending === "begin") await hireAPI.beginHireProvider(data.id);
       if (pending === "deliver") await hireAPI.concludeHireProvider(data.id);
       if (pending === "confirm") await hireAPI.concludeHire(data.id);
-      if (pending === "cancel") await hireAPI.cancelHire(data.id, viewFor);
+      if (pending === "cancel") await hireAPI.cancelHire(data.id, viewFor, cancelReason);
       showToast(ACTION_TEXT[pending].done, "success");
       const wasConfirm = pending === "confirm";
       setPending(null);
@@ -180,7 +183,16 @@ export function ServiceProgress({
               </div>
 
               {stage === "cancelled" ? (
-                <p className="mb-6 text-sm text-red-500">Este pedido foi cancelado.</p>
+                <p className="mb-6 text-sm text-red-500">
+                  {data.cancelledBy === "sistema"
+                    ? "Este pedido expirou: o prestador não respondeu a tempo."
+                    : data.cancelledBy === "prestador"
+                      ? `${data.acceptedAt ? "Cancelado" : "Recusado"} pelo prestador.`
+                      : data.cancelledBy === "cliente"
+                        ? "Cancelado pelo cliente."
+                        : "Este pedido foi cancelado."}
+                  {data.cancelReason && data.cancelledBy !== "sistema" && <span className="block text-[var(--text-muted)] mt-1">Motivo: {data.cancelReason}</span>}
+                </p>
               ) : (
               /* TIMELINE ------------------------------------------------ */
               <section aria-label="Linha do tempo do serviço" className="mb-6">
@@ -245,11 +257,21 @@ export function ServiceProgress({
                     <>
                       {stage === "requested" && (
                         <>
+                          <button className={buttonClass(true)} onClick={() => setPending("accept")}>
+                            Aceitar pedido
+                          </button>
+                          <button className={buttonClass()} onClick={() => { setCancelReason(""); setPending("cancel"); }}>
+                            Recusar pedido
+                          </button>
+                        </>
+                      )}
+                      {stage === "accepted" && (
+                        <>
                           <button className={buttonClass(true)} onClick={() => setPending("begin")}>
                             Iniciar serviço
                           </button>
-                          <button className={buttonClass()} onClick={() => setPending("cancel")}>
-                            Recusar pedido
+                          <button className={buttonClass()} onClick={() => { setCancelReason(""); setPending("cancel"); }}>
+                            Cancelar pedido
                           </button>
                         </>
                       )}
@@ -264,10 +286,12 @@ export function ServiceProgress({
                     </>
                   ) : (
                     <>
-                      {stage === "requested" && (
+                      {(stage === "requested" || stage === "accepted") && (
                         <>
-                          <p className="text-sm text-[var(--text-muted)] sm:self-center">Aguardando o prestador iniciar.</p>
-                          <button className={buttonClass()} onClick={() => setPending("cancel")}>
+                          <p className="text-sm text-[var(--text-muted)] sm:self-center">
+                            {stage === "requested" ? "Aguardando o prestador aceitar. Sem resposta em 48 h, o pedido expira." : "Pedido aceito. Aguardando o prestador iniciar."}
+                          </p>
+                          <button className={buttonClass()} onClick={() => { setCancelReason(""); setPending("cancel"); }}>
                             Cancelar pedido
                           </button>
                         </>
@@ -322,14 +346,27 @@ export function ServiceProgress({
       {pending && (
         <ConfirmModal
           open={!!pending}
-          title={ACTION_TEXT[pending].title}
-          confirmLabel={ACTION_TEXT[pending].confirm}
+          title={pending === "cancel" && viewFor === "provider" && stage === "requested" ? "Recusar este pedido?" : ACTION_TEXT[pending].title}
+          confirmLabel={pending === "cancel" && viewFor === "provider" && stage === "requested" ? "Recusar pedido" : ACTION_TEXT[pending].confirm}
           cancelLabel="Voltar"
           danger={pending === "cancel"}
           loading={busy}
           onConfirm={run}
           onClose={() => setPending(null)}
-        />
+        >
+          {pending === "cancel" && (
+            <label className="block mt-3 text-sm">
+              <span className="text-[var(--text-muted)]">Motivo (opcional, a outra parte verá)</span>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                maxLength={300}
+                rows={3}
+                className="mt-1 w-full p-2 rounded-lg bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] resize-none"
+              />
+            </label>
+          )}
+        </ConfirmModal>
       )}
 
       {rehireOpen && data.service && (

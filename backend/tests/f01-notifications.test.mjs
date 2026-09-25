@@ -21,8 +21,10 @@ test("1. contratação gera avisos e pendências para a parte certa", async () =
   assert.ok(has(ele, "hire.requested"), "prestador avisado do pedido");
   assert.ok(ele.items[0].link === "/progress");
   let pend = (await req("GET", "/notifications/pending", t.ele)).j;
-  assert.ok(pend.some((p) => p.kind === "hire.start"), "pendência: iniciar");
+  assert.ok(pend.some((p) => p.kind === "hire.answer"), "pendência: aceitar ou recusar");
 
+  await req("PUT", `/hires/${h.id}`, t.ele, { status_provider: "ACEITO" });
+  assert.ok(has(await latest(t.cli), "hire.accepted"), "cliente avisado do aceite");
   await req("PUT", `/hires/${h.id}`, t.ele, { status_provider: "EM ANDAMENTO" });
   assert.ok(has(await latest(t.cli), "hire.started"), "cliente avisado do início");
   await req("PUT", `/hires/${h.id}`, t.ele, { status_provider: "CONCLUIDO" });

@@ -5,6 +5,7 @@ import router from "./routes/index";
 import cors from "cors";
 import path from "path";
 import { jwtSecret } from "./utils/jwt";
+import { HireService } from "./services/HireService";
 
 const app: Application = express();
 const PORTA: number = 8080;
@@ -35,6 +36,12 @@ AppDataSource.initialize()
       const tooBig = err?.code === "LIMIT_FILE_SIZE";
       res.status(err?.status ?? 400).json({ message: tooBig ? "Arquivo maior que 8 MB" : err?.message ?? "Requisição inválida" });
     });
+
+    // Pedidos sem resposta expiram (verificação ao subir e a cada 10 minutos)
+    const hires = new HireService();
+    const expire = () => hires.expireStale().catch((err) => console.error("Falha ao expirar pedidos:", err.message));
+    expire();
+    setInterval(expire, 10 * 60 * 1000);
 
     app.listen(PORTA, () => {
       console.log(`Server running in port: ${PORTA}`);
