@@ -99,6 +99,19 @@ export class HireService {
             throw new HttpError(400, "O prestador do serviço precisa concluir o serviço primeiro. Entre em contato com seu prestador.");
         }
 
+        // Etapas em ordem: solicitado → em andamento → entregue; sem pular nem voltar
+        const current = hire.status_provider;
+        if (role === "provider" && next === StatusEnum.EM_ANDAMENTO && current !== StatusEnum.PENDENTE) {
+            throw new HttpError(400, "O serviço só pode ser iniciado enquanto estiver aguardando início");
+        }
+        if (role === "provider" && next === StatusEnum.CONCLUIDO && current !== StatusEnum.EM_ANDAMENTO) {
+            throw new HttpError(400, "Inicie o serviço antes de marcá-lo como concluído");
+        }
+        // Depois de entregue, nenhum dos lados cancela: o cliente confirma (ou fala com o prestador)
+        if (next === StatusEnum.CANCELADO && current === StatusEnum.CONCLUIDO) {
+            throw new HttpError(400, "O serviço já foi entregue e não pode mais ser cancelado");
+        }
+
         if (next === StatusEnum.CANCELADO) {
             hire.status = StatusEnum.CANCELADO;
             hire.status_provider = StatusEnum.CANCELADO;

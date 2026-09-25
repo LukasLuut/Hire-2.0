@@ -41,8 +41,8 @@ export const AppDataSource = new DataSource({
     // Em produção, deve ser false, para não apagar ou alterar dados automaticamente.
     synchronize: true, 
 
-    // logging: true faz o TypeORM mostrar no terminal todos os comandos SQL que ele está executando.
-    logging: true,
+    // logging mostra no terminal todos os comandos SQL; ligue só para depurar (DB_LOGGING=true no .env)
+    logging: process.env.DB_LOGGING === "true",
 
     // Aqui registramos as entidades (as classes que representam tabelas).
     // O TypeORM precisa saber quais são para criar o mapeamento com o banco.

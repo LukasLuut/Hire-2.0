@@ -4,9 +4,13 @@ import { AppDataSource } from "./config/data-source";
 import router from "./routes/index";
 import cors from "cors";
 import path from "path";
+import { jwtSecret } from "./utils/jwt";
 
 const app: Application = express();
 const PORTA: number = 8080;
+
+// Sem um JWT_SECRET forte no .env o servidor não sobe (evita tokens assinados com valor conhecido)
+jwtSecret();
 
 app.use(express.json());
 /*

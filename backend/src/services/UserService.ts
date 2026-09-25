@@ -54,21 +54,25 @@ export class UserService {
     return clone;
   }
 
-  async update(id: number, data: Partial<User>) {
+  /**
+   * Edição do perfil: só nome e "Sobre". E-mail, CPF, senha e aceite dos termos
+   * não mudam por aqui (qualquer outro campo enviado é ignorado).
+   */
+  async update(id: number, data: { name?: unknown; about?: unknown }) {
     const user = await this.repo.findOne({ where: { id } });
 
     if (!user) throw new Error("Usuário não encontrado");
-      console.log("Dados recebidos para atualização:", data);
 
-    if (data.password) {
-      user.password = data.password;
+    if (data.name !== undefined) {
+      const name = String(data.name).trim();
+      if (!name || name.length > 50 || !/^[A-Za-zÀ-ÿ\s]+$/.test(name)) {
+        throw new Error("Nome deve ter até 50 caracteres, só letras e espaços");
+      }
+      user.name = name;
     }
-
-    const { password, ...rest } = data;
-
-    console.log("Campos a serem atualizados (sem senha):", rest);
-
-    Object.assign(user, rest);
+    if (data.about !== undefined) {
+      user.about = data.about === null ? (null as any) : String(data.about).trim().slice(0, 400);
+    }
 
     return this.repo.save(user);
   }

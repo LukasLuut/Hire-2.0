@@ -7,20 +7,27 @@ interface Payload {
   about: string
 }
 
+/** Segredo lido do .env; sem ele o servidor não deve assinar nem aceitar tokens. */
+export function jwtSecret(): string {
+  const secret = process.env.JWT_SECRET
+  if (!secret || secret.length < 32) {
+    throw new Error("JWT_SECRET ausente ou curto demais (mínimo 32 caracteres) no backend/.env")
+  }
+  return secret
+}
+
 export const generateToken = (payload: Payload) => {
-  return jwt.sign(payload, process.env.JWT_SECRET = "23412343", {
-    expiresIn: Number(process.env.JWT_EXPIRES_IN)
+  return jwt.sign(payload, jwtSecret(), {
+    expiresIn: Number(process.env.JWT_EXPIRES_IN) || 86400
   })
 }
 
 export const verifyToken = (token: string) => {
     try {
-        // valida o token que estamos passando
-        // se for válido, retorna as informações decodificadas do payload (no nosso caso, id e email)
-        return jwt.verify(token, process.env.JWT_SECRET!)
+        // valida o token e devolve o payload (id, nome, e-mail); inválido ou expirado → null
+        return jwt.verify(token, jwtSecret())
     }
-    catch (err: any) {
-        // se for válido, retorna null
+    catch {
         return null;
     }
 }
