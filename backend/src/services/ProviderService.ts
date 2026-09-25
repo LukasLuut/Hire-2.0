@@ -4,6 +4,15 @@ import { User } from "../models/User";
 import { Subcategory } from "../models/Subcategory";
 import { Availability } from "../models/Availability";
 import { Link } from "../models/Link";
+import { StatsService, statsService } from "./StatsService";
+import { ServiceService } from "./ServiceService";
+
+const serviceService = new ServiceService();
+
+// Dados públicos do prestador: nunca expõe e-mail, CPF ou senha do usuário dono do perfil
+function publicUser(user?: User | null) {
+  return user ? { id: user.id, name: user.name } : null;
+}
 
 export class ProviderService {
   private providerRepository = AppDataSource.getRepository(ServiceProvider);
@@ -107,7 +116,33 @@ export class ProviderService {
 
     if (!provider) throw new Error("Prestador não encontrado");
 
-    return provider;
+    return (await this.decorate([provider]))[0];
+  }
+
+  /** Nota média, total de avaliações, serviços concluídos e nível. */
+  private async decorate<T extends ServiceProvider>(providers: T[]) {
+    const ids = providers.map((p) => p.id);
+    const [ratings, completed] = await Promise.all([statsService.forProviders(ids), statsService.completedHires(ids)]);
+    return providers.map((p) => {
+      const done = completed.get(p.id) ?? 0;
+      return { ...p, rating: ratings.get(p.id) ?? StatsService.empty(), completedHires: done, level: StatsService.level(done) };
+    });
+  }
+
+  /** Perfil público de um prestador (página "Ver perfil"). */
+  async getPublic(providerId: number) {
+    const provider = await this.providerRepository.findOne({
+      where: { id: providerId },
+      relations: { user: true, subcategories: true, links: true, category: true, availabilities: true, services: { category: true } },
+    });
+    if (!provider) throw new Error("Prestador não encontrado");
+    const [decorated] = await this.decorate([provider]);
+    const services = await serviceService.withStats(provider.services.map((s) => ({ ...s, provider } as any)));
+    return {
+      ...decorated,
+      user: publicUser(provider.user),
+      services: services.map((s: any) => ({ ...s, provider: { id: provider.id, companyName: provider.companyName, professionalName: provider.professionalName, profileImageUrl: provider.profileImageUrl, description: provider.description, rating: decorated.rating } })),
+    };
   }
 
   async getServices(id: number) {
@@ -124,9 +159,9 @@ export class ProviderService {
       },
     });
 
-    if (!provider) throw new Error("Provedor não encontrado");
+    if (!provider) throw new Error("Prestador não encontrado");
 
-    return provider.services;
+    return serviceService.withStats(provider.services.map((s) => ({ ...s, provider } as any)));
   }
 
   async remove(id: number) {
@@ -144,14 +179,13 @@ export class ProviderService {
     return { message: "Provedor removido" };
   }
 
+  /** Todos os prestadores com nota, ordenados pelos mais bem avaliados. */
   async list() {
-    const users = await this.providerRepository.find();
-
-    return users.map((u) => {
-      const clone: any = { ...u };
-      delete clone.password;
-      return clone;
-    });
+    const providers = await this.providerRepository.find({ relations: { user: true, category: true, subcategories: true } });
+    const decorated = await this.decorate(providers);
+    return decorated
+      .map((p) => ({ ...p, user: publicUser(p.user) }))
+      .sort((a, b) => b.rating.average - a.rating.average || b.rating.count - a.rating.count || b.completedHires - a.completedHires);
   }
 
   async update(id: number, data: any, file?: Express.Multer.File) {

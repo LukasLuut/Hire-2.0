@@ -29,6 +29,22 @@ export class ServiceController {
         }
       }
 
+    toggleLike = async (req: Request, res: Response) => {
+        try {
+            res.json(await serviceService.toggleLike(Number(req.params.id), (req as any).user.id));
+        } catch (e: any) {
+            res.status(400).json({ message: e.message });
+        }
+    }
+
+    likedByMe = async (req: Request, res: Response) => {
+        try {
+            res.json(await serviceService.likedBy((req as any).user.id));
+        } catch (e: any) {
+            res.status(400).json({ message: e.message });
+        }
+    }
+
     list = async (req: Request, res: Response) => {
         try {
             const services = await serviceService.list();

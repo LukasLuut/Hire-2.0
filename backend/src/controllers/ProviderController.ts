@@ -66,6 +66,14 @@ export class ProviderController {
     }
   }
 
+  getPublic = async (req: Request, res: Response) => {
+    try {
+      res.json(await providerService.getPublic(Number(req.params.id)));
+    } catch (e: any) {
+      res.status(404).json({ message: e.message });
+    }
+  };
+
   list = async (req: Request, res: Response) => {
     try {
       const providers = await providerService.list();

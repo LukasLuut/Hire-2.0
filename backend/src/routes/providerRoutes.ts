@@ -14,6 +14,7 @@ providerRouter.delete('/', authMiddleware, controller.delete.bind(controller))
 providerRouter.get('/services', authMiddleware, controller.getServices.bind(controller))
 
 providerRouter.get('/all', controller.list.bind(controller));
+providerRouter.get('/:id/public', controller.getPublic.bind(controller));
 
 export default providerRouter;
 

@@ -8,6 +8,8 @@ import serviceRouter from './serviceRoutes'
 import hireRouter from './hireRoutes'
 import paymentRouter from './paymentRoutes'
 import contractRouter from './contractRoutes'
+import reviewRouter from './reviewRoutes'
+import conversationRouter from './conversationRoutes'
 
 const router = Router()
 
@@ -19,5 +21,7 @@ router.use('/services', serviceRouter);
 router.use('/hires', hireRouter);
 router.use('/payments', paymentRouter);
 router.use('/contracts', contractRouter);
+router.use('/reviews', reviewRouter);
+router.use('/conversations', conversationRouter);
 
 export default router

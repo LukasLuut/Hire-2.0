@@ -1,6 +1,8 @@
 import { AppDataSource } from "../config/data-source";
 import { Hire, StatusEnum } from "../models/Hire";
 import { Service } from "../models/Service";
+import { ServiceLike } from "../models/ServiceLike";
+import { statsService } from "./StatsService";
 
 interface ServiceInterface {
   title: string;
@@ -17,6 +19,40 @@ interface ServiceInterface {
 export class ServiceService {
   private serviceRepository = AppDataSource.getRepository(Service);
   private hireRepository = AppDataSource.getRepository(Hire);
+  private likeRepository = AppDataSource.getRepository(ServiceLike);
+
+  /** Acrescenta a nota do serviço e a nota do prestador (avaliações reais). */
+  async withStats(services: Service[]) {
+    const [serviceStats, providerStats] = await Promise.all([
+      statsService.forServices(services.map((s) => s.id)),
+      statsService.forProviders([...new Set(services.map((s) => s.provider?.id).filter(Boolean) as number[])]),
+    ]);
+    return services.map((s) => ({
+      ...s,
+      rating: serviceStats.get(s.id) ?? { average: 0, count: 0 },
+      provider: s.provider
+        ? { ...s.provider, rating: providerStats.get(s.provider.id) ?? { average: 0, count: 0 } }
+        : s.provider,
+    }));
+  }
+
+  /** Curte ou descurte um serviço; mantém a coluna likesNumber sincronizada. */
+  async toggleLike(serviceId: number, userId: number) {
+    const service = await this.serviceRepository.findOne({ where: { id: serviceId } });
+    if (!service) throw new Error("Serviço não encontrado");
+    const existing = await this.likeRepository.findOne({ where: { service: { id: serviceId }, user: { id: userId } } });
+    if (existing) await this.likeRepository.remove(existing);
+    else await this.likeRepository.save(this.likeRepository.create({ service: { id: serviceId }, user: { id: userId } }));
+    const likesNumber = await this.likeRepository.count({ where: { service: { id: serviceId } } });
+    await this.serviceRepository.update(serviceId, { likesNumber });
+    return { liked: !existing, likesNumber };
+  }
+
+  /** IDs dos serviços que o usuário curtiu. */
+  async likedBy(userId: number) {
+    const likes = await this.likeRepository.find({ where: { user: { id: userId } }, relations: { service: true } });
+    return likes.map((l) => l.service.id);
+  }
 
   async create(data: ServiceInterface, file?: Express.Multer.File) {
     const {
@@ -50,13 +86,14 @@ export class ServiceService {
   }
 
   async list() {
-    return await this.serviceRepository.find({ relations: { category: true, provider: true }});
+    const services = await this.serviceRepository.find({ relations: { category: true, provider: true }, order: { id: "DESC" } });
+    return this.withStats(services);
   }
 
   async getById(id: number) {
     const service = await this.serviceRepository.findOne({ where: { id: id }, relations: { category: true, provider: true }});
     if (!service) throw new Error("Serviço não encontrado");
-    return service;
+    return (await this.withStats([service]))[0];
   }
 
   async update(id: number, data: Partial<Service> & { categoryId?: string | number }, file?: Express.Multer.File) {
