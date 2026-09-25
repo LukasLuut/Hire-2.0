@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import bgImage from "../assets/bg-login.webp";
 import hirePng from "../assets/hire-logo.webp";
 import { userAPI, type UserAPI, type UserLoginAPI } from "../api/UserAPI";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import UseTerms from "../components/Terms/UseTerms";
 import { useToast } from "../components/Toast/ToastContext"
 import { useSession } from "../context/SessionContext";
@@ -29,12 +29,16 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
   const navigate = useNavigate()
   const { showToast } = useToast();
   const { token, login } = useSession();
+  // Para onde voltar depois de entrar (só caminhos internos, ex.: /service/12)
+  const [params] = useSearchParams();
+  const nextParam = params.get("next") ?? "";
+  const next = nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/home";
   
 
   // Quem já está logado vai direto para a página inicial
   useEffect(() => {
-    if (token && !embedded) navigate("/home", { replace: true });
-  }, [token, navigate, embedded])
+    if (token && !embedded) navigate(next, { replace: true });
+  }, [token, navigate, embedded, next])
 
   const cleanForm = () => {
     setFormData({
@@ -68,7 +72,7 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
         const body: any = await handleLogin(formLoginData);
         login(body.token);
         showToast("Login realizado com sucesso!", "success")
-        navigate("/home");
+        navigate(next);
 
       } else {
 

@@ -364,6 +364,14 @@ export default function ServiceDetail({
                     Prestador: {providerName}
                   </button>
                 )}
+                {!window.location.pathname.startsWith("/service/") && (
+                  <button
+                    onClick={() => { onClose(); navigate(`/service/${service.id}`); }}
+                    className="mt-2 ml-4 text-sm text-[var(--text-muted)] hover:text-[var(--primary)] underline"
+                  >
+                    Página do serviço (para compartilhar)
+                  </button>
+                )}
               </div>
 
               {/* Informações gerais */}

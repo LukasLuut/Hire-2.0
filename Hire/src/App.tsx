@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
 import Accessibility from "./components/Accessibility";
@@ -11,6 +11,7 @@ const DashboardPrestador = lazy(() => import("./pages/DashboardPrestador"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const ApresentationPage = lazy(() => import("./pages/ApresentationPage"));
 const NegotiationsPage = lazy(() => import("./pages/NegotiationsPage"));
+const ServicePage = lazy(() => import("./pages/ServicePage"));
 const ProviderPublicPage = lazy(() => import("./pages/ProviderPublicPage"));
 const ContractPreview = lazy(() => import("./components/ContractPreview").then((m) => ({ default: m.ContractPreview })));
 const NegotiationRoom = lazy(() => import("./components/Negotiation/NegotiationRoom"));
@@ -27,10 +28,11 @@ function PageLoading() {
 }
 import { useSession } from "./context/SessionContext";
 
-/** Rotas que exigem login: sem token, volta para a tela de entrada. */
+/** Rotas que exigem login: sem token, vai para a entrada e volta para cá depois de entrar. */
 function RequireAuth({ children }: { children: ReactNode }) {
   const { token } = useSession();
-  if (!token) return <Navigate to="/auth" replace />;
+  const location = useLocation();
+  if (!token) return <Navigate to={`/auth?next=${encodeURIComponent(location.pathname + location.search)}`} replace />;
   return <>{children}</>;
 }
 
@@ -79,6 +81,8 @@ export default function App() {
           <Route path="/progress" element={<RequireAuth><ServiceProgressContainer viewFor="provider" /></RequireAuth>} />
           <Route path="/hires" element={<RequireAuth><ServiceProgressContainer viewFor="client" /></RequireAuth>} />
           <Route path="/provider/:id" element={<RequireAuth><ProviderPublicPage /></RequireAuth>} />
+          {/* Página pública do serviço: pode ser compartilhada e aberta sem login */}
+          <Route path="/service/:id" element={<ServicePage />} />
 
           {/* Contratos */}
           <Route path="/contract/:id" element={<RequireAuth><ContractPreview /></RequireAuth>} />
