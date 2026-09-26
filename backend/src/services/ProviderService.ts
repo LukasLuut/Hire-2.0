@@ -1,4 +1,6 @@
 import { AppDataSource } from "../config/data-source";
+import { inviteService } from "./InviteService";
+import { cityPages } from "../seo/cityPages";
 import { portfolioService } from "./PortfolioService";
 import { IsNull } from "typeorm";
 import { isSlug, uniqueSlug } from "../utils/slug";
@@ -65,6 +67,8 @@ export class ProviderService {
     ) as unknown as ServiceProvider;
 
     await this.saveRelations(providerSaved, { subcategories, links, availabilities: data.availabilities });
+    // convite de profissional convertido: a pessoa criou a empresa
+    await inviteService.markConverted(idUser, "provider").catch(() => null);
     await this.syncEmailPreference(user.id, (data as any).emailNotification);
 
     return providerSaved;
@@ -190,7 +194,10 @@ export class ProviderService {
     const dates = [provider.createdAt, provider.user?.acceptedAt].filter(Boolean).map((d) => new Date(d as any).getTime());
     const memberSince = dates.length ? new Date(Math.min(...dates)) : null;
     const portfolio = await portfolioService.list(provider.id);
-    const pub = { ...(toPublicProvider({ ...decorated, user: provider.user, emailVerified: !!provider.user?.emailVerified } as any) as any), memberSince, portfolio };
+    // página pública da categoria na cidade do prestador, quando existe (link interno)
+    const page = (await cityPages()).find((c) => c.categoryId === provider.category?.id && c.city === provider.baseCity && c.state === (provider.baseState ?? "").toUpperCase());
+    const cityPage = page ? { path: `/servicos/${page.categorySlug}/${page.citySlug}`, label: `${page.categoryName} em ${page.city}` } : null;
+    const pub = { ...(toPublicProvider({ ...decorated, user: provider.user, emailVerified: !!provider.user?.emailVerified } as any) as any), memberSince, portfolio, cityPage };
     return {
       ...pub,
       services: services.map((s: any) => ({ ...s, provider: { id: provider.id, slug: pub.slug, companyName: provider.companyName, professionalName: provider.professionalName, profileImageUrl: provider.profileImageUrl, description: provider.description, rating: decorated.rating, pricesOnPage: provider.pricesOnPage, verificationStatus: provider.verificationStatus } })),

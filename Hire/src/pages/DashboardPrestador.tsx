@@ -141,6 +141,9 @@ export default function DashboardPrestador() {
                 <button onClick={() => setShareOpen(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[var(--primary)] text-white font-medium">
                   <Share2 size={16} /> Compartilhar e QR Code
                 </button>
+                <button onClick={() => navigate("/convidar?tipo=cliente")} className="mt-2 w-full text-sm text-[var(--primary)] hover:underline">
+                  Convidar clientes ou colegas
+                </button>
                 <SharePanel
                   open={shareOpen}
                   onClose={() => setShareOpen(false)}

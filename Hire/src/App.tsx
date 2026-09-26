@@ -15,6 +15,9 @@ const NegotiationsPage = lazy(() => import("./pages/NegotiationsPage"));
 const ServicePage = lazy(() => import("./pages/ServicePage"));
 const PendingPage = lazy(() => import("./pages/PendingPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
+const CategoryCityPage = lazy(() => import("./pages/CategoryCityPage"));
+const InvitePage = lazy(() => import("./pages/InvitePage"));
+const InviteLandingPage = lazy(() => import("./pages/InviteLandingPage"));
 const ForgotPasswordPage = lazy(() => import("./pages/AccountPages").then((m) => ({ default: m.ForgotPasswordPage })));
 const ResetPasswordPage = lazy(() => import("./pages/AccountPages").then((m) => ({ default: m.ResetPasswordPage })));
 const VerifyEmailPage = lazy(() => import("./pages/AccountPages").then((m) => ({ default: m.VerifyEmailPage })));
@@ -95,6 +98,11 @@ export default function App() {
           {/* Perfil público do prestador: aberto sem login; /provider/:id (links antigos) leva ao endereço canônico */}
           <Route path="/prestador/:slug" element={<ProviderPublicPage />} />
           <Route path="/provider/:id" element={<ProviderPublicPage />} />
+          {/* páginas públicas por categoria + cidade (só com oferta real) */}
+          <Route path="/servicos/:categoria/:cidade" element={<CategoryCityPage />} />
+          {/* convites rastreáveis: criar (com login) e página pública do convite */}
+          <Route path="/convidar" element={<RequireAuth><InvitePage /></RequireAuth>} />
+          <Route path="/convite/:code" element={<InviteLandingPage />} />
           {/* Página pública do serviço: pode ser compartilhada e aberta sem login */}
           <Route path="/service/:id" element={<ServicePage />} />
 

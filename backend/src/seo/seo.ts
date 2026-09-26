@@ -21,7 +21,7 @@ const SITE = "Hire.";
 const DEFAULT_DESCRIPTION = "Encontre profissionais de serviços perto de você, peça orçamento, converse e contrate com segurança no Hire.";
 
 // páginas que dependem de login ou são pessoais: nunca indexar
-const PRIVATE = [/^\/home/, /^\/business/, /^\/admin/, /^\/client/, /^\/progress/, /^\/hires/, /^\/pendencias/, /^\/negotiations?/, /^\/contract/, /^\/auth/, /^\/esqueci-senha/, /^\/redefinir-senha/, /^\/verificar-email/];
+const PRIVATE = [/^\/home/, /^\/business/, /^\/admin/, /^\/client/, /^\/progress/, /^\/hires/, /^\/pendencias/, /^\/negotiations?/, /^\/contract/, /^\/auth/, /^\/esqueci-senha/, /^\/redefinir-senha/, /^\/verificar-email/, /^\/convid/, /^\/convite\//];
 
 type Meta = { title: string; description: string; url: string; image?: string | null; type?: string; noindex?: boolean; status?: number };
 
@@ -155,7 +155,7 @@ async function sitemap() {
 
 function robots() {
   const site = frontendUrl();
-  const disallow = ["/home", "/business", "/admin", "/client", "/progress", "/hires", "/pendencias", "/negotiations", "/negotiation/", "/contract/", "/auth", "/esqueci-senha", "/redefinir-senha", "/verificar-email"];
+  const disallow = ["/home", "/business", "/admin", "/client", "/progress", "/hires", "/pendencias", "/negotiations", "/negotiation/", "/contract/", "/auth", "/esqueci-senha", "/redefinir-senha", "/verificar-email", "/convidar", "/convite/"];
   return `User-agent: *\n${disallow.map((d) => `Disallow: ${d}`).join("\n")}\nAllow: /\n\nSitemap: ${site}/sitemap.xml\n`;
 }
 

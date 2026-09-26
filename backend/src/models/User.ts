@@ -12,6 +12,7 @@ import {
   BeforeUpdate,
 } from "typeorm";
 import { Address } from "./Address";
+import { Invite } from "./Invite";
 import bcrypt from "bcrypt";
 import { ServiceProvider } from "./ServiceProvider";
 import { Contract } from "./Contract";
@@ -62,6 +63,13 @@ export class User {
 
   @Column({ type: "varchar", length: 300, nullable: true })
   blockedReason: string | null;
+
+  // Convite pelo qual a pessoa se cadastrou (atribuição) e quando fez o que o convite propunha
+  @ManyToOne(() => Invite, { nullable: true, onDelete: "SET NULL" })
+  invite?: Invite | null;
+
+  @Column({ type: "datetime", nullable: true })
+  inviteConvertedAt?: Date | null;
 
   @OneToOne(() => Address, (address) => address.user, { cascade: true })
   @JoinColumn()

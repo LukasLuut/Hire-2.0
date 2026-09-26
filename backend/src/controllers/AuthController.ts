@@ -1,4 +1,5 @@
 import { Request, Response } from 'express'
+import { inviteService } from '../services/InviteService'
 import { UserService } from '../services/UserService'
 import { generateToken } from '../utils/jwt' // Importa a função que gera o JWT
 import { accountService } from '../services/AccountService'
@@ -13,6 +14,8 @@ export class AuthController {
       const acceptedAt: Date = new Date();
       const body = {...req.body, acceptedAt}
       const user = await service.create(body)
+      // cadastro vindo de convite: guarda a origem (código inválido é ignorado)
+      await inviteService.attachOnSignup(user.id, req.body?.invite).catch(() => null)
       // link de confirmação por e-mail (falha no envio não impede o cadastro)
       await accountService.sendVerification(user.id).catch(() => null)
       res.status(201).json(user)

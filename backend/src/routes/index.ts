@@ -15,6 +15,8 @@ import adminRouter from './adminRoutes';
 import reportRouter from './reportRoutes';
 import eventRouter from './eventRoutes';
 import analyticsRouter from './analyticsRoutes';
+import discoverRouter from './discoverRoutes';
+import inviteRouter from './inviteRoutes';
 
 const router = Router()
 
@@ -33,5 +35,7 @@ router.use('/admin', adminRouter);
 router.use('/reports', reportRouter);
 router.use('/events', eventRouter);
 router.use('/analytics', analyticsRouter);
+router.use('/discover', discoverRouter);
+router.use('/invites', inviteRouter);
 
 export default router

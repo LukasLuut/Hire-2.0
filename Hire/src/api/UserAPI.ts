@@ -13,6 +13,8 @@ export const userAPI = {
         cpf_cnpj: data.cpf,
         password: data.password,
         acceptedTerms: data.acceptedTerms,
+        // código de convite guardado pela página /convite/:code (atribui o cadastro)
+        invite: data.invite || undefined,
       }),
     });
   },
@@ -112,6 +114,7 @@ export interface UserAPI {
   email: string;
   password: string;
   acceptedTerms: boolean;
+  invite?: string | null;
 }
 
 export interface UserLoginAPI {

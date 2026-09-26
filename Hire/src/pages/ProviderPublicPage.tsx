@@ -3,7 +3,7 @@ import { providerUrl } from "../utils/providerPath";
 import SharePanel from "../components/Share/SharePanel";
 import { rememberProfileOrigin, track, trackView } from "../utils/analytics";
 import PortfolioGallery from "../components/Portfolio/PortfolioGallery";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { MessageSquare, Flag, Share2 } from "lucide-react";
 import ReportModal from "../components/Reports/ReportModal";
 import ProviderHero from "../components/ProviderHero/ProviderHero";
@@ -130,6 +130,14 @@ export default function ProviderPublicPage() {
         <ProviderHero provider={provider} readOnly services={services} />
 
         <PortfolioGallery items={provider.portfolio ?? []} />
+
+        {provider.cityPage && (
+          <p className="mt-6 text-sm">
+            <Link to={provider.cityPage.path} className="text-[var(--primary)] hover:underline">
+              Ver mais profissionais de {provider.cityPage.label}
+            </Link>
+          </p>
+        )}
 
         <SharePanel
           open={shareOpen}

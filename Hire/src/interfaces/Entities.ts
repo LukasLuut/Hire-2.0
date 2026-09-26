@@ -29,6 +29,8 @@ export interface ProviderEntity {
   showContact?: boolean;
   slug?: string | null;
   createdAt?: string | null;
+  /** (perfil público) página da categoria na cidade, quando existe */
+  cityPage?: { path: string; label: string } | null;
   /** (perfil público) trabalhos do portfólio, em ordem */
   portfolio?: PortfolioItem[];
   /** (perfil público) data de entrada no Hire */

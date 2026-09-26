@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { inviteService } from "./InviteService";
 import { Hire, StatusEnum } from "../models/Hire";
 import { ServiceProvider } from "../models/ServiceProvider";
 import { Service } from "../models/Service";
@@ -98,6 +99,8 @@ export class HireService {
         });
 
         const saved = await this.hireRepository.save(hire);
+        // convite de cliente convertido: primeiro pedido feito
+        await inviteService.markConverted(userId, "client").catch(() => null);
         const client = await AppDataSource.getRepository(User).findOne({ where: { id: userId } });
         await notificationService.notify(service.provider?.user?.id, {
             type: "hire.requested",

@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { inviteService } from "./InviteService";
 import { Conversation, ConversationStatus, NegotiationTopic, QuoteRequest, RequestStatus } from "../models/Conversation";
 import { HttpError } from "./HireService";
 import { notificationService } from "./NotificationService";
@@ -381,6 +382,8 @@ export class ConversationService {
     await this.conversationRepository.save(conv);
 
     await this.system(conv, "Pedido de orçamento enviado ao prestador.");
+    // convite de cliente convertido: primeiro pedido feito
+    await inviteService.markConverted(userId, "client").catch(() => null);
     await notificationService.notify(conv.provider?.user?.id, {
       type: "quote.requested",
       title: `Pedido de orçamento: ${conv.service?.title ?? "serviço"}`,

@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
+import { clearPendingInvite, pendingInvite } from "../api/InviteAPI";
 import { useEffect, useState } from "react";
 import bgImage from "../assets/bg-login.webp";
 import hirePng from "../assets/hire-logo.webp";
@@ -14,7 +15,7 @@ import { useSession } from "../context/SessionContext";
 /** embedded: dentro da página de apresentação (não redireciona quem já está logado) */
 export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(() => new URLSearchParams(window.location.search).get("cadastro") !== "1");
   const [formData, setFormData] = useState({
     name: "",
     cpf: "",
@@ -82,6 +83,7 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
         }
 
         await handleRegistrar(formData);
+        clearPendingInvite();
          showToast("Conta criada! Enviamos um link para confirmar seu e-mail. Agora é só entrar.", "success");
         setIsLogin(true);
         cleanForm();
@@ -99,7 +101,8 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
       email: data.email,
       cpf: data.cpf,
       password: data.password,
-      acceptedTerms: data.acceptedTerms
+      acceptedTerms: data.acceptedTerms,
+      invite: pendingInvite(),
     })
   }
 

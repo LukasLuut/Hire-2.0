@@ -524,6 +524,18 @@ export default function ServiceDashboardSophisticated() {
                       Limpar filtros
                     </button>
                   )}
+                  {(services ?? []).length > 0 && (
+                    <div className="mt-6 max-w-md mx-auto p-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-light)] text-[var(--text)]">
+                      <p className="font-medium">Não encontramos profissionais para essa necessidade.</p>
+                      <p className="text-sm text-[var(--text-muted)] mt-1">Conhece alguém que realiza esse serviço?</p>
+                      <button
+                        onClick={() => navigate(`/convidar?tipo=profissional${query ? `&categoria=${encodeURIComponent(query)}` : categoryFilter !== "Todos" ? `&categoria=${encodeURIComponent(categoryFilter)}` : ""}`)}
+                        className="mt-3 px-4 py-2 rounded-xl bg-[var(--primary)] text-white text-sm font-medium"
+                      >
+                        Convidar profissional
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>
