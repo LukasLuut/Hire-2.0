@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Flag } from "lucide-react";
+import ReportModal from "../components/Reports/ReportModal";
 import ProviderHero from "../components/ProviderHero/ProviderHero";
 import ReviewsSection from "../components/Reviews/ReviewsSection";
 import ChatInbox from "../components/Chat/ChatInbox";
@@ -22,7 +23,8 @@ export default function ProviderPublicPage() {
   const { id } = useParams();
   const providerId = Number(id);
   const navigate = useNavigate();
-  const { provider: me } = useSession();
+  const { provider: me, token } = useSession();
+  const [reportOpen, setReportOpen] = useState(false);
   const { showToast } = useToast();
   const [provider, setProvider] = useState<ProviderEntity | null>(null);
   const [services, setServices] = useState<ServiceData[]>([]);
@@ -88,6 +90,20 @@ export default function ProviderPublicPage() {
         </div>
 
         <ProviderHero provider={provider} readOnly services={services} />
+
+        {!isMe && token && (
+          <div className="flex justify-end mt-2">
+            <button onClick={() => setReportOpen(true)} className="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-red-500">
+              <Flag size={14} /> Denunciar perfil
+            </button>
+          </div>
+        )}
+        <ReportModal
+          open={reportOpen}
+          onClose={() => setReportOpen(false)}
+          providerId={provider.id}
+          subject={provider.companyName || provider.professionalName || "Prestador"}
+        />
 
         {provider.publicReviews !== false && (
           <ReviewsSection

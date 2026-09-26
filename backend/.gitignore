@@ -10,3 +10,6 @@ dist/
 
 # e-mails de desenvolvimento (sem SMTP configurado)
 outbox/
+
+# arquivos privados (provas de relatos, documentos)
+private_uploads/

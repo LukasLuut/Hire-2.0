@@ -7,15 +7,17 @@ import { useToast } from "../components/Toast/ToastContext";
 import ConfirmModal from "../components/Common/ConfirmModal";
 import { getErrorMessage } from "../utils/errors";
 import { formatCurrency, formatDateTime } from "../utils/format";
+import { reportAPI, reasonLabel, type ReportItem } from "../api/ReportAPI";
 
 /* --------------------------------------------------------------------------
  * /admin — painel mínimo de administração.
  * Números da plataforma, suspensão de contas, papel de administrador,
  * moderação de serviços, pedidos recentes e categorias.
  * -------------------------------------------------------------------------- */
-type Tab = "overview" | "users" | "services" | "hires" | "categories";
+type Tab = "overview" | "reports" | "users" | "services" | "hires" | "categories";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Visão geral" },
+  { id: "reports", label: "Denúncias" },
   { id: "users", label: "Usuários" },
   { id: "services", label: "Serviços" },
   { id: "hires", label: "Pedidos" },
@@ -64,6 +66,7 @@ export default function AdminPage() {
         </div>
         <section role="tabpanel" aria-label={TABS.find((t) => t.id === tab)?.label}>
           {tab === "overview" && <OverviewTab />}
+          {tab === "reports" && <ReportsTab />}
           {tab === "users" && <UsersTab />}
           {tab === "services" && <ServicesTab />}
           {tab === "hires" && <HiresTab />}
@@ -87,11 +90,12 @@ function OverviewTab() {
     ["Usuários", data.users, data.blocked ? `${data.blocked} suspenso(s)` : undefined],
     ["Prestadores", data.providers],
     ["Serviços", data.services, data.pausedServices ? `${data.pausedServices} pausado(s)` : undefined],
+    ["Denúncias abertas", data.openReports, data.openReports ? "aguardando análise" : undefined],
     ["Cancelamentos em cima da hora", data.lateCancels],
   ];
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {cards.map(([label, value, note]) => (
           <div key={label} className="p-4 rounded-2xl bg-[var(--bg-light)] border border-[var(--border)]">
             <div className="text-sm text-[var(--text-muted)]">{label}</div>
@@ -414,6 +418,103 @@ function CategoriesTab() {
           onConfirm={() => run(() => adminAPI.deleteCategory(removing.id), "Categoria excluída.")}
           onClose={() => setRemoving(null)}
         />
+      )}
+    </>
+  );
+}
+
+/* ----------------------------- Denúncias ----------------------------- */
+const REPORT_STATUS: Record<string, string> = { ABERTA: "Abertas", RESOLVIDA: "Resolvidas", DESCARTADA: "Descartadas" };
+
+function ReportsTab() {
+  const { showToast } = useToast();
+  const [status, setStatus] = useState("ABERTA");
+  const [list, setList] = useState<ReportItem[] | null>(null);
+  const [target, setTarget] = useState<{ report: ReportItem; decision: "RESOLVIDA" | "DESCARTADA" } | null>(null);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(() => {
+    setList(null);
+    reportAPI.adminList(status).then(setList).catch((e) => showToast(getErrorMessage(e, "Erro ao carregar denúncias."), "error"));
+  }, [status, showToast]);
+  useEffect(load, [load]);
+
+  const decide = async () => {
+    if (!target) return;
+    if (text.trim().length < 5) return showToast("Explique a decisão para quem relatou.", "warning");
+    setBusy(true);
+    try {
+      await reportAPI.resolve(target.report.id, target.decision, text.trim());
+      showToast("Decisão registrada. As partes foram avisadas.", "success");
+      setTarget(null);
+      load();
+    } catch (e) {
+      showToast(getErrorMessage(e, "Não foi possível registrar."), "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openFile = (path: string) => reportAPI.openFile(path).catch((e) => showToast(getErrorMessage(e, "Erro ao abrir anexo."), "error"));
+
+  return (
+    <>
+      <label className="flex items-center gap-2 mb-4 text-sm">
+        <span className="text-[var(--text-muted)]">Situação</span>
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className={input}>
+          {Object.entries(REPORT_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          <option value="">Todas</option>
+        </select>
+      </label>
+      {!list ? <Loader2 className="animate-spin" /> : list.length === 0 ? (
+        <p className="text-[var(--text-muted)]">{status === "ABERTA" ? "Nenhuma denúncia aguardando análise." : "Nenhuma denúncia."}</p>
+      ) : (
+        <ul className="space-y-3">
+          {list.map((r) => (
+            <li key={r.id} className="p-4 rounded-xl bg-[var(--bg-light)] border border-[var(--border)]">
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="font-semibold">{reasonLabel(r.reason)}</span>
+                <span className="text-xs text-[var(--text-muted)]">#{r.id} · {formatDateTime(r.createdAt)}</span>
+                {r.status !== "ABERTA" && <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--bg)] border border-[var(--border)]">{REPORT_STATUS[r.status]}</span>}
+              </div>
+              <p className="text-sm text-[var(--text-muted)] mt-1">
+                {r.hire ? <>Pedido {String(r.hire.id).padStart(4, "0")} — {r.hire.title} · cliente {r.parties?.client?.name ?? "—"} × prestador {r.parties?.provider?.name ?? "—"}</> : <>Perfil: {r.provider?.name ?? "—"}</>}
+              </p>
+              <p className="text-sm mt-1">Relatado por {r.reporter?.name} ({r.reporter?.email})</p>
+              <p className="text-sm mt-2 whitespace-pre-line">{r.description}</p>
+              {r.files.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {r.files.map((f, i) => <button key={f} className={btn()} onClick={() => openFile(f)}>Anexo {i + 1}</button>)}
+                </div>
+              )}
+              {r.resolution && <p className="text-sm mt-2 text-[var(--text-muted)]">Decisão: {r.resolution}</p>}
+              {r.status === "ABERTA" && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <button className={btn(true)} onClick={() => { setText(""); setTarget({ report: r, decision: "RESOLVIDA" }); }}>Resolver</button>
+                  <button className={btn()} onClick={() => { setText(""); setTarget({ report: r, decision: "DESCARTADA" }); }}>Descartar</button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {target && (
+        <ConfirmModal
+          open
+          title={target.decision === "RESOLVIDA" ? "Resolver denúncia" : "Descartar denúncia"}
+          description="Quem relatou recebe a decisão. Num pedido, as avaliações são liberadas. Para suspender uma conta, use a aba Usuários."
+          confirmLabel={target.decision === "RESOLVIDA" ? "Resolver" : "Descartar"}
+          cancelLabel="Voltar"
+          loading={busy}
+          onConfirm={decide}
+          onClose={() => setTarget(null)}
+        >
+          <label className="block text-sm">
+            <span className="text-[var(--text-muted)]">Decisão (enviada a quem relatou)</span>
+            <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={500} rows={3} className={`${input} mt-1 w-full resize-none`} />
+          </label>
+        </ConfirmModal>
       )}
     </>
   );

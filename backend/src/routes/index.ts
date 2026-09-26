@@ -12,6 +12,7 @@ import reviewRouter from './reviewRoutes'
 import conversationRouter from './conversationRoutes'
 import notificationRouter from './notificationRoutes';
 import adminRouter from './adminRoutes';
+import reportRouter from './reportRoutes';
 
 const router = Router()
 
@@ -27,5 +28,6 @@ router.use('/reviews', reviewRouter);
 router.use('/conversations', conversationRouter);
 router.use('/notifications', notificationRouter);
 router.use('/admin', adminRouter);
+router.use('/reports', reportRouter);
 
 export default router

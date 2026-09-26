@@ -97,6 +97,8 @@ export interface HireEntity {
   /** quem cancelou: cliente, prestador ou sistema (pedido expirado) */
   cancelledBy?: "cliente" | "prestador" | "sistema" | null;
   cancelReason?: string | null;
+  /** problema relatado em análise pela administração (avaliações bloqueadas) */
+  disputed?: boolean;
   /** cancelado depois do prazo de cancelamento do serviço */
   lateCancel?: boolean;
   /** pedido de novo horário aguardando a outra parte */

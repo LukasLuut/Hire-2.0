@@ -13,6 +13,7 @@ export interface AdminOverview {
   pausedServices: number;
   hires: Record<string, number>;
   lateCancels: number;
+  openReports: number;
 }
 
 export interface AdminUser {

@@ -7,6 +7,7 @@ import { ServiceProvider } from "../models/ServiceProvider";
 import { HttpError } from "./HireService";
 import { setBlocked } from "../utils/access";
 import { notificationService } from "./NotificationService";
+import { reportService } from "./ReportService";
 
 /* Operações do painel de administração (todas exigem adminMiddleware). */
 export class AdminService {
@@ -31,6 +32,7 @@ export class AdminService {
       .groupBy("h.status_provider")
       .getRawMany();
     const lateCancels = await this.hires.count({ where: { lateCancel: true } });
+    const openReports = await reportService.openCount();
     return {
       users,
       blocked,
@@ -39,6 +41,7 @@ export class AdminService {
       pausedServices: paused,
       hires: Object.fromEntries(byStatus.map((r) => [r.status, Number(r.count)])),
       lateCancels,
+      openReports,
     };
   }
 
@@ -140,6 +143,7 @@ export class AdminService {
       scheduledAt: h.scheduledAt,
       cancelledBy: h.cancelledBy,
       lateCancel: h.lateCancel,
+      disputed: h.disputed,
     }));
   }
 }

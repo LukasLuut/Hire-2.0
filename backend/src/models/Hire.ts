@@ -70,6 +70,10 @@ export class Hire {
   @Column({ type: "varchar", length: 20, nullable: true })
   rescheduleBy: "cliente" | "prestador" | null;
 
+  // Problema relatado em análise pela administração (avaliações bloqueadas)
+  @Column({ type: "boolean", default: false })
+  disputed: boolean;
+
   // Cancelado depois do prazo de cancelamento do serviço (pesa na reputação de quem cancelou)
   @Column({ type: "boolean", default: false })
   lateCancel: boolean;

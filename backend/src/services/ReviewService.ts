@@ -43,6 +43,7 @@ export class ReviewService {
     });
     if (!hire) throw new Error("Contratação não encontrada");
     if (hire.status !== StatusEnum.CONCLUIDO) throw new Error("Só é possível avaliar depois que o serviço for concluído");
+    if (hire.disputed) throw new Error("As avaliações deste pedido ficam bloqueadas enquanto o problema relatado está em análise");
 
     const isClient = hire.user?.id === userId;
     const isProvider = hire.provider?.user?.id === userId;

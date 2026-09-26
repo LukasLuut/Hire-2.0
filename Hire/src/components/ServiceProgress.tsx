@@ -6,7 +6,8 @@
 // - Etapas reais do pedido (status do cliente e do prestador)
 // - Usa variáveis CSS do projeto: --bg, --bg-light, --border, --text, --primary, --highlight
 
-import { CheckCircle, MessageSquare, Star, RotateCcw, CalendarClock } from "lucide-react";
+import { CheckCircle, MessageSquare, Star, RotateCcw, CalendarClock, Flag, ShieldAlert } from "lucide-react";
+import ReportModal from "./Reports/ReportModal";
 import { SlotPicker, noticeHours, localDateTimeKey, type Agenda } from "./Schedule";
 import { useEffect, useRef, useState } from "react";
 import PostCard from "./ServiceGallery/Service/Service";
@@ -75,6 +76,7 @@ export function ServiceProgress({
   // novo horário proposto (agenda do serviço sem contar este pedido)
   const [newSlot, setNewSlot] = useState<string | null>(null);
   const [agenda, setAgenda] = useState<Agenda | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
   // depois de confirmar a conclusão, a lista só recarrega quando o modal de avaliação fecha
   // (senão o card vai para "Encerradas" e o modal some junto)
   const refreshAfterReview = useRef(false);
@@ -290,6 +292,11 @@ export function ServiceProgress({
                   Ações
                 </h3>
 
+                {data.disputed && (
+                  <p role="status" className="mb-4 p-3 rounded-xl border border-amber-500/40 bg-amber-500/10 text-sm text-amber-500 flex items-center gap-2">
+                    <ShieldAlert size={16} /> Problema relatado neste pedido, em análise pela administração. As avaliações ficam bloqueadas até lá.
+                  </p>
+                )}
                 {data.rescheduleTo && canReschedule && (
                   <div role="status" className="mb-4 p-4 rounded-xl border border-[var(--primary)]/40 bg-[var(--primary)]/10 text-sm">
                     <p className="flex items-center gap-2 font-medium">
@@ -380,13 +387,18 @@ export function ServiceProgress({
                     </>
                   )}
 
-                  {stage === "done" && reviewed === false && (
+                  {stage === "done" && reviewed === false && !data.disputed && (
                     <button className={`${buttonClass(true)} flex items-center gap-2`} onClick={() => setReviewOpen(true)}>
                       <Star size={16} /> Avaliar {viewFor === "client" ? "prestador" : "cliente"}
                     </button>
                   )}
                   {stage === "done" && reviewed && (
                     <p className="text-sm text-[var(--text-muted)]">Você já avaliou esta contratação. Obrigado!</p>
+                  )}
+                  {stage !== "requested" && !data.disputed && (
+                    <button className={`${buttonClass()} flex items-center gap-2 text-[var(--text-muted)]`} onClick={() => setReportOpen(true)}>
+                      <Flag size={16} /> Relatar problema
+                    </button>
                   )}
                   {/* recontratar: abre o serviço já com "Contratar novamente" */}
                   {viewFor === "client" && (stage === "done" || stage === "cancelled") && data.service && (
@@ -451,6 +463,14 @@ export function ServiceProgress({
           )}
         </ConfirmModal>
       )}
+
+      <ReportModal
+        open={reportOpen}
+        onClose={() => setReportOpen(false)}
+        onSent={onChanged}
+        hireId={data.id}
+        subject={`Pedido ${String(data.id).padStart(4, "0")} — ${data.service?.title ?? data.description_service}`}
+      />
 
       {rehireOpen && data.service && (
         <ServiceDetail
