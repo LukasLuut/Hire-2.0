@@ -29,6 +29,8 @@ export interface ProviderEntity {
   showContact?: boolean;
   slug?: string | null;
   createdAt?: string | null;
+  /** (perfil público) trabalhos do portfólio, em ordem */
+  portfolio?: PortfolioItem[];
   /** (perfil público) data de entrada no Hire */
   memberSince?: string | null;
   /** (perfil público) e-mail da conta confirmado */
@@ -189,4 +191,14 @@ export interface ChatMessage {
 
 export interface ConversationDetail extends ConversationSummary {
   messages: ChatMessage[];
+}
+
+/** Trabalho do portfólio do prestador */
+export interface PortfolioItem {
+  id: number;
+  imageUrl: string;
+  title: string;
+  description: string;
+  position: number;
+  service: { id: number; title: string } | null;
 }

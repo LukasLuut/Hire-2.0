@@ -51,3 +51,13 @@ export const privateUpload = multer({
     else cb(new Error("Envie apenas imagens (PNG, JPG, GIF, WEBP) ou PDF de até 8 MB"));
   },
 });
+
+/** Fotos públicas (portfólio): só imagens rasterizadas — sem SVG (pode carregar script) nem PDF */
+export const imageUpload = multer({
+  storage,
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (/^image\/(png|jpe?g|webp|gif)$/.test(file.mimetype)) cb(null, true);
+    else cb(new Error("Envie uma imagem PNG, JPG, WEBP ou GIF de até 8 MB"));
+  },
+});

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import type { PortfolioItem } from "../interfaces/Entities";
+import PortfolioManager from "../components/Portfolio/PortfolioManager";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import ProviderHero from "../components/ProviderHero/ProviderHero";
 import {
@@ -48,6 +50,7 @@ export default function DashboardPrestador() {
   const [responding, setResponding] = useState<number | null>(null);
   const [myServices, setMyServices] = useState<ServiceEntity[]>([]);
   const [editRequest, setEditRequest] = useState(0);
+  const [portfolio, setPortfolio] = useState<PortfolioItem[] | null>(null);
 
   // mobile accordion (drawer alternative per sua escolha 'b')
   const [panelOpen, setPanelOpen] = useState(false);
@@ -55,12 +58,14 @@ export default function DashboardPrestador() {
   const load = useCallback(async () => {
     const token = localStorage.getItem("token");
     if (!token || !provider?.id) return;
-    const [hs, rv, cv, sv] = await Promise.all([
+    const [hs, rv, cv, sv, pf] = await Promise.all([
       hireAPI.getHireByProviderId(provider.id).catch(() => []),
       reviewAPI.forProvider(provider.id).catch(() => null),
       conversationAPI.list(token).catch(() => []),
       providerApi.getServices(token).catch(() => []),
+      providerApi.portfolio(token).catch(() => [] as PortfolioItem[]),
     ]);
+    setPortfolio(pf);
     setMyServices(sv);
     setBookings(hs);
     setReviews(rv?.reviews ?? []);
@@ -310,6 +315,11 @@ export default function DashboardPrestador() {
               </motion.div>
             </aside>
           </aside>
+        </div>
+
+        {/* portfólio: trabalhos mostrados no perfil público */}
+        <div className="max-w-[90%] mx-auto mt-8">
+          <PortfolioManager items={portfolio} services={myServices} onChange={load} />
         </div>
 
         {/* CHAT */}

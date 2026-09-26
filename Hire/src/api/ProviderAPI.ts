@@ -1,5 +1,5 @@
 import { apiRequest } from "./ApiClient";
-import type { ProviderEntity, ServiceEntity } from "../interfaces/Entities";
+import type { PortfolioItem, ProviderEntity, ServiceEntity } from "../interfaces/Entities";
 
 export interface Verification {
   status: "none" | "pending" | "verified" | "rejected";
@@ -57,6 +57,17 @@ export const providerApi = {
   },
 
   /** Perfil público de um prestador (Ver perfil). */
+  /* ---- portfólio do próprio prestador ---- */
+  portfolio: (token: string) => apiRequest<PortfolioItem[]>("/providers/me/portfolio", { headers: auth(token) }),
+  addPortfolio: (body: FormData, token: string) =>
+    apiRequest<PortfolioItem>("/providers/me/portfolio", { method: "POST", headers: auth(token), body }),
+  updatePortfolio: (id: number, body: FormData, token: string) =>
+    apiRequest<PortfolioItem>(`/providers/me/portfolio/${id}`, { method: "PUT", headers: auth(token), body }),
+  removePortfolio: (id: number, token: string) =>
+    apiRequest(`/providers/me/portfolio/${id}`, { method: "DELETE", headers: auth(token) }),
+  reorderPortfolio: (ids: number[], token: string) =>
+    apiRequest<PortfolioItem[]>("/providers/me/portfolio/order", { method: "PUT", headers: auth(token), body: JSON.stringify({ ids }) }),
+
   /** Perfil público por id numérico ou slug */
   getPublic: async (id: number | string) => {
     return await apiRequest<ProviderEntity & { services: ServiceEntity[] }>(`/providers/${id}/public`);

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import PortfolioGallery from "../components/Portfolio/PortfolioGallery";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { MessageSquare, Flag } from "lucide-react";
 import ReportModal from "../components/Reports/ReportModal";
@@ -114,6 +115,8 @@ export default function ProviderPublicPage() {
         </div>
 
         <ProviderHero provider={provider} readOnly services={services} />
+
+        <PortfolioGallery items={provider.portfolio ?? []} />
 
         {!isMe && token && (
           <div className="flex justify-end mt-2">

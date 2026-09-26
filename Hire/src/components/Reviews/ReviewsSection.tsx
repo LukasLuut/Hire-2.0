@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { motion } from "framer-motion";
+import ImageLightbox, { type LightboxState } from "../Common/ImageLightbox";
 import { Stars } from "./StarRating";
 import { ReviewsSkeleton } from "../../skeletons/ProviderProfileSkeleton/ReviewsSkeleton";
 import type { ReviewList } from "../../interfaces/Entities";
@@ -24,7 +24,7 @@ interface ReviewsSectionProps {
 export default function ReviewsSection({ title = "Avaliações", load, emptyText, reloadKey, compact = false }: ReviewsSectionProps) {
   const [data, setData] = useState<ReviewList | null>(null);
   const [error, setError] = useState(false);
-  const [lightbox, setLightbox] = useState<{ photos: string[]; index: number } | null>(null);
+  const [lightbox, setLightbox] = useState<LightboxState | null>(null);
 
   const fetchReviews = useCallback(async () => {
     setError(false);
@@ -109,51 +109,7 @@ export default function ReviewsSection({ title = "Avaliações", load, emptyText
       )}
 
       {/* Visualizador de fotos */}
-      <AnimatePresence>
-        {lightbox && (
-          <motion.div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setLightbox(null)}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Fotos da avaliação"
-          >
-            <button onClick={() => setLightbox(null)} aria-label="Fechar" className="absolute top-5 right-5 text-white/80 hover:text-white">
-              <X size={28} />
-            </button>
-            {lightbox.photos.length > 1 && (
-              <button
-                onClick={(e) => { e.stopPropagation(); setLightbox((l) => l && { ...l, index: (l.index - 1 + l.photos.length) % l.photos.length }); }}
-                aria-label="Foto anterior"
-                className="absolute left-4 p-3 rounded-full bg-white/10 text-white hover:bg-white/20"
-              >
-                <ChevronLeft size={26} />
-              </button>
-            )}
-            <motion.img
-              key={lightbox.index}
-              src={lightbox.photos[lightbox.index]}
-              alt={`Foto ${lightbox.index + 1} de ${lightbox.photos.length}`}
-              onClick={(e) => e.stopPropagation()}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="max-h-[85vh] max-w-[90vw] rounded-xl object-contain"
-            />
-            {lightbox.photos.length > 1 && (
-              <button
-                onClick={(e) => { e.stopPropagation(); setLightbox((l) => l && { ...l, index: (l.index + 1) % l.photos.length }); }}
-                aria-label="Próxima foto"
-                className="absolute right-4 p-3 rounded-full bg-white/10 text-white hover:bg-white/20"
-              >
-                <ChevronRight size={26} />
-              </button>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ImageLightbox state={lightbox} onChange={setLightbox} label="Fotos da avaliação" />
     </section>
   );
 }

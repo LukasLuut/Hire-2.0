@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import { authMiddleware } from '../middlewares/authMidlleware'
 import { ProviderController } from '../controllers/ProviderController'
-import { upload, privateUpload } from '../middlewares/uploadMiddleware'
+import { upload, privateUpload, imageUpload } from '../middlewares/uploadMiddleware'
+import { portfolioService } from '../services/PortfolioService'
 import { verificationService } from '../services/VerificationService'
 import { Request, Response } from 'express'
 
@@ -32,6 +33,23 @@ providerRouter.get('/verification/:id/files/:name', authMiddleware, async (req, 
     res.setHeader('X-Content-Type-Options', 'nosniff')
     res.sendFile(file)
   } catch (e) { fail(res, e) }
+})
+
+// Portfólio do próprio prestador (o público vem junto do perfil)
+providerRouter.get('/me/portfolio', authMiddleware, async (req, res) => {
+  try { res.json(await portfolioService.mine(me(req))) } catch (e) { fail(res, e) }
+})
+providerRouter.post('/me/portfolio', authMiddleware, imageUpload.single('image'), async (req, res) => {
+  try { res.status(201).json(await portfolioService.create(me(req), req.body ?? {}, req.file)) } catch (e) { fail(res, e) }
+})
+providerRouter.put('/me/portfolio/order', authMiddleware, async (req, res) => {
+  try { res.json(await portfolioService.reorder(me(req), req.body?.ids)) } catch (e) { fail(res, e) }
+})
+providerRouter.put('/me/portfolio/:itemId', authMiddleware, imageUpload.single('image'), async (req, res) => {
+  try { res.json(await portfolioService.update(me(req), Number(req.params.itemId), req.body ?? {}, req.file)) } catch (e) { fail(res, e) }
+})
+providerRouter.delete('/me/portfolio/:itemId', authMiddleware, async (req, res) => {
+  try { res.json(await portfolioService.remove(me(req), Number(req.params.itemId))) } catch (e) { fail(res, e) }
 })
 
 providerRouter.get('/all', controller.list.bind(controller));

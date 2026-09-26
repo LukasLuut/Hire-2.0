@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { portfolioService } from "./PortfolioService";
 import { IsNull } from "typeorm";
 import { isSlug, uniqueSlug } from "../utils/slug";
 import { toPublicProvider } from "../utils/publicProvider";
@@ -178,7 +179,8 @@ export class ProviderService {
     // "No Hire desde": a data mais antiga entre o cadastro da conta (aceite dos termos) e o da empresa
     const dates = [provider.createdAt, provider.user?.acceptedAt].filter(Boolean).map((d) => new Date(d as any).getTime());
     const memberSince = dates.length ? new Date(Math.min(...dates)) : null;
-    const pub = { ...(toPublicProvider({ ...decorated, user: provider.user, emailVerified: !!provider.user?.emailVerified } as any) as any), memberSince };
+    const portfolio = await portfolioService.list(provider.id);
+    const pub = { ...(toPublicProvider({ ...decorated, user: provider.user, emailVerified: !!provider.user?.emailVerified } as any) as any), memberSince, portfolio };
     return {
       ...pub,
       services: services.map((s: any) => ({ ...s, provider: { id: provider.id, slug: pub.slug, companyName: provider.companyName, professionalName: provider.professionalName, profileImageUrl: provider.profileImageUrl, description: provider.description, rating: decorated.rating, pricesOnPage: provider.pricesOnPage, verificationStatus: provider.verificationStatus } })),
