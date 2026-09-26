@@ -69,7 +69,8 @@ export const conversationAPI = {
     });
   },
 
-  close: async (id: number, token: string) => {
-    return await apiRequest<ConversationSummary>(`/conversations/${id}/close`, { method: "POST", headers: auth(token) });
+  /** Encerra sem acordo; o motivo (opcional) vai para a outra parte */
+  close: async (id: number, token: string, reason = "") => {
+    return await apiRequest<ConversationSummary>(`/conversations/${id}/close`, { method: "POST", headers: auth(token), body: JSON.stringify({ reason }) });
   },
 };

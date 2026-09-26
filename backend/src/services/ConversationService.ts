@@ -72,6 +72,8 @@ export class ConversationService {
       request: conv.request ?? null,
       requestStatus: conv.requestStatus ?? null,
       rejectReason: conv.rejectReason ?? null,
+      closedBy: conv.closedBy ?? null,
+      closeReason: conv.closeReason ?? null,
       clientAcceptedAt: conv.clientAcceptedAt ?? null,
       providerAcceptedAt: conv.providerAcceptedAt ?? null,
       hireId: conv.hire?.id ?? null,
@@ -483,16 +485,25 @@ export class ConversationService {
     return this.present(conv, userId);
   }
 
-  async close(id: number, userId: number) {
+  /**
+   * Encerra sem acordo, com motivo opcional. Quando o cliente encerra depois de receber a
+   * proposta do prestador, conta como proposta recusada (o prestador vê o motivo).
+   */
+  async close(id: number, userId: number, reason?: unknown) {
     const conv = await this.load(id, userId);
     if (conv.status !== ConversationStatus.OPEN) return this.present(conv, userId);
+    const role = this.roleOf(conv, userId);
+    const clean = String(reason ?? "").trim().slice(0, 500);
+    const proposalRejected = role === MessageRole.CLIENT && conv.requestStatus === RequestStatus.RESPONDIDA;
     conv.status = ConversationStatus.CLOSED;
+    conv.closedBy = role === MessageRole.CLIENT ? "cliente" : "prestador";
+    conv.closeReason = clean || null;
     await this.conversationRepository.save(conv);
-    await this.system(conv, "Negociação encerrada ✖️");
+    await this.system(conv, `${proposalRejected ? "Proposta recusada pelo cliente" : "Negociação encerrada"} ✖️${clean ? ` Motivo: ${clean}` : ""}`);
     await notificationService.notify(this.otherUserId(conv, userId), {
-      type: "negotiation.closed",
-      title: `Negociação encerrada: ${conv.service?.title ?? "serviço"}`,
-      body: `${this.nameOf(conv, userId)} encerrou a negociação.`,
+      type: proposalRejected ? "quote.declined" : "negotiation.closed",
+      title: `${proposalRejected ? "Proposta recusada" : "Negociação encerrada"}: ${conv.service?.title ?? "serviço"}`,
+      body: `${this.nameOf(conv, userId)} ${proposalRejected ? "recusou sua proposta" : "encerrou a negociação"}.${clean ? ` Motivo: ${clean}` : ""}`,
       link: `/negotiation/${conv.id}`,
     });
     return this.present(conv, userId);

@@ -82,7 +82,7 @@ export class ConversationController {
 
   close = async (req: Request, res: Response) => {
     try {
-      res.json(await conversationService.close(Number(req.params.id), userId(req)));
+      res.json(await conversationService.close(Number(req.params.id), userId(req), req.body?.reason));
     } catch (e: any) {
       res.status(e.status ?? 400).json({ message: e.message });
     }

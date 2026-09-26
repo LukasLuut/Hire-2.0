@@ -273,7 +273,7 @@ export default function NegotiationFlow() {
                 ? "Negociação formalizada — o contrato já foi gerado."
                 : conversation.requestStatus === "RECUSADA"
                   ? `Pedido recusado pelo prestador.${conversation.rejectReason ? ` Motivo: ${conversation.rejectReason}` : ""}`
-                  : "Negociação encerrada."}
+                  : `${conversation.closedBy === "cliente" && conversation.requestStatus === "RESPONDIDA" ? "Proposta recusada pelo cliente" : conversation.closedBy ? `Negociação encerrada pelo ${conversation.closedBy}` : "Negociação encerrada"}.${conversation.closeReason ? ` Motivo: ${conversation.closeReason}` : ""}`}
             </div>
           )}
           <AnimatePresence mode="wait" initial={false}>

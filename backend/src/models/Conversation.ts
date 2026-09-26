@@ -81,6 +81,13 @@ export class Conversation {
   @Column({ type: "varchar", length: 500, nullable: true })
   rejectReason: string | null;
 
+  // Quem encerrou a negociação sem acordo e por quê (ex.: cliente recusou a proposta)
+  @Column({ type: "varchar", length: 20, nullable: true })
+  closedBy: "cliente" | "prestador" | null;
+
+  @Column({ type: "varchar", length: 500, nullable: true })
+  closeReason: string | null;
+
   // Aceite final do acordo por cada parte; os dois aceites geram contratação + contrato
   @Column({ type: "datetime", nullable: true })
   clientAcceptedAt: Date | null;

@@ -204,6 +204,9 @@ export interface ConversationSummary {
   request: QuoteRequest | null;
   requestStatus: "PENDENTE" | "RESPONDIDA" | "RECUSADA" | null;
   rejectReason: string | null;
+  /** quem encerrou sem acordo e o motivo */
+  closedBy?: "cliente" | "prestador" | null;
+  closeReason?: string | null;
   clientAcceptedAt: string | null;
   providerAcceptedAt: string | null;
   hireId: number | null;

@@ -132,6 +132,7 @@ export default function ServiceNegotiationModal({
 
   // confirmação animada (formalize / close)
   const [confirming, setConfirming] = useState<null | "formalize" | "close">(null);
+  const [closeReason, setCloseReason] = useState("");
 
   // para comportamento responsivo (mobile full-screen vs desktop floating)
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768);
@@ -294,6 +295,8 @@ export default function ServiceNegotiationModal({
 
   const allAgreed = topics.length > 0 && topics.every((t) => t.state === "Acordado");
   const iAccepted = !!(myRole === "cliente" ? conversation?.clientAcceptedAt : conversation?.providerAcceptedAt);
+  // cliente encerrando depois da proposta do prestador = recusar a proposta
+  const closeTitle = myRole === "cliente" && conversation?.requestStatus === "RESPONDIDA" ? "Recusar a proposta?" : "Encerrar negociação?";
   const otherAccepted = !!(myRole === "cliente" ? conversation?.providerAcceptedAt : conversation?.clientAcceptedAt);
 
   // Só quem NÃO propôs o conteúdo atual pode marcá-lo como acordado
@@ -355,7 +358,7 @@ export default function ServiceNegotiationModal({
   async function handleCloseNegotiation() {
     if (!conversationId) return;
     try {
-      await conversationAPI.close(conversationId, token);
+      await conversationAPI.close(conversationId, token, closeReason);
       await refreshMessages();
       setTimeout(() => {
         setConfirming(null);
@@ -615,11 +618,11 @@ export default function ServiceNegotiationModal({
 
                                 <div className="flex gap-2 mt-4">
                                   <button
-                                    onClick={() => setConfirming("close")}
+                                    onClick={() => { setCloseReason(""); setConfirming("close"); }}
                                     disabled={!isOpenNegotiation}
                                     className="px-1 md:px-3 py-2 rounded bg-red-500/20 text-red-600 hover:bg-red-500/30 disabled:opacity-50"
                                   >
-                                    Encerrar negociação
+                                    {closeTitle === "Recusar a proposta?" ? "Recusar proposta" : "Encerrar negociação"}
                                   </button>
 
                                   <button
@@ -723,7 +726,17 @@ export default function ServiceNegotiationModal({
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 flex items-center justify-center z-50">
                 <motion.div initial={{ scale: 0.6 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300 }} className="bg-[var(--bg)] p-6 rounded-lg shadow-lg border border-[var(--border)] text-center">
                   <XCircle size={40} className="mx-auto text-red-500" />
-                  <p className="mt-3 text-[var(--text)] font-semibold">Encerrar negociação?</p>
+                  <p className="mt-3 text-[var(--text)] font-semibold">{closeTitle}</p>
+                  <label className="block mt-3 text-left text-sm">
+                    <span className="text-[var(--text-muted)]">Motivo (opcional, {counterpart} verá)</span>
+                    <textarea
+                      value={closeReason}
+                      onChange={(e) => setCloseReason(e.target.value)}
+                      maxLength={500}
+                      rows={3}
+                      className="mt-1 w-64 max-w-full p-2 rounded-lg bg-[var(--bg-dark)] border border-[var(--border)] text-[var(--text)] resize-none block"
+                    />
+                  </label>
                   <div className="flex gap-3 justify-center mt-4">
                     <button onClick={() => setConfirming(null)} className="px-3 py-2 rounded bg-[var(--border)] text-[var(--text-muted)]">Cancelar</button>
                     <button onClick={handleCloseNegotiation} className="px-3 py-2 rounded bg-red-500 text-white">Confirmar</button>
