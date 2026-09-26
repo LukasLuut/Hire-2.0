@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { cameFromProfile, track } from "../../utils/analytics";
 import { useNavigate } from "react-router-dom";
 import { conversationAPI } from "../../api/ConversationAPI";
 import { useToast } from "../Toast/ToastContext";
@@ -43,6 +44,8 @@ export interface NegotiationTarget {
   id: number;
   title: string;
   providerName: string;
+  /** para atribuir o pedido ao perfil público visto nesta sessão */
+  providerId?: number;
 }
 
 export default function ServiceNegotiationModal({
@@ -213,6 +216,7 @@ export default function ServiceNegotiationModal({
         token
       );
       setConversationId(conv.id);
+      if (cameFromProfile(service.providerId)) track("request_from_profile", { serviceId: service.id });
       onSent?.(conv.id);
       setStep(4);
       try {

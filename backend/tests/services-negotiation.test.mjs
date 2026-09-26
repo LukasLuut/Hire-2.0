@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { req, tokens, form, PNG, nextWeekday } from "./helpers.mjs";
+import { req, tokens, form, PNG, nextWeekday, db } from "./helpers.mjs";
 
 const t = await tokens();
 let svc; // serviço com agenda criado neste arquivo
@@ -91,7 +91,12 @@ test("prestador recusa pedido com motivo", async () => {
 });
 
 test("limpeza: exclui o serviço de teste", async () => {
-  // contratações canceladas não impedem a exclusão; a formalizada fica PENDENTE e impede — nesse caso tudo bem manter
+  // com contrato assinado o serviço não é apagado (registro das partes): cancela os pedidos do
+  // teste, confere a mensagem e pausa o serviço para ele sair da vitrine e do perfil público
+  await db("UPDATE hires SET status='CANCELADO', status_provider='CANCELADO' WHERE serviceId = ?", [svc.id]);
   const r = await req("DELETE", `/services/${svc.id}`, t.ele);
-  assert.ok([200, 400].includes(r.s));
+  assert.equal(r.s, 400);
+  assert.match(r.j.message, /Pause/);
+  assert.equal((await req("PUT", `/services/${svc.id}`, t.ele, form({ active: false }))).s, 200);
+  assert.ok(!(await req("GET", "/providers/souza-eletrica/public")).j.services.some((s) => s.id === svc.id), "pausado some do perfil");
 });

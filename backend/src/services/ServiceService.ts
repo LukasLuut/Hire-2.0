@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { Contract } from "../models/Contract";
 import { toPublicProvider } from "../utils/publicProvider";
 import { Hire, StatusEnum } from "../models/Hire";
 import { PRICE_UNITS, PriceUnit, Service, ServicePackage } from "../models/Service";
@@ -248,6 +249,10 @@ export class ServiceService {
       { status: StatusEnum.PENDENTE, service: { id: id } },
     ]});
     if(hire) throw new HttpError(400, "Esse serviço não pode ter nenhuma contratação em andamento");
+
+    // contratos assinados são registro das partes: o serviço é pausado, não apagado
+    const withContract = await AppDataSource.getRepository(Contract).count({ where: { hire: { service: { id } } } });
+    if (withContract) throw new HttpError(400, "Este serviço tem contratos assinados e não pode ser excluído. Pause-o para tirá-lo da vitrine.");
 
     await this.serviceRepository.remove(service);
 

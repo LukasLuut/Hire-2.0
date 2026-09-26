@@ -9,6 +9,7 @@ import { setBlocked } from "../utils/access";
 import { notificationService } from "./NotificationService";
 import { reportService } from "./ReportService";
 import { verificationService } from "./VerificationService";
+import { analyticsService } from "./AnalyticsService";
 
 /* Operações do painel de administração (todas exigem adminMiddleware). */
 export class AdminService {
@@ -35,6 +36,7 @@ export class AdminService {
     const lateCancels = await this.hires.count({ where: { lateCancel: true } });
     const openReports = await reportService.openCount();
     const pendingVerifications = await verificationService.pendingCount();
+    const acquisition = await analyticsService.overall(30);
     return {
       users,
       blocked,
@@ -45,6 +47,7 @@ export class AdminService {
       lateCancels,
       openReports,
       pendingVerifications,
+      acquisition,
     };
   }
 

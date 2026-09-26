@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { trackView } from "../utils/analytics";
 import { providerPath } from "../utils/providerPath";
 import { Link, useParams } from "react-router-dom";
 import { Share2, Star, ChevronLeft, ChevronRight, Handshake, LogIn } from "lucide-react";
@@ -36,7 +37,10 @@ export default function ServicePage() {
       .getServiceById(serviceId)
       .then((s) => {
         setService(s);
-        if (s) document.title = `${s.title} — Hire.`;
+        if (s) {
+          document.title = `${s.title} — Hire.`;
+          trackView("service_view", { serviceId: s.id });
+        }
       })
       .catch((err) => setError(getErrorMessage(err, "Serviço não encontrado.")));
     return () => {

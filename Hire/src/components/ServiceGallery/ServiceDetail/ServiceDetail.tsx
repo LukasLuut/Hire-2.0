@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { cameFromProfile, track } from "../../../utils/analytics";
 import { providerPath } from "../../../utils/providerPath";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -212,6 +213,7 @@ export default function ServiceDetail({
         quantity: !packages.length && needsQuantity(service.priceUnit) ? qtyNum : undefined,
       });
       showToast("Serviço contratado! Acompanhe em Contratações.", "success");
+      if (cameFromProfile(service.provider?.id)) track("hire_from_profile", { serviceId: service.id });
       setConfirming(null);
       await loadMyHire();
     } catch (err) {
@@ -548,7 +550,7 @@ export default function ServiceDetail({
               <div className="flex gap-3">
                 {/* "a partir de" / "sob orçamento": o preço sai da conversa, não há contratação direta */}
                 <button
-                  onClick={() => setQuoteOpen(true)}
+                  onClick={() => { track("quote_click", { serviceId: service.id }); setQuoteOpen(true); }}
                   className="flex-1 flex items-center justify-center gap-2 bg-[var(--primary)] text-white font-semibold py-3 rounded-xl shadow-md hover:scale-[1.02] hover:shadow-lg transition-all">
                   <Handshake size={18} />
                   Pedir orçamento
@@ -563,7 +565,7 @@ export default function ServiceDetail({
               ) : (
               <div className="flex gap-3">
                 <button
-                onClick={() => setConfirming("hire")}
+                onClick={() => { track("quote_click", { serviceId: service.id }); setConfirming("hire"); }}
                 className="flex-1 flex items-center justify-center gap-2 bg-[var(--primary)] text-white font-semibold py-3 rounded-xl shadow-md hover:scale-[1.02] hover:shadow-lg transition-all">
                   <Handshake size={18} />
                   {stage === "done" ? "Contratar novamente" : "Contratar"}
@@ -599,7 +601,7 @@ export default function ServiceDetail({
           <ServiceNegotiationModal
             isOpen={quoteOpen}
             onClose={() => setQuoteOpen(false)}
-            service={{ id: service.id, title: service.title, providerName }}
+            service={{ id: service.id, title: service.title, providerName, providerId: service.provider?.id }}
           />
 
           {myHire && (

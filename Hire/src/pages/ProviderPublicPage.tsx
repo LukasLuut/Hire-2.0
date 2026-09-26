@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { rememberProfileOrigin, track, trackView } from "../utils/analytics";
 import PortfolioGallery from "../components/Portfolio/PortfolioGallery";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { MessageSquare, Flag } from "lucide-react";
@@ -46,6 +47,8 @@ export default function ProviderPublicPage() {
       .then((p) => {
         setProvider(p);
         setServices((p.services ?? []).map((s) => toServiceData(s)));
+        trackView("profile_view", { providerId: p.id });
+        rememberProfileOrigin(p.id);
         // endereço canônico: /prestador/<slug> (mantém ?ref= e outros parâmetros)
         if (p.slug && location.pathname !== `/prestador/${p.slug}`) {
           navigate(`/prestador/${p.slug}${location.search}`, { replace: true });
@@ -68,6 +71,7 @@ export default function ProviderPublicPage() {
   const loadReviews = useCallback(() => reviewAPI.forProvider(providerId), [providerId]);
 
   const openChat = async () => {
+    if (providerId) track("quote_click", { providerId });
     const token = localStorage.getItem("token");
     if (!token) {
       // sem login: entra e volta para este perfil

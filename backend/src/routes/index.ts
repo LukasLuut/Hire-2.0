@@ -14,6 +14,7 @@ import notificationRouter from './notificationRoutes';
 import adminRouter from './adminRoutes';
 import reportRouter from './reportRoutes';
 import eventRouter from './eventRoutes';
+import analyticsRouter from './analyticsRoutes';
 
 const router = Router()
 
@@ -31,5 +32,6 @@ router.use('/notifications', notificationRouter);
 router.use('/admin', adminRouter);
 router.use('/reports', reportRouter);
 router.use('/events', eventRouter);
+router.use('/analytics', analyticsRouter);
 
 export default router

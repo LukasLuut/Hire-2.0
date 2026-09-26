@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import ProfileStats from "../components/ProfileStats";
 import type { PortfolioItem } from "../interfaces/Entities";
 import PortfolioManager from "../components/Portfolio/PortfolioManager";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
@@ -129,6 +130,7 @@ export default function DashboardPrestador() {
                 onPortfolio={() => document.getElementById("portfolio-manager-title")?.scrollIntoView({ behavior: "smooth", block: "center" })}
               />
             )}
+            {provider && <ProfileStats />}
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className=" lg:block hidden md:flex mb-4 bg-[var(--bg-light)]/40 backdrop-blur-xl rounded-2xl p-4 border border-[var(--border)] shadow-md">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold">Atalhos</h3>
