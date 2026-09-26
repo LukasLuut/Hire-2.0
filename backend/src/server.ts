@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { errorInfo, log, requestLogger } from "./utils/logger";
 import fileRouter from "./routes/fileRoutes";
 import express, { Application, NextFunction, Request, Response } from "express";
 import { AppDataSource } from "./config/data-source";
@@ -18,13 +19,15 @@ const PORTA: number = 8080;
 // Sem um JWT_SECRET forte no .env o servidor não sobe (evita tokens assinados com valor conhecido)
 jwtSecret();
 
+// log estruturado de cada requisição (sem corpo nem query)
+app.use(requestLogger);
 app.use(express.json());
 /*
   .initialize() é um método do ORM que inicia a conexão com o banco (que nem fazíamos com o createPool() da bilioteca do mysql2) e preparar todos os recursos antes de usar. Abre a conexão com o banco usando as configurações (host, porta, usuário, senha, banco), carrega as entidades (models/tabelas), executa sincronização (se synchronize: true estiver definido), que é o que cria as tabelas. Initialize é assíncrono, portanto retorna uma Promise. O que fica dentro de .then() é o que acontece se der certo, e o que fica no .catch() é o que acontece se houver erro.
 */
 AppDataSource.initialize()
   .then(() => {
-    console.log("Database connected successfully");
+    log.info("database.connected");
     // CORS só para os endereços do frontend (CORS_ORIGINS no .env, separados por vírgula).
     // Requisições sem Origin (mesmo domínio, curl, testes) passam normalmente.
     const origins = (process.env.CORS_ORIGINS ?? "http://localhost:5173,http://127.0.0.1:5173").split(",").map((o) => o.trim()).filter(Boolean);
@@ -40,26 +43,28 @@ AppDataSource.initialize()
     app.use((err: any, req: Request, res: Response, next: NextFunction) => {
       if (res.headersSent) return next(err);
       const tooBig = err?.code === "LIMIT_FILE_SIZE";
-      res.status(err?.status ?? 400).json({ message: tooBig ? "Arquivo maior que 8 MB" : err?.message ?? "Requisição inválida" });
+      const status = err?.status ?? 400;
+      if (status >= 500) log.error("unhandled", { requestId: (req as any).requestId, path: req.path, ...errorInfo(err) });
+      res.status(status).json({ message: tooBig ? "Arquivo maior que 8 MB" : err?.message ?? "Requisição inválida" });
     });
 
     // Avisos também por e-mail (para quem confirmou o e-mail e quer receber)
     registerNotificationMailer();
 
     // perfis antigos ganham endereço público (/prestador/<slug>)
-    new ProviderService().ensureSlugs().catch((err) => console.error("Falha ao gerar slugs:", err.message));
+    new ProviderService().ensureSlugs().catch((err) => log.error("slugs.failed", errorInfo(err)));
 
     // contas suspensas (consultadas pelo authMiddleware)
-    loadBlockedUsers().catch((err) => console.error("Falha ao carregar contas suspensas:", err.message));
+    loadBlockedUsers().catch((err) => log.error("blocked-users.failed", errorInfo(err)));
 
     // Pedidos sem resposta expiram (verificação ao subir e a cada 10 minutos)
     const hires = new HireService();
-    const expire = () => hires.expireStale().catch((err) => console.error("Falha ao expirar pedidos:", err.message));
+    const expire = () => hires.expireStale().catch((err) => log.error("hires.expire.failed", errorInfo(err)));
     expire();
     setInterval(expire, 10 * 60 * 1000);
 
     app.listen(PORTA, () => {
-      console.log(`Server running in port: ${PORTA}`);
+      log.info("server.listening", { port: PORTA });
     });
   })
-  .catch((err) => console.error("Error connecting to the database: ", err));
+  .catch((err) => log.error("database.connect.failed", errorInfo(err)));
