@@ -43,6 +43,8 @@ export interface ServiceData {
     baseCity?: string | null,
     baseState?: string | null,
     attendsOnline?: boolean,
+    /** aberto agora (não está fechado nem "fechado até") */
+    openNow?: boolean,
     serviceRadiusKm?: number,
     lateCancellations?: number,
     verified?: boolean,
@@ -94,6 +96,7 @@ export function toServiceData(e: ServiceEntity): ServiceData {
           baseCity: e.provider.baseCity,
           baseState: e.provider.baseState,
           attendsOnline: e.provider.attendsOnline,
+          openNow: e.provider.status !== "paused",
           serviceRadiusKm: e.provider.serviceRadiusKm,
           lateCancellations: e.provider.lateCancellations ?? 0,
           verified: e.provider.verificationStatus === "verified",

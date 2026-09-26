@@ -64,5 +64,6 @@ test("45. cliente marca o horário; prestador inicia", async () => {
 
 test("45. limpeza", async () => {
   await db("UPDATE hires SET status = 'CANCELADO', status_provider = 'CANCELADO' WHERE id = ?", [hireId]);
-  await req("DELETE", `/services/${svc.id}`, t.ele);
+  // com contrato o serviço não pode ser excluído: fica pausado (fora da vitrine)
+  if ((await req("DELETE", `/services/${svc.id}`, t.ele)).s >= 400) await req("PUT", `/services/${svc.id}`, t.ele, form({ active: false }));
 });

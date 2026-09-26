@@ -99,6 +99,11 @@ export default function ServiceDashboardSophisticated() {
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("Todos");
   const [minRating, setMinRating] = useState<number>(0);
+  // preço máximo e disponibilidade (aberto agora, online, agenda para marcar horário)
+  const [maxPrice, setMaxPrice] = useState("");
+  const [onlyOpen, setOnlyOpen] = useState(false);
+  const [onlyOnline, setOnlyOnline] = useState(false);
+  const [onlyScheduling, setOnlyScheduling] = useState(false);
   const [sortBy, setSortBy] = useState<"relevance" | "rating" | "price" | "distance">(
     "relevance"
   );
@@ -184,7 +189,14 @@ export default function ServiceDashboardSophisticated() {
       const matchesCategory =
         categoryFilter === "Todos" || s.category === categoryFilter;
       const matchesRating = s.rating >= minRating;
-      return matchesQuery && matchesCategory && matchesRating;
+      const max = Number(maxPrice.replace(",", "."));
+      // "sob orçamento" não tem preço para comparar: sai quando há teto de preço
+      const matchesPrice = !maxPrice || !(max > 0) || (s.data.priceUnit !== "orcamento" && s.price <= max);
+      const matchesAvailability =
+        (!onlyOpen || s.data.provider?.openNow !== false) &&
+        (!onlyOnline || !!s.data.online) &&
+        (!onlyScheduling || !!s.data.requiresScheduling);
+      return matchesQuery && matchesCategory && matchesRating && matchesPrice && matchesAvailability;
     });
 
     if (sortBy === "rating") return list.sort((a, b) => b.rating - a.rating);
@@ -192,7 +204,7 @@ export default function ServiceDashboardSophisticated() {
     if (sortBy === "distance") return list.sort((a, b) => (a.data.distanceKm ?? Infinity) - (b.data.distanceKm ?? Infinity));
     // relevance fallback
     return list;
-  }, [services, debouncedQuery, categoryFilter, minRating, sortBy]);
+  }, [services, debouncedQuery, categoryFilter, minRating, sortBy, maxPrice, onlyOpen, onlyOnline, onlyScheduling]);
 
   // pagination (simple)
   const pageSize = 8;
@@ -313,6 +325,39 @@ export default function ServiceDashboardSophisticated() {
                     className="accent-[var(--highlight)]"
                   />
                   <span className="text-xs text-[var(--text-muted)] w-6">{minRating > 0 ? minRating : "—"}</span>
+                </div>
+
+                <label className="flex items-center gap-2 p-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)] text-sm">
+                  <span className="text-[var(--text-muted)] whitespace-nowrap">Até R$</span>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step={10}
+                    value={maxPrice}
+                    onChange={(e) => { setMaxPrice(e.target.value); setPage(1); }}
+                    placeholder="—"
+                    aria-label="Preço máximo em reais"
+                    className="w-20 bg-transparent outline-none text-[var(--text)]"
+                  />
+                </label>
+
+                <div role="group" aria-label="Disponibilidade" className="flex flex-wrap items-center gap-1 p-1 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)] text-sm">
+                  {([
+                    ["Aberto agora", onlyOpen, setOnlyOpen],
+                    ["Online", onlyOnline, setOnlyOnline],
+                    ["Agenda online", onlyScheduling, setOnlyScheduling],
+                  ] as [string, boolean, (v: boolean) => void][]).map(([label, on, set]) => (
+                    <button
+                      key={label}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => { set(!on); setPage(1); }}
+                      className={`px-3 py-1.5 rounded-xl transition ${on ? "bg-[var(--primary)] text-white" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
 
                 <div className="flex items-center gap-2 p-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)]">
@@ -516,9 +561,9 @@ export default function ServiceDashboardSophisticated() {
                   {(services ?? []).length === 0
                     ? "Ainda não há serviços publicados."
                     : "Nenhum serviço encontrado para sua busca."}
-                  {(query || categoryFilter !== "Todos" || minRating > 0) && (
+                  {(query || categoryFilter !== "Todos" || minRating > 0 || maxPrice || onlyOpen || onlyOnline || onlyScheduling) && (
                     <button
-                      onClick={() => { setQuery(""); setCategoryFilter("Todos"); setMinRating(0); }}
+                      onClick={() => { setQuery(""); setCategoryFilter("Todos"); setMinRating(0); setMaxPrice(""); setOnlyOpen(false); setOnlyOnline(false); setOnlyScheduling(false); }}
                       className="block mx-auto mt-3 text-[var(--primary)] underline"
                     >
                       Limpar filtros
