@@ -9,6 +9,8 @@ export interface Service {
     categoryId?: number | null;
     subcategory?: string;
     requiresScheduling: boolean;
+    /** atendimento online (sem visita) */
+    online?: boolean;
     likesNumber?: number;
     imageUrl?: string;
     acceptedTerms?: boolean;

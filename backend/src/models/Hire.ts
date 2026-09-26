@@ -14,6 +14,16 @@ import { User } from "./User";
 import { Payment } from "./Payment";
 import { Contract } from "./Contract";
 
+export interface ServiceAddress {
+  street: string;
+  num: string;
+  complement?: string | null;
+  neighborhood: string;
+  city: string;
+  state: string;
+  postalCode: string;
+}
+
 export enum StatusEnum {
   PENDENTE = "PENDENTE",
   // só em status_provider: o prestador aceitou o pedido e ainda não começou
@@ -77,6 +87,20 @@ export class Hire {
   // Cancelado depois do prazo de cancelamento do serviço (pesa na reputação de quem cancelou)
   @Column({ type: "boolean", default: false })
   lateCancel: boolean;
+
+  // Endereço do atendimento presencial (cópia do endereço no momento do pedido; o cliente pode trocar antes de começar)
+  @Column({ type: "json", nullable: true })
+  serviceAddress: ServiceAddress | null;
+
+  // Horários reais: início, entrega pelo prestador e confirmação do cliente
+  @Column({ type: "datetime", nullable: true })
+  startedAt: Date | null;
+
+  @Column({ type: "datetime", nullable: true })
+  finishedAt: Date | null;
+
+  @Column({ type: "datetime", nullable: true })
+  confirmedAt: Date | null;
 
   // Duração reservada na agenda (minutos), copiada do serviço na contratação
   @Column({ type: "int", nullable: true })

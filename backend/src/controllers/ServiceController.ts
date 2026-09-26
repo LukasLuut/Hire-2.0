@@ -27,6 +27,7 @@ export class ServiceController {
                 ...req.body,
                 negotiable: toBoolean(negotiable),
                 requiresScheduling: toBoolean(requiresScheduling),
+                online: toBoolean(req.body.online),
             };
 
             const service = await serviceService.create(body, userId(req), filesOf(req));
@@ -95,6 +96,7 @@ export class ServiceController {
                     negotiable: negotiable === undefined ? undefined : toBoolean(negotiable),
                     requiresScheduling: requiresScheduling === undefined ? undefined : toBoolean(requiresScheduling),
                     active: req.body.active === undefined ? undefined : toBoolean(req.body.active),
+                    online: req.body.online === undefined ? undefined : toBoolean(req.body.online),
                 };
 
                 const { id } = req.params;

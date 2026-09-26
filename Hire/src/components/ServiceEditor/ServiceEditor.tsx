@@ -41,6 +41,7 @@ const EMPTY_SERVICE: Service = {
   subcategory: "",
   negotiable: false,
   requiresScheduling: false,
+  online: false,
   acceptedTerms: false,
   imageUrl: "",
   cancellationNotice: "",
@@ -151,6 +152,7 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
           subcategory: data.subcategory,
           negotiable: data.negotiable,
           requiresScheduling: data.requiresScheduling,
+          online: data.online,
           active: data.active,
           acceptedTerms: true,
           imageUrl: data.imageUrl ?? "",
@@ -295,6 +297,7 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
     formData.append("subcategory", selectedService.subcategory ? selectedService.subcategory.trim() : "");
     formData.append("negotiable", selectedService.negotiable ? "true" : "false");
     formData.append("requiresScheduling", selectedService.requiresScheduling ? "true" : "false");
+    formData.append("online", selectedService.online ? "true" : "false");
     if (hasService) formData.append("active", selectedService.active === false ? "false" : "true");
     if (selectedService.requiresScheduling) {
       formData.append("scheduleSlots", JSON.stringify(slots));
@@ -510,6 +513,22 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
                     </label>
                   )}
 
+                  {/* Onde acontece: presencial pede o endereço do cliente; online não */}
+                  <label className="flex items-center justify-between gap-3">
+                    <span className="text-[var(--text)]">
+                      Atendimento online
+                      <span className="block text-xs text-[var(--text-muted)]">Sem visita: o cliente não precisa informar endereço</span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={!!selectedService.online}
+                      onChange={(e) => handleChange("online", e.target.checked)}
+                      className="relative w-10 h-5 shrink-0 appearance-none bg-[var(--border)] rounded-full cursor-pointer transition-all duration-300
+                         checked:bg-[var(--primary)] after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4
+                         after:bg-[var(--bg-light)] after:rounded-full after:transition-all checked:after:translate-x-5"
+                    />
+                  </label>
+
                   {/* Requer agendamento */}
                   <label className="flex items-center justify-between">
                     <span className="text-[var(--text)]">Exige agendamento prévio</span>
@@ -699,6 +718,10 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
           <div>
             <span className="font-semibold text-[var(--text)]">Negociável:</span>{" "}
             {selectedService.negotiable ? "Sim" : "Não"}
+          </div>
+          <div>
+            <span className="font-semibold text-[var(--text)]">Atendimento:</span>{" "}
+            {selectedService.online ? "Online" : "Presencial (no endereço do cliente)"}
           </div>
           <div>
             <span className="font-semibold text-[var(--text)]">Exige agendamento:</span>{" "}

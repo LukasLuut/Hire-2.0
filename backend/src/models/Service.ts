@@ -38,6 +38,10 @@ export class Service {
   @Column()
   requiresScheduling: boolean;
 
+  // Atendimento online (sem visita): não pede endereço do cliente
+  @Column({ default: false })
+  online: boolean;
+
   @Column({ type: "double", nullable: false })
   price: number;
 

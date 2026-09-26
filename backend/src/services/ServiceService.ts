@@ -17,6 +17,7 @@ export interface ServiceInput {
   description_service: string;
   negotiable: boolean;
   requiresScheduling: boolean;
+  online?: boolean;
   duration: string;
   subcategory?: string;
   price: number | string;
@@ -163,6 +164,7 @@ export class ServiceService {
       description_service: data.description_service.trim(),
       negotiable: data.negotiable,
       requiresScheduling: data.requiresScheduling,
+      online: !!data.online,
       duration: data.duration?.trim() || "A combinar",
       price,
       priceUnit,
@@ -219,6 +221,7 @@ export class ServiceService {
     if (data.subcategory !== undefined) service.subcategory = String(data.subcategory).trim() || undefined;
     if (data.negotiable !== undefined) service.negotiable = data.negotiable;
     if (data.requiresScheduling !== undefined) service.requiresScheduling = data.requiresScheduling;
+    if (data.online !== undefined) service.online = data.online;
     if (data.active !== undefined) service.active = data.active;
     if (data.priceUnit !== undefined) service.priceUnit = priceUnitOf(data.priceUnit);
     if (data.price !== undefined) {

@@ -21,6 +21,11 @@ export class UpdateServiceDTO {
   requiresScheduling?: boolean;
 
   @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  online?: boolean;
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   price?: number;

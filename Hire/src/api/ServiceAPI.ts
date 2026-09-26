@@ -18,6 +18,7 @@ export interface ServiceData {
   ratingCount: number,
   negotiable: boolean,
   requiresScheduling: boolean,
+  online: boolean,
   likesNumber: number,
   /** URL absoluta da imagem (ou null) */
   imageUrl: string | null,
@@ -71,6 +72,7 @@ export function toServiceData(e: ServiceEntity): ServiceData {
     ratingCount: e.rating?.count ?? 0,
     negotiable: !!e.negotiable,
     requiresScheduling: !!e.requiresScheduling,
+    online: !!e.online,
     likesNumber: e.likesNumber ?? 0,
     imageUrl: uploadUrl(e.imageUrl),
     imagePaths: e.images?.length ? e.images : e.imageUrl ? [e.imageUrl] : [],

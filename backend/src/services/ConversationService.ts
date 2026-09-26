@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { profileAddress } from "./HireService";
 import { fileUrl, privateRef } from "../utils/signedFile";
 import { durationMinutes } from "../utils/schedule";
 import { OFFLINE_MESSAGE, providerOffline } from "../utils/availability";
@@ -324,6 +325,7 @@ export class ConversationService {
         status_provider: StatusEnum.ACEITO,
         acceptedAt: now,
         paymentRequired: true,
+        serviceAddress: conv.service && !conv.service.online ? await profileAddress(conv.client.id) : null,
         // serviço com agenda: a duração acordada ocupa a agenda; o cliente escolhe o horário depois (RN05)
         durationMinutes: conv.service?.requiresScheduling ? durationMinutes(get("duration") || conv.service.duration) : null,
       })

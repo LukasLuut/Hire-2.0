@@ -278,6 +278,7 @@ export default function PostCard({
           <div className="flex flex-wrap gap-2 mb-2">
             {service.negotiable && <span className="bg-yellow-500/30 px-2 py-1 rounded-full text-yellow-200 text-xs whitespace-nowrap">Negociável</span>}
             {service.requiresScheduling && <span className="bg-blue-500/30 px-2 py-1 rounded-full text-blue-200 text-xs whitespace-nowrap">Exige agendamento</span>}
+            {service.online && <span className="bg-emerald-500/30 px-2 py-1 rounded-full text-emerald-200 text-xs whitespace-nowrap">Online</span>}
           </div>
           <button
           onClick={handleDetail}

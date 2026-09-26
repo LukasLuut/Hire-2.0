@@ -4,7 +4,7 @@ import { METHODS, paymentService } from "./PaymentService";
 import { OFFLINE_MESSAGE, providerOffline } from "../utils/availability";
 import { closedMessage, openState } from "../utils/openStatus";
 import { inviteService } from "./InviteService";
-import { Hire, StatusEnum } from "../models/Hire";
+import { Hire, StatusEnum, type ServiceAddress } from "../models/Hire";
 import { ServiceProvider } from "../models/ServiceProvider";
 import { Service } from "../models/Service";
 import { durationMinutes, fitsSchedule, noticeHours, overlaps, parseLocalDateTime, withinBusinessHours, type BusinessHours } from "../utils/schedule";
@@ -13,6 +13,40 @@ import { Availability } from "../models/Availability";
 import { notificationService } from "./NotificationService";
 import { statsService } from "./StatsService";
 import { User } from "../models/User";
+
+/** Endereço do cadastro do cliente (cópia para o pedido) */
+export async function profileAddress(userId: number): Promise<ServiceAddress | null> {
+    const user = await AppDataSource.getRepository(User).findOne({ where: { id: userId }, relations: { address: true } });
+    const a = user?.address;
+    if (!a?.street || !a.city) return null;
+    return { street: a.street, num: String(a.num ?? ""), complement: null, neighborhood: a.neighborhood, city: a.city, state: a.state, postalCode: a.postalCode };
+}
+
+/** Endereço enviado pelo cliente: rua, número, bairro, cidade, UF e CEP obrigatórios */
+function parseAddress(raw: unknown): ServiceAddress {
+    const d = (raw ?? {}) as Record<string, unknown>;
+    const s = (k: string, max = 100) => String(d[k] ?? "").trim().slice(0, max);
+    const address: ServiceAddress = {
+        street: s("street"), num: s("num", 20), complement: s("complement") || null, neighborhood: s("neighborhood"),
+        city: s("city"), state: s("state", 2).toUpperCase(), postalCode: s("postalCode", 9).replace(/[^\d-]/g, ""),
+    };
+    if (!address.street || !address.num || !address.neighborhood || !address.city || address.state.length !== 2 || address.postalCode.replace(/\D/g, "").length !== 8) {
+        throw new HttpError(400, "Informe o endereço completo: CEP, rua, número, bairro, cidade e UF");
+    }
+    return address;
+}
+
+/**
+ * Privacidade: o prestador só vê o endereço completo depois de aceitar e enquanto o
+ * atendimento está em aberto; antes (e depois de encerrado), só bairro e cidade.
+ */
+export function forViewer<T extends Hire | null>(hire: T, role: Role): T {
+    if (!hire || role !== "provider" || !hire.serviceAddress) return hire;
+    const open = !!hire.acceptedAt && hire.status === StatusEnum.PENDENTE && hire.status_provider !== StatusEnum.CANCELADO;
+    if (open) return hire;
+    const { neighborhood, city, state } = hire.serviceAddress;
+    return { ...hire, serviceAddress: { street: "", num: "", neighborhood, city, state, postalCode: "" } } as T;
+}
 
 /** Erro com status HTTP, usado pelo controller para responder 403/404. */
 export class HttpError extends Error {
@@ -109,6 +143,7 @@ export class HireService {
             user: { id: userId },
             service: { id: service.id },
             paymentRequired: true,
+            serviceAddress: service.online ? null : await profileAddress(userId),
         });
 
         const saved = await this.hireRepository.save(hire);
@@ -125,8 +160,8 @@ export class HireService {
     }
 
     async getById(id: number, requesterId: number) {
-        await this.loadWithRole(id, requesterId);
-        return await this.hireRepository.findOne({ where: { id }, relations: this.fullRelations });
+        const { role } = await this.loadWithRole(id, requesterId);
+        return forViewer(await this.hireRepository.findOne({ where: { id }, relations: this.fullRelations }), role);
     }
 
     /**
@@ -164,6 +199,9 @@ export class HireService {
         if (role === "provider" && next === StatusEnum.EM_ANDAMENTO && this.awaitingPayment(hire)) {
             throw new HttpError(400, "Aguardando o pagamento do cliente");
         }
+        if (role === "provider" && next === StatusEnum.EM_ANDAMENTO && this.awaitingAddress(hire)) {
+            throw new HttpError(400, "Aguardando o cliente informar o endereço do atendimento");
+        }
         // serviço com agenda (RN05): o pedido negociado precisa de horário marcado antes de começar
         if (role === "provider" && next === StatusEnum.EM_ANDAMENTO && this.awaitingSchedule(hire)) {
             throw new HttpError(400, "Aguardando o cliente escolher o horário na agenda");
@@ -193,15 +231,18 @@ export class HireService {
             hire.acceptedAt = new Date();
         } else if (role === "client") {
             hire.status = next;
+            if (next === StatusEnum.CONCLUIDO) hire.confirmedAt = new Date();
         } else {
             hire.status_provider = next;
+            if (next === StatusEnum.EM_ANDAMENTO) hire.startedAt = new Date();
+            if (next === StatusEnum.CONCLUIDO) hire.finishedAt = new Date();
         }
         await this.hireRepository.save(hire);
         // dinheiro acompanha o pedido: cancelado → estorno; conclusão confirmada → liberado ao prestador
         if (next === StatusEnum.CANCELADO) await paymentService.refund(hire.id);
         if (role === "client" && next === StatusEnum.CONCLUIDO) await paymentService.release(hire.id);
         await this.notifyUpdate(hire, role, next);
-        return await this.hireRepository.findOne({ where: { id }, relations: this.fullRelations });
+        return forViewer(await this.hireRepository.findOne({ where: { id }, relations: this.fullRelations }), role);
     }
 
     /**
@@ -228,6 +269,32 @@ export class HireService {
         const busy = await this.busyOf(service.provider.id, new Date(start.getTime() - 30 * 86400000), new Date(start.getTime() + minutes * 60000), ignoreHireId);
         if (busy.some((b) => overlaps(start, minutes, b.start, b.minutes)))
             throw new HttpError(409, "Esse horário conflita com outro atendimento do prestador. Escolha outro.");
+    }
+
+    /** Atendimento presencial sem endereço informado */
+    private awaitingAddress(hire: Hire) {
+        return hire.paymentRequired && !!hire.service && !hire.service.online && !hire.serviceAddress;
+    }
+
+    /** O cliente informa ou troca o endereço do atendimento antes de o serviço começar. */
+    async setAddress(id: number, data: unknown, requesterId: number) {
+        const { hire, role } = await this.loadWithRole(id, requesterId);
+        if (role !== "client") throw new HttpError(403, "Quem informa o endereço é o cliente");
+        if (hire.service?.online) throw new HttpError(400, "Este serviço é online e não precisa de endereço");
+        if (hire.status !== StatusEnum.PENDENTE || ![StatusEnum.PENDENTE, StatusEnum.ACEITO].includes(hire.status_provider)) {
+            throw new HttpError(400, "Só dá para mudar o endereço antes de o serviço começar");
+        }
+        hire.serviceAddress = parseAddress(data);
+        await this.hireRepository.save(hire);
+        if (hire.acceptedAt) {
+            await notificationService.notify(hire.provider?.user?.id, {
+                type: "hire.address",
+                title: `Endereço do atendimento: ${hire.service?.title ?? hire.description_service}`,
+                body: `${hire.user?.name ?? "O cliente"} informou o endereço: ${hire.serviceAddress.street}, ${hire.serviceAddress.num} — ${hire.serviceAddress.neighborhood}, ${hire.serviceAddress.city}.`,
+                link: "/progress",
+            });
+        }
+        return await this.hireRepository.findOne({ where: { id }, relations: this.fullRelations });
     }
 
     /** Pedido aceito que ainda não foi pago */
@@ -429,7 +496,7 @@ export class HireService {
         }, order: { id: "DESC" }});
         // o prestador vê quantas vezes o cliente cancelou em cima da hora
         const late = await statsService.clientLateCancellations([...new Set(hires.map((h) => h.user?.id).filter(Boolean) as number[])]);
-        return hires.map((h) => ({ ...h, clientLateCancellations: late.get(h.user?.id) ?? 0 }));
+        return hires.map((h) => ({ ...forViewer(h, "provider")!, clientLateCancellations: late.get(h.user?.id) ?? 0 }));
     }
 
     /** Expediente do prestador por dia da semana */

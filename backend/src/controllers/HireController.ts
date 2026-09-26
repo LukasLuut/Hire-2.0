@@ -58,6 +58,14 @@ export class HireController {
         }
     }
 
+    setAddress = async (req: Request, res: Response) => {
+        try {
+            res.json(await hireService.setAddress(Number(req.params.id), req.body, userId(req)));
+        } catch (e: any) {
+            fail(res, e);
+        }
+    }
+
     pay = async (req: Request, res: Response) => {
         try {
             res.json(await hireService.pay(Number(req.params.id), req.body?.method, userId(req)));

@@ -91,6 +91,8 @@ export interface ServiceEntity {
   subcategory?: string;
   negotiable: boolean;
   requiresScheduling: boolean;
+  /** atendimento online (sem endereço do cliente) */
+  online?: boolean;
   likesNumber?: number;
   /** false = pausado pelo prestador (fora da vitrine, sem pedidos novos) */
   active?: boolean;
@@ -110,6 +112,17 @@ export interface ServiceEntity {
 export type ScheduleSlots = Partial<Record<"sunday" | "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday", string[]>>;
 
 export type PaymentMethod = "pix" | "cartao" | "boleto";
+
+/** Endereço do atendimento presencial (antes do aceite o prestador vê só bairro e cidade) */
+export interface ServiceAddress {
+  postalCode: string;
+  street: string;
+  num: string;
+  complement?: string | null;
+  neighborhood: string;
+  city: string;
+  state: string;
+}
 
 /** Pagamento simulado de uma contratação (PAGO = retido até a conclusão) */
 export interface PaymentEntity {
@@ -158,6 +171,11 @@ export interface HireEntity {
   /** pedido criado com a etapa de pagamento (antigos não têm) */
   paymentRequired?: boolean;
   payment?: PaymentEntity | null;
+  serviceAddress?: ServiceAddress | null;
+  /** horários reais: início, entrega e confirmação do cliente */
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  confirmedAt?: string | null;
 }
 
 export interface ReviewEntity {
