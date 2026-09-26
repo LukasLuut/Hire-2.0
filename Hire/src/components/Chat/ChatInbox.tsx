@@ -30,9 +30,11 @@ interface ChatInboxProps {
   isOpen: boolean;
   onClose: () => void;
   initialConversationId?: number | null;
+  /** mensagem pré-preenchida na conversa aberta por initialConversationId */
+  initialDraft?: string;
 }
 
-export default function ChatInbox({ isOpen, onClose, initialConversationId = null }: ChatInboxProps) {
+export default function ChatInbox({ isOpen, onClose, initialConversationId = null, initialDraft }: ChatInboxProps) {
   const [items, setItems] = useState<ConversationSummary[] | null>(null);
   const [error, setError] = useState(false);
   const [activeId, setActiveId] = useState<number | null>(null);
@@ -68,6 +70,7 @@ export default function ChatInbox({ isOpen, onClose, initialConversationId = nul
     return (
       <ServiceFormalizerModal
         conversationId={activeId}
+        initialDraft={activeId === initialConversationId ? initialDraft : undefined}
         isOpen
         onClose={() => {
           if (initialConversationId) onClose();

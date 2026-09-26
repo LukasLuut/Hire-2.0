@@ -66,6 +66,7 @@ export default function ServiceDetail({
   const [busy, setBusy] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
   const [chatId, setChatId] = useState<number | null>(null)
+  const [chatDraft, setChatDraft] = useState("")
   const [quoteOpen, setQuoteOpen] = useState(false)
   const [slot, setSlot] = useState<string | null>(null)
   const [agenda, setAgenda] = useState<Agenda | null>(null)
@@ -228,10 +229,11 @@ export default function ServiceDetail({
   }
 
   // Mensagem: abre (ou retoma) a negociação com o prestador sobre este serviço
-  const handleMensagem = async () => {
+  const handleMensagem = async (draft?: string) => {
     if (!token) return;
     try {
       const conv = await conversationAPI.open({ serviceId: service.id }, token);
+      setChatDraft(draft ?? "");
       setChatId(conv.id);
     } catch (err) {
       showToast(getErrorMessage(err, "Não foi possível abrir a conversa."), "error");
@@ -535,8 +537,8 @@ export default function ServiceDetail({
                   </button>
                 )}
                 <button
-                  onClick={handleMensagem}
-                  className="flex-1 flex items-center justify-center gap-2 border border-[var(--primary)] text-[var(--text)] font-semibold py-3 rounded-xl hover:bg-[var(--primary)] hover:text-[var(--bg-light)] hover:scale-[1.02] hover:shadow-lg transition-all">
+                  onClick={() => handleMensagem()}
+                  className="flex-1 flex items-center justify-center gap-2 border border-[var(--primary)] text-[var(--text)] font-semibold py-3 rounded-xl hover:bg-[var(--primary)] hover:text-white hover:scale-[1.02] hover:shadow-lg transition-all">
                   <MessageCircle size={18} />
                   Mensagem
                 </button>
@@ -563,7 +565,7 @@ export default function ServiceDetail({
               {closedForOrders ? (
               <div className="flex gap-3">
                 <button
-                  onClick={handleMensagem}
+                  onClick={() => handleMensagem()}
                   className="flex-1 flex items-center justify-center gap-2 bg-[var(--primary)] text-white font-semibold py-3 rounded-xl shadow-md hover:scale-[1.02] hover:shadow-lg transition-all">
                   <MessageCircle size={18} />
                   Mensagem
@@ -579,7 +581,7 @@ export default function ServiceDetail({
                   Pedir orçamento
                 </button>
                 <button
-                  onClick={handleMensagem}
+                  onClick={() => handleMensagem()}
                   className="flex-1 flex items-center justify-center gap-2 border border-[var(--primary)] text-[var(--text)] font-semibold py-3 rounded-xl hover:bg-[var(--primary)] hover:text-[var(--bg-light)] hover:scale-[1.02] hover:shadow-lg transition-all">
                   <MessageCircle size={18} />
                   Mensagem
@@ -594,15 +596,15 @@ export default function ServiceDetail({
                   {stage === "done" ? "Contratar novamente" : "Contratar"}
                 </button>
                 <button
-                  onClick={service.negotiable ? () => setQuoteOpen(true) : handleMensagem}
-                  className="flex-1 flex items-center justify-center gap-2 border border-[var(--primary)] text-[var(--text)] font-semibold py-3 rounded-xl hover:bg-[var(--primary)] hover:text-[var(--bg-light)] hover:scale-[1.02] hover:shadow-lg transition-all">
+                  onClick={() => handleMensagem(service.negotiable ? `Olá! Tenho interesse no serviço "${service.title}". Podemos negociar valor, data e detalhes?` : undefined)}
+                  className="flex-1 flex items-center justify-center gap-2 border border-[var(--primary)] text-[var(--text)] font-semibold py-3 rounded-xl hover:bg-[var(--primary)] hover:text-white hover:scale-[1.02] hover:shadow-lg transition-all">
                   <MessageCircle size={18} />
                   {service.negotiable ? "Negociar" : "Mensagem"}
                 </button>
               </div>
               )}
               {service.negotiable && !quoteOnly && (
-                <button onClick={handleMensagem} className="text-sm text-[var(--text-muted)] hover:text-[var(--primary)] self-center">
+                <button onClick={() => handleMensagem()} className="text-sm text-[var(--text-muted)] hover:text-[var(--primary)] self-center">
                   Só quer tirar uma dúvida? Envie uma mensagem
                 </button>
               )}
@@ -619,7 +621,7 @@ export default function ServiceDetail({
             startIndex={currentIndex}
           />
 
-          <ChatInbox isOpen={!!chatId} initialConversationId={chatId} onClose={() => setChatId(null)} />
+          <ChatInbox isOpen={!!chatId} initialConversationId={chatId} initialDraft={chatDraft} onClose={() => setChatId(null)} />
 
           <ServiceNegotiationModal
             isOpen={quoteOpen}

@@ -41,9 +41,11 @@ interface ProviderHeroProps {
   editRequest?: number;
   /** Business: pede para desativar a conta profissional (o botão aparece no modo edição) */
   onDeactivate?: () => void;
+  /** Perfil público: botões de ação abaixo do "Sobre" (mesma posição dos botões da página inicial) */
+  actions?: React.ReactNode;
 }
 
-export default function ProviderHero({ provider, readOnly = false, services, editRequest, onDeactivate }: ProviderHeroProps) {
+export default function ProviderHero({ provider, readOnly = false, services, editRequest, onDeactivate, actions }: ProviderHeroProps) {
   const { user: sessionUser, refresh } = useSession();
   const { showToast } = useToast();
 
@@ -201,6 +203,7 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
                 )}
               </div>
             )}
+            {actions && <div className="flex flex-wrap sm:flex-nowrap gap-3 md:ml-6 mt-6 [&>*]:whitespace-nowrap">{actions}</div>}
           </div>
         </div>
 

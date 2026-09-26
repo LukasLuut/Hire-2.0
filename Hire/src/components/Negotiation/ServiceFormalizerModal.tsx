@@ -103,11 +103,14 @@ export default function ServiceNegotiationModal({
   isOpen,
   onClose,
   onFormalize, // callback opcional depois de formalizar
+  initialDraft,
 }: {
   service?: Service;
   conversationId?: number | null;
   isOpen: boolean;
   onClose: () => void;
+  /** texto já escrito no campo de mensagem ao abrir (ex.: interesse num serviço) */
+  initialDraft?: string;
   onFormalize?: (result: { hireId: number; contractId: number; code: string }) => void;
 }) {
   const navigate = useNavigate();
@@ -164,6 +167,7 @@ export default function ServiceNegotiationModal({
     lastIdRef.current = 0;
     setMessages([]);
     setLoadError(null);
+    if (initialDraft) setChatInput(initialDraft);
 
     const load = async (initial: boolean) => {
       try {

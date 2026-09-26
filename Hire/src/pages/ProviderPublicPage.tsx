@@ -5,7 +5,10 @@ import SharePanel from "../components/Share/SharePanel";
 import { rememberProfileOrigin, track, trackView } from "../utils/analytics";
 import PortfolioGallery from "../components/Portfolio/PortfolioGallery";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { MessageSquare, Flag, Share2 } from "lucide-react";
+import { MessageSquare, Flag, Share2, Handshake } from "lucide-react";
+import ServiceNegotiationModal from "../components/Negotiation/ServiceNegotiationModal";
+import ConfirmModal from "../components/Common/ConfirmModal";
+import { displayServicePrice } from "../utils/price";
 import ReportModal from "../components/Reports/ReportModal";
 import ProviderHero from "../components/ProviderHero/ProviderHero";
 import ReviewsSection from "../components/Reviews/ReviewsSection";
@@ -26,6 +29,9 @@ import { getErrorMessage } from "../utils/errors";
  * Mesmo hero do painel do prestador, sem edição, com serviços e avaliações.
  * Conversar exige login: quem não entrou vai para /auth e volta para cá.
  * -------------------------------------------------------------------------- */
+// mesmo visual dos botões Chat/Favoritos da página inicial
+const actionBtn = "px-3 md:px-4 py-2 border min-h-14 flex gap-2 items-center border-[var(--border)] rounded-lg hover:bg-[var(--bg-light)] transition";
+
 export default function ProviderPublicPage() {
   const { id, slug } = useParams();
   const key = slug ?? id ?? "";
@@ -41,6 +47,10 @@ export default function ProviderPublicPage() {
   // perfil desativado (410) ou inexistente (404): página própria para o visitante
   const [unavailable, setUnavailable] = useState<"deactivated" | "not_found" | null>(null);
   const [chatId, setChatId] = useState<number | null>(null);
+  // Orçamento: escolhe o serviço (quando há mais de um) e abre o pedido de negociação
+  const [pickOpen, setPickOpen] = useState(false);
+  const [picked, setPicked] = useState<ServiceData | null>(null);
+  const [quoteService, setQuoteService] = useState<ServiceData | null>(null);
 
   const providerId = provider?.id ?? 0;
   const isMe = !!me && me.id === providerId;
@@ -98,6 +108,19 @@ export default function ProviderPublicPage() {
     }
   };
 
+  const openQuote = () => {
+    if (!token) {
+      navigate(`/auth?next=${encodeURIComponent(location.pathname + location.search)}`);
+      return;
+    }
+    if (providerId) track("quote_click", { providerId });
+    if (services.length === 1) setQuoteService(services[0]);
+    else {
+      setPicked(services.find((s) => s.negotiable) ?? services[0] ?? null);
+      setPickOpen(true);
+    }
+  };
+
   if (unavailable) return <ProfileUnavailable reason={unavailable} loggedIn={!!token} />;
 
   if (error) {
@@ -117,28 +140,34 @@ export default function ProviderPublicPage() {
   return (
     <div className="min-h-screen bg-[var(--bg-dark)] pt-25 text-[var(--text)] px-4 sm:px-6 md:px-8 lg:px-10 py-6">
       <div className="max-w-[90%] mx-auto">
-        <div className="flex justify-end gap-2 flex-wrap">
-          {isMe ? (
-            <button onClick={() => navigate("/business")} className="px-4 py-2 border border-[var(--border)] rounded-lg hover:bg-[var(--bg-light)] transition">
-              Este é o seu perfil — ir para o painel
-            </button>
-          ) : (
-            <button
-              onClick={openChat}
-              className="px-2 md:px-4 py-2 border min-h-12 flex gap-2 items-center border-[var(--border)] rounded-lg hover:bg-[var(--bg-light)] transition"
-            >
-              <MessageSquare size={20} /> {token ? "Chat com o prestador" : "Entrar para conversar"}
-            </button>
-          )}
-          <button
-            onClick={() => setShareOpen(true)}
-            className="px-3 md:px-4 py-2 min-h-12 flex gap-2 items-center rounded-lg bg-[var(--primary)] text-white font-medium hover:brightness-110 transition"
-          >
-            <Share2 size={20} /> Compartilhar
-          </button>
-        </div>
-
-        <ProviderHero provider={provider} readOnly services={services} />
+        <ProviderHero
+          provider={provider}
+          readOnly
+          services={services}
+          actions={
+            <>
+              {isMe ? (
+                <button onClick={() => navigate("/business")} className={actionBtn}>
+                  Ir para o meu painel
+                </button>
+              ) : (
+                <>
+                  <button onClick={openChat} className={actionBtn}>
+                    <MessageSquare size={20} /> {token ? "Chat" : "Entrar para conversar"}
+                  </button>
+                  {services.length > 0 && (
+                    <button onClick={openQuote} className={actionBtn}>
+                      <Handshake size={20} className="text-[var(--primary)]" /> Orçamento
+                    </button>
+                  )}
+                </>
+              )}
+              <button onClick={() => setShareOpen(true)} className={`${actionBtn} !border-[var(--primary)] bg-[var(--primary)] text-white hover:!bg-[var(--primary)] hover:brightness-110`}>
+                <Share2 size={20} /> Compartilhar
+              </button>
+            </>
+          }
+        />
 
         <PortfolioGallery items={provider.portfolio ?? []} />
 
@@ -199,6 +228,37 @@ export default function ProviderPublicPage() {
       {!isMe && <div className="sm:hidden h-20" aria-hidden />}
 
       <ChatInbox isOpen={!!chatId} initialConversationId={chatId} onClose={() => setChatId(null)} />
+
+      {/* Orçamento: qual serviço? */}
+      <ConfirmModal
+        open={pickOpen}
+        title="Pedir orçamento"
+        description="Escolha o serviço. Depois você descreve o que precisa e o prestador responde com uma proposta."
+        confirmLabel="Continuar"
+        cancelLabel="Voltar"
+        onConfirm={() => { if (picked) { setPickOpen(false); setQuoteService(picked); } }}
+        onClose={() => setPickOpen(false)}
+      >
+        <ul className="grid gap-2 max-h-72 overflow-y-auto pr-1" role="radiogroup" aria-label="Serviço">
+          {services.map((s) => (
+            <li key={s.id}>
+              <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${picked?.id === s.id ? "border-[var(--primary)] bg-[var(--bg)]" : "border-[var(--border)] hover:border-[var(--primary)]"}`}>
+                <input type="radio" name="quote-service" checked={picked?.id === s.id} onChange={() => setPicked(s)} className="accent-[var(--primary)]" />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-medium truncate">{s.title}</span>
+                  <span className="block text-xs text-[var(--text-muted)]">{displayServicePrice(s)}{s.negotiable ? " · negociável" : ""}</span>
+                </span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </ConfirmModal>
+
+      <ServiceNegotiationModal
+        isOpen={!!quoteService}
+        onClose={() => setQuoteService(null)}
+        service={quoteService ? { id: quoteService.id, title: quoteService.title, providerName: provider.companyName || provider.professionalName, providerId: provider.id } : null}
+      />
     </div>
   );
 }
