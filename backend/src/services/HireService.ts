@@ -237,10 +237,12 @@ export class HireService {
             if (next === StatusEnum.EM_ANDAMENTO) hire.startedAt = new Date();
             if (next === StatusEnum.CONCLUIDO) hire.finishedAt = new Date();
         }
-        await this.hireRepository.save(hire);
-        // dinheiro acompanha o pedido: cancelado → estorno; conclusão confirmada → liberado ao prestador
-        if (next === StatusEnum.CANCELADO) await paymentService.refund(hire.id);
-        if (role === "client" && next === StatusEnum.CONCLUIDO) await paymentService.release(hire.id);
+        // pedido e dinheiro mudam juntos: cancelado → estorno; conclusão confirmada → liberado ao prestador
+        await AppDataSource.transaction(async (m) => {
+            await m.getRepository(Hire).save(hire);
+            if (next === StatusEnum.CANCELADO) await paymentService.refund(hire.id, m);
+            if (role === "client" && next === StatusEnum.CONCLUIDO) await paymentService.release(hire.id, m);
+        });
         await this.notifyUpdate(hire, role, next);
         return forViewer(await this.hireRepository.findOne({ where: { id }, relations: this.fullRelations }), role);
     }
@@ -315,7 +317,13 @@ export class HireService {
             throw new HttpError(400, hire.status_provider === StatusEnum.PENDENTE ? "Aguarde o prestador aceitar o pedido para pagar" : "Este pedido não pode mais ser pago");
         }
         if (typeof method !== "string" || !METHODS.includes(method)) throw new HttpError(400, "Escolha a forma de pagamento: Pix, cartão ou boleto");
-        const payment = await paymentService.pay({ hireId: hire.id, providerId: hire.provider.id, userId: requesterId, amount: Number(hire.price), method: method as PaymentMethod });
+        // hireId é único em payments: dois cliques ao mesmo tempo não cobram duas vezes
+        const payment = await paymentService
+            .pay({ hireId: hire.id, providerId: hire.provider.id, userId: requesterId, amount: Number(hire.price), method: method as PaymentMethod })
+            .catch((e) => {
+                if (e?.code === "ER_DUP_ENTRY") throw new HttpError(400, "Este pedido já foi pago");
+                throw e;
+            });
         const title = hire.service?.title ?? hire.description_service;
         await notificationService.notify(hire.provider?.user?.id, {
             type: "hire.paid",

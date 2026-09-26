@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import type { EntityManager } from "typeorm";
 import { profileAddress } from "./HireService";
 import { fileUrl, privateRef } from "../utils/signedFile";
 import { durationMinutes } from "../utils/schedule";
@@ -100,8 +101,9 @@ export class ConversationService {
     return conv.client?.id === userId ? conv.client?.name ?? "O cliente" : conv.provider?.companyName || conv.provider?.professionalName || "O prestador";
   }
 
-  private async system(conv: Conversation, text: string) {
-    await this.messageRepository.save(this.messageRepository.create({ conversation: conv, role: MessageRole.SYSTEM, text, sender: null }));
+  private async system(conv: Conversation, text: string, m?: EntityManager) {
+    const repo = m ? m.getRepository(Message) : this.messageRepository;
+    await repo.save(repo.create({ conversation: conv, role: MessageRole.SYSTEM, text, sender: null }));
   }
 
   /** Abre (ou reaproveita) a conversa aberta entre o cliente e o prestador sobre um serviço. */
@@ -276,17 +278,27 @@ export class ConversationService {
 
     const role = this.roleOf(conv, userId);
     const now = new Date();
-    if (role === MessageRole.CLIENT && !conv.clientAcceptedAt) {
-      conv.clientAcceptedAt = now;
-      await this.system(conv, `${conv.client.name} aceitou o acordo.`);
-    }
-    if (role === MessageRole.PROVIDER && !conv.providerAcceptedAt) {
-      conv.providerAcceptedAt = now;
-      await this.system(conv, `${conv.provider.companyName || conv.provider.professionalName} aceitou o acordo.`);
-    }
-    await this.conversationRepository.save(conv);
+    // Transação com a conversa travada: dois aceites ao mesmo tempo não geram dois contratos,
+    // e contratação + contrato + mensagens entram juntos (ou nada entra).
+    const result = await AppDataSource.transaction(async (m) => {
+      const locked = await m.getRepository(Conversation).findOne({ where: { id: conv.id }, lock: { mode: "pessimistic_write" } });
+      if (!locked || locked.status !== ConversationStatus.OPEN) throw new HttpError(400, "Esta negociação já foi encerrada");
+      conv.clientAcceptedAt = locked.clientAcceptedAt;
+      conv.providerAcceptedAt = locked.providerAcceptedAt;
+      if (role === MessageRole.CLIENT && !conv.clientAcceptedAt) {
+        conv.clientAcceptedAt = now;
+        await this.system(conv, `${conv.client.name} aceitou o acordo.`, m);
+      }
+      if (role === MessageRole.PROVIDER && !conv.providerAcceptedAt) {
+        conv.providerAcceptedAt = now;
+        await this.system(conv, `${conv.provider.companyName || conv.provider.professionalName} aceitou o acordo.`, m);
+      }
+      await m.getRepository(Conversation).update(conv.id, { clientAcceptedAt: conv.clientAcceptedAt, providerAcceptedAt: conv.providerAcceptedAt });
+      if (!conv.clientAcceptedAt || !conv.providerAcceptedAt) return null;
+      return await this.formalize(conv, topics, price, m);
+    });
 
-    if (!conv.clientAcceptedAt || !conv.providerAcceptedAt) {
+    if (!result) {
       await notificationService.notify(this.otherUserId(conv, userId), {
         type: "agreement.accepted",
         title: `${this.nameOf(conv, userId)} aceitou o acordo`,
@@ -295,7 +307,14 @@ export class ConversationService {
       });
       return { formalized: false as const, waitingFor: conv.clientAcceptedAt ? "prestador" : "cliente" };
     }
-    const result = await this.formalize(conv, topics, price);
+    if (conv.service?.requiresScheduling) {
+      await notificationService.notify(conv.client.id, {
+        type: "hire.schedule.needed",
+        title: "Escolha o horário do atendimento",
+        body: `O acordo de "${conv.service.title}" foi fechado. Marque o horário na agenda do prestador.`,
+        link: "/hires",
+      });
+    }
     for (const target of [conv.client?.id, conv.provider?.user?.id]) {
       await notificationService.notify(target, {
         type: "contract.ready",
@@ -308,13 +327,15 @@ export class ConversationService {
   }
 
   /** Cria a contratação e o contrato a partir dos tópicos acordados. */
-  private async formalize(conv: Conversation, topics: NegotiationTopic[], price: number) {
+  private async formalize(conv: Conversation, topics: NegotiationTopic[], price: number, m: EntityManager) {
+    const hires = m.getRepository(Hire);
+    const contracts = m.getRepository(Contract);
     const get = (k: string) => topics.find((t) => t.key === k)?.content?.trim() ?? "";
     const description = (get("service") || conv.service?.title || "Serviço negociado").slice(0, 100);
     const now = new Date();
 
-    const hire = await this.hireRepository.save(
-      this.hireRepository.create({
+    const hire = await hires.save(
+      hires.create({
         price,
         description_service: description,
         firstContact: now,
@@ -331,8 +352,8 @@ export class ConversationService {
       })
     );
 
-    const contract = await this.contractRepository.save(
-      this.contractRepository.create({
+    const contract = await contracts.save(
+      contracts.create({
         code: `HIRE-${now.getFullYear()}-${String(hire.id).padStart(5, "0")}`,
         price,
         description_service: description,
@@ -347,18 +368,11 @@ export class ConversationService {
     conv.status = ConversationStatus.FORMALIZED;
     conv.hire = hire;
     conv.contract = contract;
-    await this.conversationRepository.save(conv);
-    await this.system(conv, `Serviço formalizado ✔️ Contrato ${contract.code} gerado.`);
-    if (!conv.service?.requiresScheduling) await this.system(conv, "Próximo passo: o cliente faz o pagamento em Minhas contratações.");
-    if (conv.service?.requiresScheduling) {
-      await this.system(conv, "Próximos passos: o cliente paga e escolhe o horário na agenda do serviço, em Minhas contratações.");
-      await notificationService.notify(conv.client.id, {
-        type: "hire.schedule.needed",
-        title: "Escolha o horário do atendimento",
-        body: `O acordo de "${conv.service.title}" foi fechado. Marque o horário na agenda do prestador.`,
-        link: "/hires",
-      });
-    }
+    await m.getRepository(Conversation).update(conv.id, { status: ConversationStatus.FORMALIZED, hire: { id: hire.id }, contract: { id: contract.id } });
+    await this.system(conv, `Serviço formalizado ✔️ Contrato ${contract.code} gerado.`, m);
+    await this.system(conv, conv.service?.requiresScheduling
+      ? "Próximos passos: o cliente paga e escolhe o horário na agenda do serviço, em Minhas contratações."
+      : "Próximo passo: o cliente faz o pagamento em Minhas contratações.", m);
     return { hireId: hire.id, contractId: contract.id, code: contract.code };
   }
 

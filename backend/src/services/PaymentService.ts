@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import type { EntityManager } from "typeorm";
 import { AppDataSource } from "../config/data-source";
 import { Payment, PaymentMethod, PaymentStatus } from "../models/Payment";
 
@@ -38,13 +39,13 @@ export class PaymentService {
   }
 
   /** Cliente confirmou a conclusão: o líquido fica disponível para o prestador. */
-  async release(hireId: number) {
-    await this.paymentRepository.update({ hire: { id: hireId }, status: PaymentStatus.PAGO }, { status: PaymentStatus.LIBERADO, releasedAt: new Date() });
+  async release(hireId: number, m?: EntityManager) {
+    await (m ? m.getRepository(Payment) : this.paymentRepository).update({ hire: { id: hireId }, status: PaymentStatus.PAGO }, { status: PaymentStatus.LIBERADO, releasedAt: new Date() });
   }
 
   /** Pedido cancelado depois de pago: devolve ao cliente. */
-  async refund(hireId: number) {
-    await this.paymentRepository.update({ hire: { id: hireId }, status: PaymentStatus.PAGO }, { status: PaymentStatus.ESTORNADO, refundedAt: new Date() });
+  async refund(hireId: number, m?: EntityManager) {
+    await (m ? m.getRepository(Payment) : this.paymentRepository).update({ hire: { id: hireId }, status: PaymentStatus.PAGO }, { status: PaymentStatus.ESTORNADO, refundedAt: new Date() });
   }
 
   /**
