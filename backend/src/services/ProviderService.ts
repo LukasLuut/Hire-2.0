@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { toPublicProvider } from "../utils/publicProvider";
 import { ServiceProvider } from "../models/ServiceProvider";
 import { coord } from "../utils/geo";
 import { User } from "../models/User";
@@ -11,10 +12,6 @@ import { ServiceService } from "./ServiceService";
 const serviceService = new ServiceService();
 
 // Dados públicos do prestador: nunca expõe e-mail, CPF ou senha do usuário dono do perfil
-function publicUser(user?: User | null) {
-  return user ? { id: user.id, name: user.name } : null;
-}
-
 export class ProviderService {
   private providerRepository = AppDataSource.getRepository(ServiceProvider);
   private userRepository = AppDataSource.getRepository(User);
@@ -51,13 +48,12 @@ export class ProviderService {
     const subcategories = parseJsonList(data.subcategories);
     const links = parseJsonList(data.links);
 
-    const { categoryId, subcategories: _s, links: _l, availabilities: _a, ...fields } = data as any;
     const newData: any = {
-      ...fields,
+      ...editableFields(data),
       ...areaFields(data),
       user,
       profileImageUrl,
-      category: categoryId ? { id: Number(categoryId) } : null,
+      category: data.categoryId ? { id: Number(data.categoryId) } : null,
     };
 
     const providerSaved = await this.providerRepository.save(
@@ -149,10 +145,10 @@ export class ProviderService {
     const [decorated] = await this.decorate([provider]);
     // perfil público mostra só os serviços ativos
     const services = await serviceService.withStats(provider.services.filter((s) => s.active !== false).map((s) => ({ ...s, provider } as any)));
+    const pub = toPublicProvider({ ...decorated, user: provider.user } as any) as any;
     return {
-      ...decorated,
-      user: publicUser(provider.user),
-      services: services.map((s: any) => ({ ...s, provider: { id: provider.id, companyName: provider.companyName, professionalName: provider.professionalName, profileImageUrl: provider.profileImageUrl, description: provider.description, rating: decorated.rating } })),
+      ...pub,
+      services: services.map((s: any) => ({ ...s, provider: { id: provider.id, slug: pub.slug, companyName: provider.companyName, professionalName: provider.professionalName, profileImageUrl: provider.profileImageUrl, description: provider.description, rating: decorated.rating, pricesOnPage: provider.pricesOnPage, verificationStatus: provider.verificationStatus } })),
     };
   }
 
@@ -195,7 +191,7 @@ export class ProviderService {
     const providers = await this.providerRepository.find({ relations: { user: true, category: true, subcategories: true } });
     const decorated = await this.decorate(providers);
     return decorated
-      .map((p) => ({ ...p, user: publicUser(p.user) }))
+      .map((p) => toPublicProvider(p as any) as any)
       .sort((a, b) => b.rating.average - a.rating.average || b.rating.count - a.rating.count || b.completedHires - a.completedHires);
   }
 
@@ -215,13 +211,10 @@ export class ProviderService {
       ? JSON.parse(data.availabilities || "null")
       : data.availabilities;
 
-    const {
-      categoryId, subcategories: _s, links: _l, availabilities: _a,
-      id: _id, user: _u, category: _c, services: _sv, hires: _h, payments: _p, contracts: _ct,
-      profileImageUrl: _img, image: _image, ...fields
-    } = data;
+    const { categoryId } = data;
 
-    Object.assign(provider, fields, areaFields(data));
+    // só os campos do formulário; verificação, dono, datas e contagens não vêm do cliente
+    Object.assign(provider, editableFields(data), areaFields(data));
     if (categoryId) provider.category = { id: Number(categoryId) } as any;
     if (file) provider.profileImageUrl = `/uploads/${file.filename}`;
 
@@ -231,6 +224,17 @@ export class ProviderService {
 
     return this.getById(id);
   }
+}
+
+/** Campos que o próprio prestador pode editar (lista fechada: evita atribuição em massa) */
+const TEXT_FIELDS = ["companyName", "professionalName", "professionalEmail", "professionalPhone", "description", "cnpj", "onlineLink", "status"] as const;
+const BOOL_FIELDS = ["attendsPresent", "attendsOnline", "personalizedProposals", "approximateLocation", "publicReviews", "pricesOnPage", "whatsNotification", "emailNotification", "showContact"] as const;
+
+function editableFields(data: any) {
+  const out: Record<string, unknown> = {};
+  for (const k of TEXT_FIELDS) if (data[k] !== undefined && data[k] !== null) out[k] = String(data[k]).trim();
+  for (const k of BOOL_FIELDS) if (data[k] !== undefined) out[k] = data[k] === true || data[k] === "true";
+  return out;
 }
 
 /** Campos da área de atendimento vindos do formulário (só os enviados, já validados). */

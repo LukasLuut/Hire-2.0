@@ -12,7 +12,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { serviceAPI, serviceImages, type ServiceData } from "../api/ServiceAPI";
 import LocationBar from "../components/LocationBar";
-import { formatServicePrice } from "../utils/price";
+import { displayServicePrice } from "../utils/price";
 import ServiceAreaLine from "../components/ServiceAreaLine";
 import { loadLocation, saveLocation, type ClientLocation } from "../utils/location";
 import { providerApi } from "../api/ProviderAPI";
@@ -483,7 +483,7 @@ export default function ServiceDashboardSophisticated() {
                       </p>
                       <div className=" mt-4 flex items-center mb-2 text-[var(--text-highlight)] font-semibold">
                          <HandCoins size={20} className="text-[var(--text)]/70 mr-2" />
-                        {formatServicePrice(srv.price, srv.data.priceUnit, srv.data.packages)}
+                        {displayServicePrice(srv.data)}
                       </div>
                       <div className=" flex items-center  justify-between">
                         <div className="flex items-center  gap-3">

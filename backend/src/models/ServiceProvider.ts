@@ -1,4 +1,5 @@
 import {
+  CreateDateColumn,
   ChildEntity,
   Column,
   Entity,
@@ -80,6 +81,13 @@ export class ServiceProvider {
 
   @Column({ length: 400, nullable: true })
   onlineLink?: string
+
+  // Mostrar e-mail e telefone profissionais no perfil público (padrão: não; contato pelo chat)
+  @Column({ default: false })
+  showContact: boolean;
+
+  @CreateDateColumn({ nullable: true })
+  createdAt?: Date;
 
   // Área de atendimento presencial: cidade base, ponto no mapa e raio em km
   @Column({ type: "varchar", length: 80, nullable: true })

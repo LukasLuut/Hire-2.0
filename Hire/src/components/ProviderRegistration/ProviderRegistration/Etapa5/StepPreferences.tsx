@@ -11,8 +11,7 @@ import {
   Star,
   Tag,
   Eye,
-  Power,
-} from "lucide-react";
+  Power, Phone } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function StepPreferences({
@@ -125,6 +124,17 @@ export default function StepPreferences({
           <AnimatedToggle
             checked={form.showPrices}
             onChange={(v) => update("showPrices", v)}
+          />
+        </PreferenceCard>
+
+        <PreferenceCard
+          icon={<Phone className="w-5 h-5 text-[var(--primary)]" />}
+          title="Mostrar contato no perfil público"
+          description="Exibe seu e-mail e telefone profissionais para qualquer visitante. Desligado, clientes falam com você pelo chat do Hire."
+        >
+          <AnimatedToggle
+            checked={form.showContact}
+            onChange={(v) => update("showContact", v)}
           />
         </PreferenceCard>
 

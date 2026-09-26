@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Heart } from "lucide-react";
 import { serviceAPI, serviceImages, type ServiceData } from "../../api/ServiceAPI";
 import ServiceDetail from "../ServiceGallery/ServiceDetail/ServiceDetail";
-import { formatServicePrice } from "../../utils/price";
+import { displayServicePrice } from "../../utils/price";
 
 /* --------------------------------------------------------------------------
  * FavoritesSection — serviços curtidos pelo cliente, na Home.
@@ -52,7 +52,7 @@ export default function FavoritesSection() {
               <div className="p-3">
                 <div className="font-semibold truncate">{s.title}</div>
                 <div className="text-xs text-[var(--text-muted)] truncate">{s.provider?.companyName || s.provider?.professionalName}</div>
-                <div className="text-sm mt-1">{formatServicePrice(s.price, s.priceUnit, s.packages)}</div>
+                <div className="text-sm mt-1">{displayServicePrice(s)}</div>
               </div>
             </button>
           </li>

@@ -25,6 +25,10 @@ export interface ProviderEntity {
   companyName: string;
   professionalEmail: string;
   professionalPhone: string;
+  /** contato visível no perfil público (a API pública só manda e-mail/telefone quando true) */
+  showContact?: boolean;
+  slug?: string | null;
+  createdAt?: string | null;
   description?: string | null;
   cnpj?: string | null;
   profileImageUrl?: string | null;

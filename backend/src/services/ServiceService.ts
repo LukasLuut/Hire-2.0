@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { toPublicProvider } from "../utils/publicProvider";
 import { Hire, StatusEnum } from "../models/Hire";
 import { PRICE_UNITS, PriceUnit, Service, ServicePackage } from "../models/Service";
 import { ServiceLike } from "../models/ServiceLike";
@@ -101,8 +102,9 @@ export class ServiceService {
     return services.map((s) => ({
       ...s,
       rating: serviceStats.get(s.id) ?? { average: 0, count: 0 },
+      // prestador só com dados públicos (sem contato, coordenadas, CNPJ...)
       provider: s.provider
-        ? { ...s.provider, rating: providerStats.get(s.provider.id) ?? { average: 0, count: 0 }, lateCancellations: late.get(s.provider.id) ?? 0 }
+        ? toPublicProvider({ ...s.provider, rating: providerStats.get(s.provider.id) ?? { average: 0, count: 0 }, lateCancellations: late.get(s.provider.id) ?? 0 } as any)
         : s.provider,
     }));
   }
@@ -182,8 +184,9 @@ export class ServiceService {
     const lat = coord(opts.lat, 90);
     const lng = coord(opts.lng, 180);
     if (lat === null || lng === null) return withStats;
-    const located = withStats.map((s: any) => {
-      const p = s.provider;
+    // a distância usa as coordenadas do banco; a resposta não as expõe
+    const located = withStats.map((s: any, i: number) => {
+      const p = services[i].provider as any;
       const hasPoint = p && typeof p.latitude === "number" && typeof p.longitude === "number";
       const distance = hasPoint ? Math.round(distanceKm(lat, lng, p.latitude, p.longitude) * 10) / 10 : null;
       const inRadius = distance !== null && p.attendsPresent !== false && distance <= (p.serviceRadiusKm ?? 20);

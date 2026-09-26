@@ -24,7 +24,7 @@ import ServiceNegotiationModal from "../../Negotiation/ServiceNegotiationModal";
 import { SlotPicker, type Agenda } from "../../Schedule";
 import type { HireEntity } from "../../../interfaces/Entities";
 import { formatCurrency } from "../../../utils/format";
-import { formatServicePrice, isQuoteOnly, needsQuantity } from "../../../utils/price";
+import { formatServicePrice, displayServicePrice, isQuoteOnly, needsQuantity } from "../../../utils/price";
 import { getErrorMessage } from "../../../utils/errors";
 import { HIRE_STAGE_LABEL, getHireStage } from "../../../utils/hireStatus";
 
@@ -406,7 +406,7 @@ export default function ServiceDetail({
               <div className="grid grid-cols-2 gap-y-2 text-sm">
                 <Info label="Categoria" value={service.category?.name} />
                 <Info label="Subcategoria" value={service.subcategory} />
-                <Info label="Preço" value={formatServicePrice(service.price, service.priceUnit, packages)} />
+                <Info label="Preço" value={displayServicePrice({ ...service, packages })} />
                 <Info label="Duração" value={service.duration} />
                 <Info
                   label="Negociável"

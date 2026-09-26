@@ -24,6 +24,15 @@ export const isQuoteOnly = (unit?: string | null) => unit === "a_partir_de" || u
 /** Precisa de quantidade na contratação (horas ou m²) */
 export const needsQuantity = (unit?: string | null) => unit === "hora" || unit === "m2";
 
+/**
+ * Preço como aparece na vitrine/perfil: respeita a opção do prestador de não
+ * exibir preços ("Preço sob consulta"). O valor continua no pedido/confirmação.
+ */
+export function displayServicePrice(s: { price: number; priceUnit?: string | null; packages?: ServicePackage[] | null; provider?: { pricesOnPage?: boolean } | null }) {
+  if (s.provider?.pricesOnPage === false) return "Preço sob consulta";
+  return formatServicePrice(s.price, s.priceUnit, s.packages);
+}
+
 /** Texto do preço conforme a unidade: "R$ 80,00 / hora", "A partir de R$ 150,00"... */
 export function formatServicePrice(price: number, unit?: string | null, packages?: ServicePackage[] | null) {
   if (packages?.length) {

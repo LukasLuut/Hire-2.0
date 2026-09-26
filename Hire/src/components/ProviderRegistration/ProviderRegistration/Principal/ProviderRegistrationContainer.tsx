@@ -93,6 +93,7 @@ function buildInitialForm(existing: ProviderEntity | null | undefined, user: { n
   showApproxLocation: existing ? !!existing.approximateLocation : true,
   allowReviews: existing ? !!existing.publicReviews : true,
   showPrices: existing ? !!existing.pricesOnPage : true,
+  showContact: existing ? !!existing.showContact : false,
   status: existing?.status === "paused" ? "paused" : "available",
   };
 }
@@ -171,8 +172,12 @@ export default function ProviderRegistrationContainer({ isOpen, onClose, existin
   const removeSubcategory = (t: string) =>
     update("subcategories", form.subcategories.filter((s) => s !== t));
 
-  const addressTouched = () =>
-    Object.values(form.address ?? {}).some((v) => typeof v === "string" && v.trim() !== "");
+  // cidade/UF já vêm preenchidas na edição (área de atendimento); só conta como
+  // "mexeu no endereço" quando a pessoa preenche CEP, rua, número ou bairro
+  const addressTouched = () => {
+    const a = form.address ?? {};
+    return [a.cep, a.street, a.number, a.neighborhood].some((v) => typeof v === "string" && v.trim() !== "");
+  };
 
   // Endereço obrigatório no cadastro; na edição só é validado se a pessoa preencher algo
   function validateAddress(): string | null {
@@ -231,6 +236,7 @@ export default function ProviderRegistrationContainer({ isOpen, onClose, existin
     formData.append("approximateLocation", JSON.stringify(form.showApproxLocation));
     formData.append("publicReviews", JSON.stringify(form.allowReviews));
     formData.append("pricesOnPage", JSON.stringify(form.showPrices));
+    formData.append("showContact", JSON.stringify(form.showContact));
     formData.append("whatsNotification", JSON.stringify(form.notifications.whatsapp));
     formData.append("emailNotification", JSON.stringify(form.notifications.email));
     formData.append("status", form.status);

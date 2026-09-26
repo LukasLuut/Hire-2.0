@@ -45,6 +45,9 @@ export interface ServiceData {
     serviceRadiusKm?: number,
     lateCancellations?: number,
     verified?: boolean,
+    /** false = o prestador escolheu não exibir preços na vitrine */
+    pricesOnPage?: boolean,
+    slug?: string | null,
   },
 }
 
@@ -89,6 +92,8 @@ export function toServiceData(e: ServiceEntity): ServiceData {
           serviceRadiusKm: e.provider.serviceRadiusKm,
           lateCancellations: e.provider.lateCancellations ?? 0,
           verified: e.provider.verificationStatus === "verified",
+          pricesOnPage: e.provider.pricesOnPage,
+          slug: e.provider.slug ?? null,
         }
       : undefined,
   };

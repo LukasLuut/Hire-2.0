@@ -128,6 +128,8 @@ export interface ProviderForm {
   showApproxLocation: boolean;
   allowReviews: boolean;
   showPrices: boolean;
+  /** e-mail e telefone visíveis no perfil público */
+  showContact: boolean;
   status: "available" | "paused";
 }
 

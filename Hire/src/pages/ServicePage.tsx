@@ -9,7 +9,7 @@ import ServiceDetail from "../components/ServiceGallery/ServiceDetail/ServiceDet
 import ReviewsSection from "../components/Reviews/ReviewsSection";
 import ServiceAreaLine from "../components/ServiceAreaLine";
 import { avatarFor } from "../utils/avatar";
-import { formatServicePrice } from "../utils/price";
+import { displayServicePrice } from "../utils/price";
 import { getErrorMessage } from "../utils/errors";
 
 /* --------------------------------------------------------------------------
@@ -122,7 +122,7 @@ export default function ServicePage() {
             <p className="mt-3 text-[var(--text-muted)] leading-relaxed">{service.description_service}</p>
 
             <dl className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm mt-5">
-              <div><dt className="font-semibold inline">Preço: </dt><dd className="inline text-[var(--text-muted)]">{formatServicePrice(service.price, service.priceUnit, service.packages)}</dd></div>
+              <div><dt className="font-semibold inline">Preço: </dt><dd className="inline text-[var(--text-muted)]">{displayServicePrice(service)}</dd></div>
               <div><dt className="font-semibold inline">Duração: </dt><dd className="inline text-[var(--text-muted)]">{service.duration || "-"}</dd></div>
               <div><dt className="font-semibold inline">Negociável: </dt><dd className="inline text-[var(--text-muted)]">{service.negotiable ? "Sim" : "Não"}</dd></div>
               <div><dt className="font-semibold inline">Agendamento: </dt><dd className="inline text-[var(--text-muted)]">{service.requiresScheduling ? "Sim" : "Não"}</dd></div>
