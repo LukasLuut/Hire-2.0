@@ -15,8 +15,9 @@
  * -------------------------------------------------------------------------- */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { matchesSearch } from "../../../utils/search";
 import { motion,  LayoutGroup } from "framer-motion";
-import { Search, X, Filter } from "lucide-react";
+import SearchWithFilters, { FilterToggle, filterField } from "../../Search/SearchWithFilters";
 import PostCard from "../Service/Service";
 import { providerApi } from "../../../api/ProviderAPI";
 import { serviceAPI, toServiceData, type ServiceData } from "../../../api/ServiceAPI";
@@ -71,8 +72,14 @@ export default function ServiceGalleryZoom({
    * ESTADOS PRINCIPAIS
    * ------------------------------------------------------------------------ */
   const [searchTerm, setSearchTerm] = useState(""); // texto digitado na barra de busca
-  const [priceOrder, setPriceOrder] = useState<"asc" | "desc" | null>(null); // ordenação por preço
-  const [minRating, setMinRating] = useState<number>(0); // nota mínima
+  // filtros do painel (mesmos da busca da Home)
+  const [subFilter, setSubFilter] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [sortBy, setSortBy] = useState<"relevance" | "price_asc" | "price_desc" | "rating">("relevance");
+  const [onlyOnline, setOnlyOnline] = useState(false);
+  const [onlyScheduling, setOnlyScheduling] = useState(false);
+  const activeFilters = [!!subFilter, !!maxPrice, sortBy !== "relevance", onlyOnline, onlyScheduling].filter(Boolean).length;
+  const clearFilters = () => { setSubFilter(""); setMaxPrice(""); setSortBy("relevance"); setOnlyOnline(false); setOnlyScheduling(false); };
   const [filtered, setFiltered] = useState<ServiceData[]>(services); // lista filtrada
   const [isMobile, setIsMobile] = useState(false); // controle de largura da tela
 
@@ -107,28 +114,24 @@ export default function ServiceGalleryZoom({
 
     // Busca por texto em título, descrição e categoria
     if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      results = results.filter(
-        (srv) =>
-          srv.title.toLowerCase().includes(term) ||
-          srv.description_service.toLowerCase().includes(term) ||
-          (srv.category?.name ?? "").toLowerCase().includes(term) ||
-          (srv.subcategory ?? "").toLowerCase().includes(term)
-      );
+      results = results.filter((srv) => matchesSearch(searchTerm, srv.title, srv.description_service, srv.category?.name, srv.subcategory));
     }
 
-    // Ordenação por preço
-    if (priceOrder) {
-      results.sort((a, b) => (priceOrder === "asc" ? a.price - b.price : b.price - a.price));
-    }
+    if (subFilter) results = results.filter((srv) => srv.subcategory === subFilter);
+    const max = Number(maxPrice.replace(",", "."));
+    if (maxPrice && max > 0) results = results.filter((srv) => srv.priceUnit !== "orcamento" && srv.price <= max);
+    if (onlyOnline) results = results.filter((srv) => srv.online);
+    if (onlyScheduling) results = results.filter((srv) => srv.requiresScheduling);
 
-    // Filtro de nota mínima
-    if (minRating > 0) {
-      results = results.filter((srv) => srv.rating >= minRating);
-    }
+    if (sortBy === "price_asc") results.sort((a, b) => a.price - b.price);
+    if (sortBy === "price_desc") results.sort((a, b) => b.price - a.price);
+    if (sortBy === "rating") results.sort((a, b) => b.rating - a.rating);
 
     setFiltered(results);
-  }, [searchTerm, priceOrder, minRating, services]);
+  }, [searchTerm, subFilter, maxPrice, sortBy, onlyOnline, onlyScheduling, services]);
+
+  // subcategorias dos serviços deste prestador
+  const subcategories = useMemo(() => [...new Set(services.map((s) => s.subcategory).filter(Boolean))].sort(), [services]);
 
   /* ==========================================================================
    * RENDERIZAÇÃO
@@ -147,78 +150,62 @@ export default function ServiceGalleryZoom({
         {/* ------------------------------------------------------------------
          * BARRA DE PESQUISA + TAGS + FILTROS
          * ------------------------------------------------------------------ */}
-        <div className="flex flex-col items-center gap-3 mb-5">
-          {/* Campo de busca */}
-          <div className="relative w-full max-w-2xl">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar por título, categoria ou descrição..."
-              className="w-full py-3 pl-12 pr-16 rounded-full bg-black/10 border border-[var(--text)]/30 text-[var(--text)] placeholder-[var(--text)]/50 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition"
-            />
-            <Search className="absolute left-4 top-3.5 text-[var(--text)]/60" size={20} />
-            <button
-              onClick={() => setSearchTerm("")}
-              aria-label="Limpar busca"
-              className="absolute right-4 top-4 text-[var(--text)]/60 hover:text-[var(--primary)]"
-            >
-              <X size={18} />
-            </button>
-            {/* Tags sugeridas */}
-          <div className="flex flex-wrap justify-center gap-2 mt-4">
-            {tags.slice(0, isMobile ? 3 : tags.length).map((tag) => (
-              <motion.button
-                key={tag}
-                onClick={() => setSearchTerm(tag)}
-                className={`px-3 py-1 rounded-full text-sm border border-[var(--text)]/30 hover:border-[var(--primary)] hover:text-[var(--primary)] transition ${
-                  searchTerm === tag ? "bg-[var(--primary)]/20 border-[var(--primary)]" : ""
-                }`}
-                whileTap={{ scale: 0.95 }}
-              >
-                {tag}
-              </motion.button>
-            ))}
-          </div>
-          </div>          
-
-          {/* Filtros adicionais: só para quem visita (no Business, com os próprios serviços, não fazem sentido) */}
-          {noEdit && <div className="flex flex-wrap bg-[var(--bg)] md:rounded-full rounded-2xl py-1 px-4 justify-center gap-4 mt-5 text-sm">
-            {/* Filtro de preço */}
-            <div className="flex items-center gap-2">
-              <Filter size={16} />
-              <span>Preço:</span>
-              <button
-                onClick={() => setPriceOrder("asc")}
-                className={`px-2 py-1 rounded ${priceOrder === "asc" ? "bg-[var(--primary)]/30" : "hover:bg-black/20"}`}
-              >
-                ↑
-              </button>
-              <button
-                onClick={() => setPriceOrder("desc")}
-                className={`px-2 py-1 rounded ${priceOrder === "desc" ? "bg-[var(--primary)]/30" : "hover:bg-black/20"}`}
-              >
-                ↓
-              </button>
-              <button onClick={() => setPriceOrder(null)} className="px-2 py-1 rounded hover:bg-black/20">
-                Reset
-              </button>
+        <div className="w-full max-w-3xl mx-auto mb-10">
+          {/* no Business (serviços do próprio prestador) só a busca; para quem visita, busca + filtros */}
+          <SearchWithFilters
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Buscar por título, categoria ou descrição..."
+            activeCount={activeFilters}
+            resultCount={filtered.length}
+            onClear={clearFilters}
+            showFilters={noEdit}
+          >
+            <label className="grid gap-1 text-sm">
+              <span className="text-[var(--text-muted)]">Subcategoria</span>
+              <select value={subFilter} onChange={(e) => setSubFilter(e.target.value)} disabled={subcategories.length === 0} className={`${filterField} disabled:opacity-50`}>
+                <option value="">Todas</option>
+                {subcategories.map((sc) => <option key={sc} value={sc}>{sc}</option>)}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm">
+              <span className="text-[var(--text-muted)]">Preço máximo (R$)</span>
+              <input type="number" inputMode="decimal" min={0} step={10} value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} placeholder="Sem limite" className={filterField} />
+            </label>
+            <label className="grid gap-1 text-sm sm:col-span-2">
+              <span className="text-[var(--text-muted)]">Ordenar por</span>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)} className={filterField}>
+                <option value="relevance">Relevância</option>
+                <option value="price_asc">Menor preço</option>
+                <option value="price_desc">Maior preço</option>
+                <option value="rating">Avaliação</option>
+              </select>
+            </label>
+            <div role="group" aria-label="Disponibilidade" className="sm:col-span-2 grid gap-1 text-sm">
+              <span className="text-[var(--text-muted)]">Disponibilidade</span>
+              <div className="flex flex-wrap gap-2">
+                <FilterToggle label="Online" on={onlyOnline} onChange={setOnlyOnline} />
+                <FilterToggle label="Agenda online" on={onlyScheduling} onChange={setOnlyScheduling} />
+              </div>
             </div>
+          </SearchWithFilters>
 
-            {/* Filtro de avaliação */}
-            <div className="flex items-center  gap-2">
-              <span>Nota mínima:</span>
-              {[0, 4, 4.5, 5].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setMinRating(n)}
-                  className={`px-2  py-1 rounded ${minRating === n ? "bg-[var(--primary)]/30" : "hover:bg-black/20"}`}
+          {/* atalhos (subcategorias e categoria) */}
+          {tags.length > 1 && (
+            <div className="mt-3 flex gap-2 flex-wrap">
+              {tags.slice(0, isMobile ? 3 : 8).map((tag) => (
+                <motion.button
+                  key={tag}
+                  onClick={() => setSearchTerm(searchTerm === tag ? "" : tag)}
+                  aria-pressed={searchTerm === tag}
+                  className={`text-xs px-3 py-1 rounded-full border transition ${searchTerm === tag ? "bg-[var(--primary)] border-[var(--primary)] text-white" : "bg-[var(--bg-light)]/30 border-[var(--border-muted)] text-[var(--text-muted)] hover:text-[var(--text)]"}`}
+                  whileTap={{ scale: 0.95 }}
                 >
-                  {n === 0 ? "Todas" : `${n}★`}
-                </button>
+                  #{tag}
+                </motion.button>
               ))}
             </div>
-          </div>}
+          )}
         </div>
 
         {/* ------------------------------------------------------------------
@@ -238,7 +225,7 @@ export default function ServiceGalleryZoom({
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-[var(--text-muted)]">
             Nenhum serviço encontrado.{" "}
-            <button onClick={() => { setSearchTerm(""); setMinRating(0); setPriceOrder(null); }} className="text-[var(--primary)] underline">Limpar filtros</button>
+            <button onClick={() => { setSearchTerm(""); clearFilters(); }} className="text-[var(--primary)] underline">Limpar filtros</button>
           </div>
         ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-8 pb-16">

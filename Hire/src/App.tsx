@@ -48,6 +48,15 @@ function RequireAuth({ children }: { children: ReactNode }) {
 }
 
 // "/" mostra a apresentação para visitantes; quem já entrou vai para a Home
+/** Ao trocar de página, começa do topo (links com #âncora continuam indo para a seção) */
+function ScrollToTop() {
+  const { pathname, hash } = useLocation();
+  useEffect(() => {
+    if (!hash) window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
+  }, [pathname, hash]);
+  return null;
+}
+
 function RootRedirect() {
   const { token } = useSession();
   return token ? <Navigate to="/home" replace /> : <ApresentationPage />;
@@ -76,6 +85,7 @@ export default function App() {
   return (
     <Router>
       <Accessibility/>
+      <ScrollToTop />
       <Navbar theme={theme} setTheme={setTheme} />
       <EmailVerifyBanner />
       <main id="main-content" tabIndex={-1} className="outline-none">

@@ -118,12 +118,6 @@ export default function ProviderPublicPage() {
     <div className="min-h-screen bg-[var(--bg-dark)] pt-25 text-[var(--text)] px-4 sm:px-6 md:px-8 lg:px-10 py-6">
       <div className="max-w-[90%] mx-auto">
         <div className="flex justify-end gap-2 flex-wrap">
-          <button
-            onClick={() => setShareOpen(true)}
-            className="px-3 md:px-4 py-2 border min-h-12 flex gap-2 items-center border-[var(--border)] rounded-lg hover:bg-[var(--bg-light)] transition"
-          >
-            <Share2 size={20} /> Compartilhar
-          </button>
           {isMe ? (
             <button onClick={() => navigate("/business")} className="px-4 py-2 border border-[var(--border)] rounded-lg hover:bg-[var(--bg-light)] transition">
               Este é o seu perfil — ir para o painel
@@ -136,6 +130,12 @@ export default function ProviderPublicPage() {
               <MessageSquare size={20} /> {token ? "Chat com o prestador" : "Entrar para conversar"}
             </button>
           )}
+          <button
+            onClick={() => setShareOpen(true)}
+            className="px-3 md:px-4 py-2 min-h-12 flex gap-2 items-center rounded-lg bg-[var(--primary)] text-white font-medium hover:brightness-110 transition"
+          >
+            <Share2 size={20} /> Compartilhar
+          </button>
         </div>
 
         <ProviderHero provider={provider} readOnly services={services} />

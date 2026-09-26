@@ -1,18 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { matchesSearch } from "../utils/search";
 import { providerPath } from "../utils/providerPath";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import {
-  Search,
-  SlidersHorizontal,
   Star,
   Clock,
-  ChevronLeft,
-  ChevronRight,
+  Plus,
   HandCoins,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { serviceAPI, serviceImages, type ServiceData } from "../api/ServiceAPI";
 import LocationBar from "../components/LocationBar";
+import SearchWithFilters, { FilterToggle, filterField } from "../components/Search/SearchWithFilters";
 import { displayServicePrice } from "../utils/price";
 import ServiceAreaLine from "../components/ServiceAreaLine";
 import { loadLocation, saveLocation, type ClientLocation } from "../utils/location";
@@ -63,8 +62,6 @@ type Provider = {
   ratingCount: number;
   specialty: string;
 };
-
-const filterField = "w-full p-2.5 rounded-xl bg-[var(--bg-dark)] border border-[var(--border)] text-[var(--text)] outline-none focus:border-[var(--primary)]";
 
 /** Nota "bayesiana": poucas avaliações puxam para a média geral (4,0) */
 const score = (s: Service) => (s.rating * s.ratingCount + 4 * 3) / (s.ratingCount + 3) + (s.data.provider?.openNow === false ? -1 : 0);
@@ -202,10 +199,8 @@ export default function ServiceDashboardSophisticated() {
   // filtering + sorting
   const filtered = useMemo(() => {
     const list = (services || []).filter((s) => {
-      const matchesQuery =
-        debouncedQuery.trim() === "" ||
-        s.title.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
-        s.shortDescription.toLowerCase().includes(debouncedQuery.toLowerCase());
+      // todas as palavras, em qualquer ordem e sem acento: título, descrição, categoria, subcategoria e prestador
+      const matchesQuery = matchesSearch(debouncedQuery, s.title, s.shortDescription, s.category, s.data.subcategory, s.provider?.professionalName);
       const matchesCategory =
         (categoryFilter === "Todos" || s.category === categoryFilter) && (!subFilter || s.data.subcategory === subFilter);
       const max = Number(maxPrice.replace(",", "."));
@@ -226,17 +221,6 @@ export default function ServiceDashboardSophisticated() {
     return relevance(list);
   }, [services, debouncedQuery, categoryFilter, subFilter, sortBy, maxPrice, onlyOpen, onlyOnline, onlyScheduling]);
 
-  // painel de filtros (ícone no fim da barra de busca): fecha com Esc ou clique fora
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const filtersRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!filtersOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setFiltersOpen(false);
-    const onClick = (e: MouseEvent) => { if (!filtersRef.current?.contains(e.target as Node)) setFiltersOpen(false); };
-    window.addEventListener("keydown", onKey);
-    window.addEventListener("mousedown", onClick);
-    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("mousedown", onClick); };
-  }, [filtersOpen]);
   const activeFilters = [categoryFilter !== "Todos", !!subFilter, !!maxPrice, onlyOpen, onlyOnline, onlyScheduling, sortBy !== "relevance"].filter(Boolean).length;
   const clearFilters = () => {
     setCategoryFilter("Todos");
@@ -256,9 +240,22 @@ export default function ServiceDashboardSophisticated() {
   }, [services, categoryFilter]);
 
   // pagination (simple)
-  const pageSize = 8;
-  const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  // "Carregar mais": 9 por vez (3 fileiras de 3); filtros voltam para o começo
+  const pageSize = 9;
+  const paged = filtered.slice(0, page * pageSize);
+  const hasMore = paged.length < filtered.length;
+
+  // prestadores recomendados: os dos serviços que batem com a busca/filtros (ou os mais bem avaliados)
+  const narrowed = !!debouncedQuery.trim() || categoryFilter !== "Todos" || !!subFilter;
+  const recommended = useMemo(() => {
+    const all = providers ?? [];
+    const bayes = (p: Provider) => (p.rating * p.ratingCount + 4 * 3) / (p.ratingCount + 3);
+    const pool = narrowed
+      ? [...new Set(filtered.map((s) => s.provider?.id).filter(Boolean) as number[])].map((id) => all.find((p) => p.id === id)).filter(Boolean) as Provider[]
+      : all;
+    return [...pool].sort((a, b) => bayes(b) - bayes(a)).slice(0, 30);
+  }, [providers, filtered, narrowed]);
+  const recommendedFor = subFilter || (categoryFilter !== "Todos" ? categoryFilter : debouncedQuery.trim());
 
   // motion variants
   const cardVariants = {
@@ -314,133 +311,50 @@ export default function ServiceDashboardSophisticated() {
             />
             <div className="flex flex-col lg:flex-row items-stretch lg:items-start gap-4 mb-10">
               {/* busca: ocupa todo o espaço até a localização; filtros no ícone do fim da barra */}
-              <div className="flex-1 min-w-0 relative" ref={filtersRef}>
-                <div
-                  className="flex items-center gap-3 h-[52px] pl-4 pr-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)] focus-within:border-[var(--primary)] transition"
-                  role="search"
+              <div className="flex-1 min-w-0">
+                <SearchWithFilters
+                  value={query}
+                  onChange={setQuery}
+                  placeholder="Procure por serviços, habilidades ou palavras-chave..."
+                  activeCount={activeFilters}
+                  resultCount={filtered.length}
+                  onClear={clearFilters}
                 >
-                  <Search className="shrink-0 text-[var(--text-muted)]" size={20} aria-hidden />
-                  <input
-                    aria-label="Buscar serviços"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Procure por serviços, habilidades ou palavras-chave..."
-                    className="bg-transparent outline-none text-[var(--text)] placeholder:text-[var(--text-muted)] flex-1 min-w-0"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setFiltersOpen((v) => !v)}
-                    aria-expanded={filtersOpen}
-                    aria-controls="search-filters"
-                    aria-label={activeFilters ? `Filtros (${activeFilters} ativos)` : "Filtros"}
-                    className={`relative shrink-0 flex items-center gap-2 h-9 px-3 rounded-xl border transition ${filtersOpen || activeFilters ? "border-[var(--primary)] text-[var(--text)]" : "border-transparent text-[var(--text-muted)] hover:text-[var(--text)]"}`}
-                  >
-                    <SlidersHorizontal size={18} aria-hidden />
-                    <span className="hidden sm:inline text-sm">Filtros</span>
-                    {activeFilters > 0 && (
-                      <span className="min-w-5 h-5 px-1 rounded-full bg-[var(--primary)] text-white text-xs flex items-center justify-center">{activeFilters}</span>
-                    )}
-                  </button>
-                </div>
-
-                <AnimatePresence>
-                  {filtersOpen && (
-                    <motion.div
-                      id="search-filters"
-                      initial={{ opacity: 0, y: -6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute z-30 left-0 right-0 mt-2 p-4 rounded-2xl bg-[var(--bg)] border border-[var(--border)] shadow-xl grid gap-4 sm:grid-cols-2"
-                    >
-                      <label className="grid gap-1 text-sm">
-                        <span className="text-[var(--text-muted)]">Categoria</span>
-                        <select
-                          value={categoryFilter}
-                          onChange={(e) => { setCategoryFilter(e.target.value); setSubFilter(""); setPage(1); }}
-                          className={filterField}
-                          aria-label="Filtrar por categoria"
-                        >
-                          {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                      </label>
-
-                      <label className="grid gap-1 text-sm">
-                        <span className="text-[var(--text-muted)]">Subcategoria</span>
-                        <select
-                          value={subFilter}
-                          onChange={(e) => { setSubFilter(e.target.value); setPage(1); }}
-                          disabled={subcategories.length === 0}
-                          className={`${filterField} disabled:opacity-50`}
-                          aria-label="Filtrar por subcategoria"
-                        >
-                          <option value="">{categoryFilter === "Todos" ? "Escolha uma categoria" : "Todas as subcategorias"}</option>
-                          {subcategories.map((sc) => <option key={sc} value={sc}>{sc}</option>)}
-                        </select>
-                      </label>
-
-                      <label className="grid gap-1 text-sm">
-                        <span className="text-[var(--text-muted)]">Preço máximo (R$)</span>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min={0}
-                          step={10}
-                          value={maxPrice}
-                          onChange={(e) => { setMaxPrice(e.target.value); setPage(1); }}
-                          placeholder="Sem limite"
-                          aria-label="Preço máximo em reais"
-                          className={filterField}
-                        />
-                      </label>
-
-                      <label className="grid gap-1 text-sm">
-                        <span className="text-[var(--text-muted)]">Ordenar por</span>
-                        <select
-                          value={sortBy}
-                          onChange={(e) => setSortBy(e.target.value as "relevance" | "rating" | "price" | "distance")}
-                          className={filterField}
-                          aria-label="Ordenar por"
-                        >
-                          <option value="relevance">Relevância</option>
-                          <option value="rating">Avaliação</option>
-                          <option value="price">Menor preço</option>
-                          {location && <option value="distance">Mais perto</option>}
-                        </select>
-                      </label>
-
-                      <div role="group" aria-label="Disponibilidade" className="sm:col-span-2 grid gap-1 text-sm">
-                        <span className="text-[var(--text-muted)]">Disponibilidade</span>
-                        <div className="flex flex-wrap gap-2">
-                          {([
-                            ["Aberto agora", onlyOpen, setOnlyOpen],
-                            ["Online", onlyOnline, setOnlyOnline],
-                            ["Agenda online", onlyScheduling, setOnlyScheduling],
-                          ] as [string, boolean, (v: boolean) => void][]).map(([label, on, set]) => (
-                            <button
-                              key={label}
-                              type="button"
-                              aria-pressed={on}
-                              onClick={() => { set(!on); setPage(1); }}
-                              className={`px-3 py-1.5 rounded-full border transition ${on ? "bg-[var(--primary)] border-[var(--primary)] text-white" : "border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"}`}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="sm:col-span-2 flex justify-between items-center pt-1 border-t border-[var(--border)]">
-                        <button type="button" onClick={clearFilters} disabled={!activeFilters} className="text-sm text-[var(--text-muted)] hover:text-[var(--text)] disabled:opacity-40 pt-3">
-                          Limpar filtros
-                        </button>
-                        <button type="button" onClick={() => setFiltersOpen(false)} className="mt-3 px-4 py-2 rounded-xl bg-[var(--primary)] text-white text-sm font-medium">
-                          Ver {filtered.length} resultado{filtered.length === 1 ? "" : "s"}
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-[var(--text-muted)]">Categoria</span>
+                    <select value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setSubFilter(""); setPage(1); }} className={filterField} aria-label="Filtrar por categoria">
+                      {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-[var(--text-muted)]">Subcategoria</span>
+                    <select value={subFilter} onChange={(e) => { setSubFilter(e.target.value); setPage(1); }} disabled={subcategories.length === 0} className={`${filterField} disabled:opacity-50`} aria-label="Filtrar por subcategoria">
+                      <option value="">{categoryFilter === "Todos" ? "Escolha uma categoria" : "Todas as subcategorias"}</option>
+                      {subcategories.map((sc) => <option key={sc} value={sc}>{sc}</option>)}
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-[var(--text-muted)]">Preço máximo (R$)</span>
+                    <input type="number" inputMode="decimal" min={0} step={10} value={maxPrice} onChange={(e) => { setMaxPrice(e.target.value); setPage(1); }} placeholder="Sem limite" aria-label="Preço máximo em reais" className={filterField} />
+                  </label>
+                  <label className="grid gap-1 text-sm">
+                    <span className="text-[var(--text-muted)]">Ordenar por</span>
+                    <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "relevance" | "rating" | "price" | "distance")} className={filterField} aria-label="Ordenar por">
+                      <option value="relevance">Relevância</option>
+                      <option value="rating">Avaliação</option>
+                      <option value="price">Menor preço</option>
+                      {location && <option value="distance">Mais perto</option>}
+                    </select>
+                  </label>
+                  <div role="group" aria-label="Disponibilidade" className="sm:col-span-2 grid gap-1 text-sm">
+                    <span className="text-[var(--text-muted)]">Disponibilidade</span>
+                    <div className="flex flex-wrap gap-2">
+                      <FilterToggle label="Aberto agora" on={onlyOpen} onChange={(v) => { setOnlyOpen(v); setPage(1); }} />
+                      <FilterToggle label="Online" on={onlyOnline} onChange={(v) => { setOnlyOnline(v); setPage(1); }} />
+                      <FilterToggle label="Agenda online" on={onlyScheduling} onChange={(v) => { setOnlyScheduling(v); setPage(1); }} />
+                    </div>
+                  </div>
+                </SearchWithFilters>
 
                 {/* atalhos de categoria */}
                 <div className="mt-3 flex gap-2 flex-wrap">
@@ -480,43 +394,14 @@ export default function ServiceDashboardSophisticated() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    setPage(1);
-                    setSortBy(sortBy === "rating" ? "relevance" : "rating");
-                  }}
-                  className="px-3 py-1 text-sm rounded-full bg-[var(--bg-light)]/30 border border-[var(--border-muted)]"
-                >
-                  Alternar ordenação
-                </button>
-                {totalPages > 1 && (<>
-                <div className="text-xs text-[var(--text-muted)]">
-                  Página {page}/{totalPages}
-                </div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    className="p-2 rounded-lg bg-[var(--bg-light)]/20 border border-[var(--border-muted)]"
-                    aria-label="Página anterior"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  <button
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    className="p-2 rounded-lg bg-[var(--bg-light)]/20 border border-[var(--border-muted)]"
-                    aria-label="Próxima página"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
-                </>)}
-              </div>
+              {filtered.length > 0 && (
+                <p className="text-xs text-[var(--text-muted)]">Mostrando {paged.length} de {filtered.length}</p>
+              )}
             </div>
 
             {/* grid */}
             <motion.div
-              className="grid grid-cols-1 mt-10 sm:grid-cols-2 xl:grid-cols-3 gap-6"
+              className="grid grid-cols-1 mt-10 sm:grid-cols-2 lg:grid-cols-3 gap-6"
               initial="hidden"
               animate="visible"
             >
@@ -552,7 +437,14 @@ export default function ServiceDashboardSophisticated() {
                     }}
                     className="relative rounded-2xl overflow-hidden bg-[linear-gradient(180deg,rgba(255,255,255,0.01), rgba(255,255,255,0.015))] border border-[var(--border)] shadow-[0_6px_18px_rgba(0,0,0,0.3)]"
                   >
-                    <div className="relative">
+                    <div
+                      className="relative cursor-pointer"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Ver detalhes de ${srv.title}`}
+                      onClick={() => { setSelectedService(srv); handleDetail(); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedService(srv); handleDetail(); } }}
+                    >
                       <img
                         src={srv.images[0]}
                         alt={srv.title}
@@ -666,6 +558,16 @@ export default function ServiceDashboardSophisticated() {
                 </div>
               )}
             </motion.div>
+            {!loading && hasMore && (
+              <div className="flex justify-center mt-8">
+                <button
+                  onClick={() => setPage((p) => p + 1)}
+                  className="flex items-center gap-2 px-6 py-3 rounded-full bg-[var(--primary)] text-white font-medium hover:brightness-110 transition"
+                >
+                  <Plus size={18} /> Carregar mais serviços
+                </button>
+              </div>
+            )}
           </section>
 
           {/* RIGHT SIDEBAR (Top Providers) */}
@@ -676,20 +578,22 @@ export default function ServiceDashboardSophisticated() {
               transition={{ duration: 0.4 }}
               className="w-80 bg-[var(--bg-light)]/40 backdrop-blur-xl rounded-2xl p-4 border border-[var(--border)] shadow-lg"
             >
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-semibold">Top Prestadores</h4>
-                <div className="text-xs text-[var(--text-muted)]">Mais bem avaliados</div>
+              <div className="mb-3">
+                <h4 className="font-semibold">Prestadores recomendados</h4>
+                <div className="text-xs text-[var(--text-muted)] truncate">
+                  {narrowed && recommendedFor ? `Para "${recommendedFor}"` : "Mais bem avaliados"} · {recommended.length}
+                </div>
               </div>
 
-              <div className="flex flex-col gap-3">
-                {(providers ?? []).length === 0 && (
-                  <p className="text-sm text-[var(--text-muted)]">Nenhum prestador cadastrado ainda.</p>
+              {/* só a lista rola (a página fica parada enquanto o mouse está aqui) */}
+              <div className="flex flex-col gap-3 max-h-[calc(100vh-14rem)] overflow-y-auto overscroll-contain pr-1 -mr-1">
+                {recommended.length === 0 && (
+                  <p className="text-sm text-[var(--text-muted)]">{narrowed ? "Nenhum prestador para essa busca." : "Nenhum prestador cadastrado ainda."}</p>
                 )}
-                {(providers ?? []).slice(0, 5).map((p) => (
+                {recommended.map((p) => (
                   <motion.div
                     key={p.id}
-                    className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)] border border-[var(--border-muted)] hover:border-[var(--highlight)] transition"
-                    whileHover={{ scale: 1.02 }}
+                    className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)] border border-[var(--border-muted)] hover:border-[var(--highlight)] transition shrink-0"
                   >
                     <img
                       src={p.avatar}
@@ -718,9 +622,9 @@ export default function ServiceDashboardSophisticated() {
 
           {/* mobile providers carousel */}
           <div className="lg:hidden mt-6">
-            <h4 className="text-sm font-semibold mb-3">Top Prestadores</h4>
+            <h4 className="text-sm font-semibold mb-3">Prestadores recomendados{narrowed && recommendedFor ? ` para "${recommendedFor}"` : ""}</h4>
             <div className="flex gap-3 overflow-x-auto pb-2">
-              {(providers ?? []).slice(0, 5).map((p) => (
+              {recommended.slice(0, 12).map((p) => (
                 <motion.div
                   key={p.id}
                   className="min-w-[200px] flex-shrink-0 rounded-2xl p-3 bg-[var(--bg-light)]/30 border border-[var(--border)]"

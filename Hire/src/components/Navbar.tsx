@@ -1,103 +1,149 @@
-import { useState } from "react";
+import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Sun, Moon, LogOut, LifeBuoy } from "lucide-react";
-import { NavLink, useNavigate } from "react-router-dom";
+import {
+  Menu, X, Sun, Moon, LogOut, LifeBuoy, Home, ClipboardList, Handshake, ListTodo, Briefcase, Shield, Wallet,
+} from "lucide-react";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useSession } from "../context/SessionContext";
 import NotificationBell from "./NotificationBell";
 
-export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (t: "dark"|"light") => void }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
+type Item = { label: string; to: string; icon: ComponentType<{ size?: number }> };
+
+/** Botão só com ícone; o nome aparece depois de 1 s com o mouse em cima (ou no foco pelo teclado) */
+function IconTip({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <span className="relative group inline-flex">
+      {children}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded-md text-xs
+                   bg-[var(--bg-light)] border border-[var(--border)] text-[var(--text)] shadow-lg
+                   opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-hover:delay-1000 group-focus-within:opacity-100"
+      >
+        {label}
+      </span>
+    </span>
+  );
+}
+
+const iconBtn = "p-2 rounded-full border border-[var(--border)] bg-[var(--bg-light)] text-[var(--text)] transition hover:border-[var(--highlight)] shadow-lg";
+
+export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (t: "dark" | "light") => void }) {
+  const [open, setOpen] = useState(false);
   const { token, provider, user, logout } = useSession();
   const navigate = useNavigate();
+  const location = useLocation();
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  // "Business" só aparece para quem já é prestador
-  const links = token
+  // "Business" e "Carteira" só aparecem para quem já é prestador
+  const links: Item[] = token
     ? [
-        { label: "Home", to: "/home" },
-        { label: "Contratações", to: "/hires" },
-        { label: "Negociações", to: "/negotiations" },
-        { label: "Pendências", to: "/pendencias" },
-        ...(provider ? [{ label: "Business", to: "/business" }] : []),
-        ...(user?.isAdmin ? [{ label: "Admin", to: "/admin" }] : []),
+        { label: "Home", to: "/home", icon: Home },
+        { label: "Contratações", to: "/hires", icon: ClipboardList },
+        { label: "Negociações", to: "/negotiations", icon: Handshake },
+        { label: "Pendências", to: "/pendencias", icon: ListTodo },
+        ...(provider ? [{ label: "Business", to: "/business", icon: Briefcase }, { label: "Carteira", to: "/carteira", icon: Wallet }] : []),
+        ...(user?.isAdmin ? [{ label: "Admin", to: "/admin", icon: Shield }] : []),
+        { label: "Ajuda", to: "/ajuda", icon: LifeBuoy },
       ]
     : [];
 
+  // fecha ao navegar, com Esc ou clicando fora
+  useEffect(() => setOpen(false), [location.pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    const onClick = (e: MouseEvent) => { if (!menuRef.current?.contains(e.target as Node)) setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("mousedown", onClick);
+    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("mousedown", onClick); };
+  }, [open]);
+
   const handleLogout = () => {
     logout();
-    setMobileOpen(false);
+    setOpen(false);
     navigate("/auth");
   };
+  const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `transition hover:text-[var(--text-highlight)] ${isActive ? "text-[var(--primary)]" : "text-[var(--text)]"}`;
 
+  // itens da cascata, do mais perto do botão de menu para o mais longe
+  const cascade = [
+    ...links.map((l) => ({ ...l, kind: "link" as const })),
+    { label: theme === "dark" ? "Modo claro" : "Modo escuro", to: "", icon: theme === "dark" ? Sun : Moon, kind: "theme" as const },
+    { label: "Sair", to: "", icon: LogOut, kind: "logout" as const },
+  ];
+
   return (
     <nav className="fixed w-full z-50 bg-[var(--bg-dark)]/70 backdrop-blur-md border-b border-[var(--border)]">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-        {/* Logo / Brand */}
-        <div className="text-xl font-bold text-[var(--text)]">Hire.</div>
+        {/* Logo: volta para a Home */}
+        <Link to={token ? "/home" : "/"} className="text-xl font-bold text-[var(--text)] hover:text-[var(--primary)] transition" aria-label="Hire. — ir para a Home">
+          Hire.
+        </Link>
 
-        {/* Desktop Links */}
-        <div className="hidden md:flex gap-6 items-center">
-          {links.map((link) => (
-            <NavLink key={link.to} to={link.to} className={linkClass}>
-              {link.label}
-            </NavLink>
-          ))}
+        {/* Direita: sino + menu (o menu abre para a esquerda só com ícones) */}
+        <div className="flex items-center gap-2" ref={menuRef}>
+          {token ? (
+            <>
+              <div className="relative hidden md:block">
+                <AnimatePresence>
+                  {open && (
+                    <motion.ul
+                      className="absolute right-full top-1/2 -translate-y-1/2 mr-3 flex items-center gap-2"
+                      initial="hidden"
+                      animate="shown"
+                      exit="hidden"
+                      aria-label="Menu"
+                    >
+                      {cascade.map((item, i) => {
+                        const Icon = item.icon;
+                        return (
+                          <motion.li
+                            key={item.label}
+                            variants={{ hidden: { opacity: 0, x: 16 }, shown: { opacity: 1, x: 0, transition: { delay: (cascade.length - 1 - i) * 0.03 } } }}
+                          >
+                            <IconTip label={item.label}>
+                              {item.kind === "link" ? (
+                                <NavLink
+                                  to={item.to}
+                                  aria-label={item.label}
+                                  className={({ isActive }) => `${iconBtn} flex ${isActive ? "!bg-[var(--primary)] !border-[var(--primary)] !text-white" : ""}`}
+                                >
+                                  <Icon size={20} />
+                                </NavLink>
+                              ) : (
+                                <button type="button" aria-label={item.label} onClick={item.kind === "theme" ? toggleTheme : handleLogout} className={`${iconBtn} flex`}>
+                                  <Icon size={20} />
+                                </button>
+                              )}
+                            </IconTip>
+                          </motion.li>
+                        );
+                      })}
+                    </motion.ul>
+                  )}
+                </AnimatePresence>
+              </div>
 
-          {token && <NotificationBell />}
-
-          {token && (
-            <NavLink
-              to="/ajuda"
-              aria-label="Ajuda"
-              title="Ajuda"
-              className="p-2 rounded-full border border-[var(--border)] bg-[var(--bg-light)] text-[var(--text)] transition hover:border-[var(--highlight)] shadow-lg"
-            >
-              <LifeBuoy size={20} />
-            </NavLink>
-          )}
-
-          {/* Toggle Theme */}
-          <button
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            aria-label={theme === "dark" ? "Usar modo claro" : "Usar modo escuro"}
-            className="p-2 rounded-full border border-[var(--border)]
-                 bg-[var(--bg-light)] text-[var(--text)] transition hover:text-[var(--text)]
-                 hover:border-[var(--highlight)] shadow-lg"
-          >
-            {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-
-          {token && (
-            <button
-              onClick={handleLogout}
-              aria-label="Sair"
-              title="Sair"
-              className="p-2 rounded-full border border-[var(--border)] bg-[var(--bg-light)] text-[var(--text)] transition hover:border-[var(--highlight)] shadow-lg"
-            >
-              <LogOut size={20} />
+              <NotificationBell onNavigate={() => setOpen(false)} />
+              <button onClick={() => setOpen(!open)} aria-label={open ? "Fechar menu" : "Abrir menu"} aria-expanded={open} className={iconBtn}>
+                {open ? <X size={20} /> : <Menu size={20} />}
+              </button>
+            </>
+          ) : (
+            <button onClick={toggleTheme} aria-label={theme === "dark" ? "Usar modo claro" : "Usar modo escuro"} className={iconBtn}>
+              {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
             </button>
           )}
         </div>
-
-        {/* Mobile Menu Button */}
-        <div className="md:hidden flex items-center gap-2">
-          {token && <NotificationBell onNavigate={() => setMobileOpen(false)} />}
-          <button
-            onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
-            aria-expanded={mobileOpen}
-            className="p-2 rounded-full text-[var(--text)] border border-[var(--border)] bg-[var(--bg-light)] transition"
-          >
-            {mobileOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-        </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Celular: lista com nomes */}
       <AnimatePresence>
-        {mobileOpen && (
+        {token && open && (
           <motion.div
             className="md:hidden bg-[var(--bg-dark)]/95 backdrop-blur-md border-t border-[var(--border)] flex flex-col gap-4 px-6 py-4"
             initial={{ height: 0, opacity: 0 }}
@@ -106,43 +152,16 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
             transition={{ duration: 0.3 }}
           >
             {links.map((link) => (
-              <NavLink key={link.to} to={link.to} onClick={() => setMobileOpen(false)} className={linkClass}>
-                {link.label}
+              <NavLink key={link.to} to={link.to} className={linkClass}>
+                <span className="flex items-center gap-3"><link.icon size={18} /> {link.label}</span>
               </NavLink>
             ))}
-
-            {/* Toggle Theme */}
-            <button
-              onClick={() => {
-                setTheme(theme === "dark" ? "light" : "dark");
-                setMobileOpen(false);
-              }}
-              className="mt-2 p-2 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-light)] transition flex items-center justify-center"
-            >
-              {theme === "dark" ? <Sun className="ml-2 text-[var(--text)]" size={20} /> : <Moon size={20} />}
-              <span className="ml-2 text-[var(--text)]">{theme === "dark" ? "Modo Claro" : "Modo Escuro"}</span>
+            <button onClick={toggleTheme} className="flex items-center gap-3 text-[var(--text)]">
+              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />} {theme === "dark" ? "Modo claro" : "Modo escuro"}
             </button>
-
-            {token && (
-              <NavLink
-                to="/ajuda"
-                onClick={() => setMobileOpen(false)}
-                className="p-2 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-light)] transition flex items-center justify-center text-[var(--text)]"
-              >
-                <LifeBuoy size={20} className="ml-2" />
-                <span className="ml-2">Ajuda</span>
-              </NavLink>
-            )}
-
-            {token && (
-              <button
-                onClick={handleLogout}
-                className="p-2 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-light)] transition flex items-center justify-center text-[var(--text)]"
-              >
-                <LogOut size={20} className="ml-2" />
-                <span className="ml-2">Sair</span>
-              </button>
-            )}
+            <button onClick={handleLogout} className="flex items-center gap-3 text-[var(--text)]">
+              <LogOut size={18} /> Sair
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
