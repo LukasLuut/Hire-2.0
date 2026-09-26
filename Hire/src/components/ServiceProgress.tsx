@@ -39,7 +39,7 @@ export type ServiceProgressProps = {
   onChanged: () => void;
 };
 
-type Action = "accept" | "begin" | "deliver" | "confirm" | "cancel" | "reschedule";
+type Action = "accept" | "begin" | "deliver" | "confirm" | "cancel" | "reschedule" | "schedule";
 
 const ACTION_TEXT: Record<Action, { title: string; confirm: string; done: string }> = {
   accept: { title: "Aceitar este pedido?", confirm: "Aceitar pedido", done: "Pedido aceito. O cliente foi avisado." },
@@ -48,6 +48,7 @@ const ACTION_TEXT: Record<Action, { title: string; confirm: string; done: string
   confirm: { title: "Confirmar conclusão?", confirm: "Confirmar conclusão", done: "Conclusão confirmada!" },
   cancel: { title: "Cancelar este pedido?", confirm: "Cancelar pedido", done: "Pedido cancelado." },
   reschedule: { title: "Propor outro horário", confirm: "Enviar proposta", done: "Proposta enviada. A outra parte precisa aceitar." },
+  schedule: { title: "Escolher o horário", confirm: "Marcar horário", done: "Horário marcado. O prestador foi avisado." },
 };
 
 const buttonClass = (primary = false) =>
@@ -116,9 +117,9 @@ export function ServiceProgress({
       if (pending === "deliver") await hireAPI.concludeHireProvider(data.id);
       if (pending === "confirm") await hireAPI.concludeHire(data.id);
       if (pending === "cancel") await hireAPI.cancelHire(data.id, viewFor, cancelReason);
-      if (pending === "reschedule") {
-        if (!newSlot) { showToast("Escolha o novo horário.", "warning"); return; }
-        await hireAPI.reschedule(data.id, newSlot);
+      if (pending === "reschedule" || pending === "schedule") {
+        if (!newSlot) { showToast("Escolha o horário.", "warning"); return; }
+        await (pending === "schedule" ? hireAPI.schedule : hireAPI.reschedule)(data.id, newSlot);
       }
       showToast(ACTION_TEXT[pending].done, "success");
       const wasConfirm = pending === "confirm";
@@ -134,10 +135,10 @@ export function ServiceProgress({
     }
   };
 
-  const openReschedule = () => {
+  const openReschedule = (action: "reschedule" | "schedule" = "reschedule") => {
     setNewSlot(null);
     setAgenda(null);
-    setPending("reschedule");
+    setPending(action);
     if (data.service?.id) hireAPI.bookedSlots(data.service.id, data.id).then(setAgenda).catch(() => setAgenda({ busy: [], hours: {}, durationMinutes: 60 }));
   };
 
@@ -157,6 +158,8 @@ export function ServiceProgress({
   // a proposta de horário pendente é minha ou da outra parte?
   const me = viewFor === "client" ? "cliente" : "prestador";
   const canReschedule = !!data.scheduledAt && (stage === "requested" || stage === "accepted");
+  // pedido que veio de uma negociação: serviço com agenda ainda sem horário marcado
+  const awaitingSchedule = stage === "accepted" && !!data.service?.requiresScheduling && !data.scheduledAt;
   // cancelar agora cai dentro do prazo do serviço? (só conta para pedido aceito)
   const notice = noticeHours(data.service?.cancellationNotice);
   const lateNow = !!data.scheduledAt && !!data.acceptedAt && notice > 0 && Date.now() > new Date(data.scheduledAt).getTime() - notice * 3600000;
@@ -200,6 +203,9 @@ export function ServiceProgress({
               </p>
               {data.scheduledAt && (
                 <p className="text-xs text-[var(--text)] mt-1">Agendado para {formatDateTime(data.scheduledAt)}</p>
+              )}
+              {awaitingSchedule && (
+                <p className="text-xs text-amber-500 mt-1">Horário a definir: {viewFor === "client" ? "escolha na agenda do prestador" : "o cliente vai escolher na sua agenda"}.</p>
               )}
               {viewFor === "provider" && !!data.clientLateCancellations && (
                 <p className="text-xs text-amber-500 mt-1">Este cliente cancelou {data.clientLateCancellations} pedido(s) em cima da hora nos últimos 12 meses.</p>
@@ -324,7 +330,7 @@ export function ServiceProgress({
                   className="flex flex-col sm:flex-row flex-wrap gap-3"
                 >
                   {canReschedule && !data.rescheduleTo && (
-                    <button className={`${buttonClass()} flex items-center gap-2`} onClick={openReschedule}>
+                    <button className={`${buttonClass()} flex items-center gap-2`} onClick={() => openReschedule()}>
                       <CalendarClock size={16} /> Mudar horário
                     </button>
                   )}
@@ -342,9 +348,13 @@ export function ServiceProgress({
                       )}
                       {stage === "accepted" && (
                         <>
-                          <button className={buttonClass(true)} onClick={() => setPending("begin")}>
-                            Iniciar serviço
-                          </button>
+                          {awaitingSchedule ? (
+                            <p className="text-sm text-[var(--text-muted)] sm:self-center">Aguardando o cliente escolher o horário na sua agenda.</p>
+                          ) : (
+                            <button className={buttonClass(true)} onClick={() => setPending("begin")}>
+                              Iniciar serviço
+                            </button>
+                          )}
                           <button className={buttonClass()} onClick={() => { setCancelReason(""); setPending("cancel"); }}>
                             Cancelar pedido
                           </button>
@@ -363,9 +373,15 @@ export function ServiceProgress({
                     <>
                       {(stage === "requested" || stage === "accepted") && (
                         <>
-                          <p className="text-sm text-[var(--text-muted)] sm:self-center">
-                            {stage === "requested" ? "Aguardando o prestador aceitar. Sem resposta em 48 h, o pedido expira." : "Pedido aceito. Aguardando o prestador iniciar."}
-                          </p>
+                          {awaitingSchedule ? (
+                            <button className={`${buttonClass(true)} flex items-center gap-2`} onClick={() => openReschedule("schedule")}>
+                              <CalendarClock size={16} /> Escolher horário
+                            </button>
+                          ) : (
+                            <p className="text-sm text-[var(--text-muted)] sm:self-center">
+                              {stage === "requested" ? "Aguardando o prestador aceitar. Sem resposta em 48 h, o pedido expira." : "Pedido aceito. Aguardando o prestador iniciar."}
+                            </p>
+                          )}
                           <button className={buttonClass()} onClick={() => { setCancelReason(""); setPending("cancel"); }}>
                             Cancelar pedido
                           </button>
@@ -434,9 +450,13 @@ export function ServiceProgress({
           onConfirm={run}
           onClose={() => setPending(null)}
         >
-          {pending === "reschedule" && (
+          {(pending === "reschedule" || pending === "schedule") && (
             <div className="text-sm">
-              <p className="text-[var(--text-muted)] mb-3">Horário atual: {data.scheduledAt && formatDateTime(data.scheduledAt)}. A outra parte recebe a proposta e decide.</p>
+              <p className="text-[var(--text-muted)] mb-3">
+                {pending === "schedule"
+                  ? "Escolha um horário livre na agenda do prestador. Ele é avisado na hora."
+                  : <>Horário atual: {data.scheduledAt && formatDateTime(data.scheduledAt)}. A outra parte recebe a proposta e decide.</>}
+              </p>
               {agenda ? (
                 <SlotPicker slots={data.service?.scheduleSlots ?? null} agenda={agenda} value={newSlot} onChange={setNewSlot} hide={data.scheduledAt ? localDateTimeKey(new Date(data.scheduledAt)) : undefined} />
               ) : (

@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { durationMinutes } from "../utils/schedule";
 import { OFFLINE_MESSAGE, providerOffline } from "../utils/availability";
 import { closedMessage, openState } from "../utils/openStatus";
 import { inviteService } from "./InviteService";
@@ -319,6 +320,8 @@ export class ConversationService {
         // o acordo já foi aceito pelas duas partes: o pedido nasce aceito
         status_provider: StatusEnum.ACEITO,
         acceptedAt: now,
+        // serviço com agenda: a duração acordada ocupa a agenda; o cliente escolhe o horário depois (RN05)
+        durationMinutes: conv.service?.requiresScheduling ? durationMinutes(get("duration") || conv.service.duration) : null,
       })
     );
 
@@ -340,6 +343,15 @@ export class ConversationService {
     conv.contract = contract;
     await this.conversationRepository.save(conv);
     await this.system(conv, `Serviço formalizado ✔️ Contrato ${contract.code} gerado.`);
+    if (conv.service?.requiresScheduling) {
+      await this.system(conv, "Próximo passo: o cliente escolhe o horário na agenda do serviço, em Minhas contratações.");
+      await notificationService.notify(conv.client.id, {
+        type: "hire.schedule.needed",
+        title: "Escolha o horário do atendimento",
+        body: `O acordo de "${conv.service.title}" foi fechado. Marque o horário na agenda do prestador.`,
+        link: "/hires",
+      });
+    }
     return { hireId: hire.id, contractId: contract.id, code: contract.code };
   }
 

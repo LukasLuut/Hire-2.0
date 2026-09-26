@@ -157,6 +157,10 @@ export class HireService {
         if (role === "provider" && next === StatusEnum.EM_ANDAMENTO && current !== StatusEnum.ACEITO) {
             throw new HttpError(400, current === StatusEnum.PENDENTE ? "Aceite o pedido antes de iniciar o serviço" : "O serviço só pode ser iniciado depois de aceito");
         }
+        // serviço com agenda (RN05): o pedido negociado precisa de horário marcado antes de começar
+        if (role === "provider" && next === StatusEnum.EM_ANDAMENTO && this.awaitingSchedule(hire)) {
+            throw new HttpError(400, "Aguardando o cliente escolher o horário na agenda");
+        }
         // o cliente cancela só antes de o serviço começar
         if (role === "client" && next === StatusEnum.CANCELADO && current === StatusEnum.EM_ANDAMENTO) {
             throw new HttpError(400, "O serviço já começou. Fale com o prestador pela conversa.");
@@ -214,6 +218,41 @@ export class HireService {
         const busy = await this.busyOf(service.provider.id, new Date(start.getTime() - 30 * 86400000), new Date(start.getTime() + minutes * 60000), ignoreHireId);
         if (busy.some((b) => overlaps(start, minutes, b.start, b.minutes)))
             throw new HttpError(409, "Esse horário conflita com outro atendimento do prestador. Escolha outro.");
+    }
+
+    /** Pedido negociado de serviço com agenda que ainda não tem horário marcado. */
+    private awaitingSchedule(hire: Hire) {
+        return !!hire.service?.requiresScheduling && !hire.scheduledAt;
+    }
+
+    /**
+     * Pedido que nasceu de uma negociação (sem horário): o cliente escolhe o horário na agenda do serviço.
+     * Mesmas regras de um pedido direto: agenda, expediente e conflitos.
+     */
+    async schedule(id: number, scheduledAt: unknown, requesterId: number) {
+        const { hire, role } = await this.loadWithRole(id, requesterId);
+        if (role !== "client") throw new HttpError(403, "Quem escolhe o horário é o cliente");
+        if (!this.awaitingSchedule(hire)) throw new HttpError(400, "Este pedido não está aguardando horário");
+        if (hire.status !== StatusEnum.PENDENTE || hire.status_provider !== StatusEnum.ACEITO) {
+            throw new HttpError(400, "Este pedido não pode mais ser agendado");
+        }
+        const start = parseLocalDateTime(scheduledAt);
+        if (!start) throw new HttpError(400, "Escolha um horário na agenda do serviço");
+        const service = await this.serviceRepository.findOne({ where: { id: hire.service.id }, relations: { provider: { availabilities: true } } });
+        if (!service) throw new HttpError(404, "Serviço não encontrado");
+        const minutes = hire.durationMinutes ?? durationMinutes(service.duration);
+        await this.assertSlotFree(service, start, minutes, hire.id);
+
+        hire.scheduledAt = start;
+        hire.durationMinutes = minutes;
+        await this.hireRepository.save(hire);
+        await notificationService.notify(hire.provider?.user?.id, {
+            type: "hire.scheduled",
+            title: `Horário marcado: ${hire.service?.title ?? hire.description_service}`,
+            body: `${hire.user?.name ?? "O cliente"} marcou o atendimento para ${this.when(start)}.`,
+            link: "/progress",
+        });
+        return await this.hireRepository.findOne({ where: { id }, relations: this.fullRelations });
     }
 
     /** Uma das partes pede um novo horário; a outra aceita ou recusa. */

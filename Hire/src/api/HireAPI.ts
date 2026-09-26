@@ -55,6 +55,10 @@ export const hireAPI = {
     return (await apiRequest<Agenda>(`/hires/booked/${serviceId}${q}`, { headers: auth() })) ?? { busy: [], hours: {}, durationMinutes: 60 };
   },
 
+  /** Pedido negociado: o cliente marca o horário na agenda do serviço. */
+  schedule: (id: number, scheduledAt: string) =>
+    apiRequest<HireEntity>(`/hires/${id}/schedule`, { method: "POST", headers: auth(), body: JSON.stringify({ scheduledAt }) }),
+
   /** Pede um novo horário; a outra parte aceita ou recusa. */
   reschedule: (id: number, scheduledAt: string) =>
     apiRequest<HireEntity>(`/hires/${id}/reschedule`, { method: "POST", headers: auth(), body: JSON.stringify({ scheduledAt }) }),

@@ -58,6 +58,14 @@ export class HireController {
         }
     }
 
+    schedule = async (req: Request, res: Response) => {
+        try {
+            res.json(await hireService.schedule(Number(req.params.id), req.body?.scheduledAt, userId(req)));
+        } catch (e: any) {
+            fail(res, e);
+        }
+    }
+
     requestReschedule = async (req: Request, res: Response) => {
         try {
             res.json(await hireService.requestReschedule(Number(req.params.id), req.body?.scheduledAt, userId(req)));
