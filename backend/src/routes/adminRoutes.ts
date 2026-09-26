@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express'
+import { reviewService } from '../services/ReviewService'
 import { authMiddleware } from '../middlewares/authMidlleware'
 import { adminMiddleware } from '../middlewares/adminMiddleware'
 import { adminService } from '../services/AdminService'
@@ -32,6 +33,8 @@ adminRouter.get('/verifications', handle((req) => verificationService.list(req.q
 adminRouter.post('/verifications/:providerId', handle((req) => verificationService.decide(Number(req.params.providerId), req.body?.approve === true, req.body?.note, { company: req.body?.company, credentials: req.body?.credentials })))
 adminRouter.get('/support', handle((req) => supportService.adminList(req.query.status ? String(req.query.status) : undefined)))
 adminRouter.post('/support/:id', handle((req) => supportService.answer(Number(req.params.id), req.body ?? {}, me(req))))
+adminRouter.get('/reviews', handle((req) => reviewService.adminList({ q: req.query.q ? String(req.query.q) : undefined, hidden: req.query.hidden === '1' })))
+adminRouter.post('/reviews/:id/moderate', handle((req) => reviewService.moderate(Number(req.params.id), req.body?.hidden === true, req.body?.reason)))
 adminRouter.get('/regions', handle(() => regionalOverview()))
 adminRouter.get('/hires', handle((req) => adminService.listHires(req.query.status ? String(req.query.status) : undefined)))
 

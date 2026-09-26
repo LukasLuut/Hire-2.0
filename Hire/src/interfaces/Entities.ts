@@ -184,6 +184,8 @@ export interface ReviewEntity {
   id: number;
   rating: number;
   comment: string | null;
+  /** comentário ocultado pela moderação (a nota continua) */
+  moderated?: boolean;
   direction: "CLIENT_TO_PROVIDER" | "PROVIDER_TO_CLIENT";
   createdAt: string;
   hireId?: number;

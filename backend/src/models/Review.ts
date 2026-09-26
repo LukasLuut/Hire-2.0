@@ -32,6 +32,13 @@ export class Review {
   @Column({ type: "text", nullable: true })
   comment: string | null;
 
+  // Moderação: comentário e fotos ocultos (ofensivo, dados pessoais...). A nota continua valendo.
+  @Column({ type: "datetime", nullable: true })
+  hiddenAt: Date | null;
+
+  @Column({ type: "varchar", length: 300, nullable: true })
+  hiddenReason: string | null;
+
   @Column({ type: "enum", enum: ReviewDirection })
   direction: ReviewDirection;
 

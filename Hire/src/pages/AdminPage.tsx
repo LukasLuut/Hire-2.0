@@ -9,6 +9,8 @@ import { getErrorMessage } from "../utils/errors";
 import { formatCurrency, formatDateTime } from "../utils/format";
 import { reportAPI, reasonLabel, type ReportItem } from "../api/ReportAPI";
 import SupportTab from "../components/Admin/SupportTab";
+import PaymentsTab from "../components/Admin/PaymentsTab";
+import ReviewsTab from "../components/Admin/ReviewsTab";
 import { adminBtn as btn, adminInput as input } from "../components/Admin/adminStyles";
 
 /* --------------------------------------------------------------------------
@@ -16,7 +18,7 @@ import { adminBtn as btn, adminInput as input } from "../components/Admin/adminS
  * Números da plataforma, suspensão de contas, papel de administrador,
  * moderação de serviços, pedidos recentes e categorias.
  * -------------------------------------------------------------------------- */
-type Tab = "overview" | "regions" | "reports" | "support" | "verifications" | "users" | "services" | "hires" | "categories";
+type Tab = "overview" | "regions" | "reports" | "support" | "verifications" | "users" | "services" | "hires" | "payments" | "reviews" | "categories";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Visão geral" },
   { id: "regions", label: "Regiões" },
@@ -26,6 +28,8 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "users", label: "Usuários" },
   { id: "services", label: "Serviços" },
   { id: "hires", label: "Pedidos" },
+  { id: "payments", label: "Pagamentos" },
+  { id: "reviews", label: "Avaliações" },
   { id: "categories", label: "Categorias" },
 ];
 
@@ -73,6 +77,8 @@ export default function AdminPage() {
           {tab === "users" && <UsersTab />}
           {tab === "services" && <ServicesTab />}
           {tab === "hires" && <HiresTab />}
+          {tab === "payments" && <PaymentsTab />}
+          {tab === "reviews" && <ReviewsTab />}
           {tab === "categories" && <CategoriesTab />}
         </section>
       </div>

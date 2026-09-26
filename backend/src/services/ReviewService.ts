@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { HttpError } from "./HireService";
 import { notificationService } from "./NotificationService";
 import { Review, ReviewDirection } from "../models/Review";
 import { ReviewPhoto } from "../models/ReviewPhoto";
@@ -15,17 +16,70 @@ export class ReviewService {
 
   // Formato enviado ao frontend (sem dados sensíveis do autor)
   private present(r: Review) {
+    const hidden = !!r.hiddenAt;
     return {
       id: r.id,
       rating: r.rating,
-      comment: r.comment,
+      // oculto pela moderação: a nota fica, o texto e as fotos não
+      comment: hidden ? null : r.comment,
+      moderated: hidden,
       direction: r.direction,
       createdAt: r.createdAt,
       hireId: r.hire?.id,
       service: r.service ? { id: r.service.id, title: r.service.title } : null,
       author: r.author ? { id: r.author.id, name: r.author.name } : null,
-      photos: (r.photos ?? []).map((p) => ({ id: p.id, url: p.url })),
+      photos: hidden ? [] : (r.photos ?? []).map((p) => ({ id: p.id, url: p.url })),
     };
+  }
+
+  /** Administração: avaliações recentes (com texto original) para moderar. */
+  async adminList(opts: { q?: string; hidden?: boolean } = {}) {
+    const qb = this.reviewRepository
+      .createQueryBuilder("r")
+      .leftJoinAndSelect("r.author", "a")
+      .leftJoinAndSelect("r.target", "t")
+      .leftJoinAndSelect("r.provider", "p")
+      .leftJoinAndSelect("r.service", "s")
+      .leftJoinAndSelect("r.photos", "ph")
+      .orderBy("r.id", "DESC")
+      .take(100);
+    if (opts.hidden) qb.andWhere("r.hiddenAt IS NOT NULL");
+    const q = String(opts.q ?? "").trim();
+    if (q) qb.andWhere("(r.comment LIKE :q OR a.name LIKE :q OR t.name LIKE :q OR p.companyName LIKE :q)", { q: `%${q}%` });
+    const list = await qb.getMany();
+    return list.map((r) => ({
+      id: r.id,
+      rating: r.rating,
+      comment: r.comment,
+      direction: r.direction,
+      createdAt: r.createdAt,
+      hiddenAt: r.hiddenAt,
+      hiddenReason: r.hiddenReason,
+      author: r.author ? { id: r.author.id, name: r.author.name } : null,
+      target: r.provider ? { name: r.provider.companyName || r.provider.professionalName } : r.target ? { name: r.target.name } : null,
+      service: r.service ? { id: r.service.id, title: r.service.title } : null,
+      photos: (r.photos ?? []).map((p) => ({ id: p.id, url: p.url })),
+    }));
+  }
+
+  /** Oculta (com motivo) ou volta a mostrar o comentário; quem escreveu é avisado ao ocultar. */
+  async moderate(id: number, hidden: boolean, reason?: unknown) {
+    const review = await this.reviewRepository.findOne({ where: { id }, relations: { author: true } });
+    if (!review) throw new HttpError(404, "Avaliação não encontrada");
+    const clean = String(reason ?? "").trim().slice(0, 300);
+    if (hidden && clean.length < 5) throw new HttpError(400, "Explique o motivo da moderação");
+    review.hiddenAt = hidden ? new Date() : null;
+    review.hiddenReason = hidden ? clean : null;
+    await this.reviewRepository.save(review);
+    if (hidden) {
+      await notificationService.notify(review.author?.id, {
+        type: "review.moderated",
+        title: "Seu comentário foi ocultado",
+        body: `A nota continua valendo, mas o texto saiu do ar. Motivo: ${clean}`,
+        link: "/ajuda",
+      });
+    }
+    return { id: review.id, hiddenAt: review.hiddenAt, hiddenReason: review.hiddenReason };
   }
 
   async create(
@@ -106,3 +160,5 @@ export class ReviewService {
     return reviews.map((r) => this.present(r));
   }
 }
+
+export const reviewService = new ReviewService();

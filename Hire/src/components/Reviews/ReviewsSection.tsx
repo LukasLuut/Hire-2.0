@@ -85,6 +85,7 @@ export default function ReviewsSection({ title = "Avaliações", load, emptyText
                 {review.service && <p className="text-xs text-[var(--text-muted)]">{review.service.title}</p>}
 
                 {review.comment && <p className="text-[var(--text-muted)] flex-1">{review.comment}</p>}
+                {review.moderated && <p className="text-xs italic text-[var(--text-muted)] flex-1">Comentário removido pela moderação.</p>}
 
                 {photos.length > 0 && (
                   <div className="flex gap-2 flex-wrap mt-1">

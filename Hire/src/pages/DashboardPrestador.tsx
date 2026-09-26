@@ -401,6 +401,7 @@ export default function DashboardPrestador() {
                         <div className="text-yellow-400 text-sm flex items-center gap-1"><Star size={14} fill="currentColor" /> {r.rating.toFixed(1)}</div>
                       </div>
                       {r.comment && <div className="text-xs text-[var(--text-muted)] mt-2">{r.comment}</div>}
+                      {r.moderated && <div className="text-xs italic text-[var(--text-muted)] mt-2">Comentário removido pela moderação.</div>}
                       {r.photos.length > 0 && (
                         <div className="flex gap-1 mt-2">
                           {r.photos.slice(0, 4).map((ph) => (
