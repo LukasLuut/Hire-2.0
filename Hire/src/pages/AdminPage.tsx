@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { Shield, Search, Loader2 } from "lucide-react";
-import { adminAPI, type AdminCategory, type AdminHire, type AdminOverview, type AdminService, type AdminUser } from "../api/AdminAPI";
+import { adminAPI, type AdminVerification, type AdminCategory, type AdminHire, type AdminOverview, type AdminService, type AdminUser } from "../api/AdminAPI";
 import { useSession } from "../context/SessionContext";
 import { useToast } from "../components/Toast/ToastContext";
 import ConfirmModal from "../components/Common/ConfirmModal";
@@ -14,10 +14,11 @@ import { reportAPI, reasonLabel, type ReportItem } from "../api/ReportAPI";
  * Números da plataforma, suspensão de contas, papel de administrador,
  * moderação de serviços, pedidos recentes e categorias.
  * -------------------------------------------------------------------------- */
-type Tab = "overview" | "reports" | "users" | "services" | "hires" | "categories";
+type Tab = "overview" | "reports" | "verifications" | "users" | "services" | "hires" | "categories";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Visão geral" },
   { id: "reports", label: "Denúncias" },
+  { id: "verifications", label: "Verificações" },
   { id: "users", label: "Usuários" },
   { id: "services", label: "Serviços" },
   { id: "hires", label: "Pedidos" },
@@ -67,6 +68,7 @@ export default function AdminPage() {
         <section role="tabpanel" aria-label={TABS.find((t) => t.id === tab)?.label}>
           {tab === "overview" && <OverviewTab />}
           {tab === "reports" && <ReportsTab />}
+          {tab === "verifications" && <VerificationsTab />}
           {tab === "users" && <UsersTab />}
           {tab === "services" && <ServicesTab />}
           {tab === "hires" && <HiresTab />}
@@ -90,12 +92,13 @@ function OverviewTab() {
     ["Usuários", data.users, data.blocked ? `${data.blocked} suspenso(s)` : undefined],
     ["Prestadores", data.providers],
     ["Serviços", data.services, data.pausedServices ? `${data.pausedServices} pausado(s)` : undefined],
+    ["Verificações pendentes", data.pendingVerifications, data.pendingVerifications ? "aguardando análise" : undefined],
     ["Denúncias abertas", data.openReports, data.openReports ? "aguardando análise" : undefined],
     ["Cancelamentos em cima da hora", data.lateCancels],
   ];
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {cards.map(([label, value, note]) => (
           <div key={label} className="p-4 rounded-2xl bg-[var(--bg-light)] border border-[var(--border)]">
             <div className="text-sm text-[var(--text-muted)]">{label}</div>
@@ -513,6 +516,99 @@ function ReportsTab() {
           <label className="block text-sm">
             <span className="text-[var(--text-muted)]">Decisão (enviada a quem relatou)</span>
             <textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={500} rows={3} className={`${input} mt-1 w-full resize-none`} />
+          </label>
+        </ConfirmModal>
+      )}
+    </>
+  );
+}
+
+/* ----------------------------- Verificações ----------------------------- */
+const VERIFICATION_STATUS: Record<string, string> = { pending: "Pendentes", verified: "Verificados", rejected: "Recusados" };
+
+function VerificationsTab() {
+  const { showToast } = useToast();
+  const [status, setStatus] = useState("pending");
+  const [list, setList] = useState<AdminVerification[] | null>(null);
+  const [refusing, setRefusing] = useState<AdminVerification | null>(null);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(() => {
+    setList(null);
+    adminAPI.verifications(status).then(setList).catch((e) => showToast(getErrorMessage(e, "Erro ao carregar verificações."), "error"));
+  }, [status, showToast]);
+  useEffect(load, [load]);
+
+  const decide = async (v: AdminVerification, approve: boolean) => {
+    if (!approve && note.trim().length < 5) return showToast("Explique o motivo da recusa.", "warning");
+    setBusy(true);
+    try {
+      await adminAPI.decideVerification(v.provider.id, approve, approve ? "" : note.trim());
+      showToast(approve ? "Prestador verificado. Os documentos foram apagados." : "Verificação recusada. O prestador foi avisado.", "success");
+      setRefusing(null);
+      load();
+    } catch (e) {
+      showToast(getErrorMessage(e, "Não foi possível registrar."), "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <label className="flex items-center gap-2 mb-4 text-sm">
+        <span className="text-[var(--text-muted)]">Situação</span>
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className={input}>
+          {Object.entries(VERIFICATION_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+      </label>
+      <p className="text-xs text-[var(--text-muted)] mb-4">Confira se o nome e o CPF/CNPJ do documento batem com o cadastro. Depois da decisão os arquivos são apagados.</p>
+      {!list ? <Loader2 className="animate-spin" /> : list.length === 0 ? (
+        <p className="text-[var(--text-muted)]">{status === "pending" ? "Nenhuma verificação aguardando análise." : "Nada por aqui."}</p>
+      ) : (
+        <ul className="space-y-3">
+          {list.map((v) => (
+            <li key={v.provider.id} className="p-4 rounded-xl bg-[var(--bg-light)] border border-[var(--border)]">
+              <div className="font-semibold">{v.provider.name}</div>
+              <div className="text-sm text-[var(--text-muted)]">
+                {v.provider.user?.name} · {v.provider.user?.email} · CPF/CNPJ {v.provider.user?.cpf_cnpj ?? "—"}{v.provider.cnpj ? ` · CNPJ da empresa ${v.provider.cnpj}` : ""}
+              </div>
+              {v.note && <div className="text-sm text-amber-500 mt-1">Motivo da recusa: {v.note}</div>}
+              {v.files.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {v.files.map((f, i) => (
+                    <button key={f.url} className={btn()} onClick={() => reportAPI.openFile(f.url).catch((e) => showToast(getErrorMessage(e, "Erro ao abrir."), "error"))}>
+                      {f.kind === "id" ? "Documento de identidade" : `Certificado ${i}`}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {v.status === "pending" && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <button className={btn(true)} disabled={busy} onClick={() => decide(v, true)}>Aprovar</button>
+                  <button className={btn(false, true)} onClick={() => { setNote(""); setRefusing(v); }}>Recusar</button>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {refusing && (
+        <ConfirmModal
+          open
+          title={`Recusar verificação de ${refusing.provider.name}?`}
+          description="O prestador recebe o motivo e pode enviar os documentos de novo."
+          confirmLabel="Recusar"
+          cancelLabel="Voltar"
+          danger
+          loading={busy}
+          onConfirm={() => decide(refusing, false)}
+          onClose={() => setRefusing(null)}
+        >
+          <label className="block text-sm">
+            <span className="text-[var(--text-muted)]">Motivo</span>
+            <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} rows={3} className={`${input} mt-1 w-full resize-none`} />
           </label>
         </ConfirmModal>
       )}

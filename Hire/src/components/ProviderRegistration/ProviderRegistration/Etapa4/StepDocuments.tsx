@@ -1,7 +1,8 @@
 // StepDocuments.tsx — versão aprimorada com UI/UX do StepAddress
 // --------------------------------------------------------------
 
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { providerApi, type Verification } from "../../../../api/ProviderAPI";
 import type { ProviderForm } from "../helpers/types-and-helpers";
 import { ShieldCheck, FileText } from "lucide-react";
 import { motion } from "framer-motion";
@@ -20,6 +21,14 @@ export default function StepDocuments({
   onIdDocument: (f: File | null) => void;
   onCertifications: (files: File[] | null) => void;
 }) {
+  // situação atual da verificação (quando já é prestador)
+  const [verification, setVerification] = useState<Verification | null>(null);
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) providerApi.verification(token).then(setVerification).catch(() => setVerification(null));
+  }, []);
+  const verified = verification?.status === "verified";
+
   return (
     <motion.div
       key="step-documents"
@@ -37,22 +46,40 @@ export default function StepDocuments({
         </h2>
         <p className="text-sm text-[var(--text-muted)] mt-1">
           Envie documentos, certificações e links profissionais para ganhar selos e confiança.
+          Os documentos ficam privados: só a equipe de verificação vê, e eles são apagados depois da análise.
         </p>
       </div>
+
+      {verification && verification.status !== "none" && (
+        <p
+          role="status"
+          className={`p-3 rounded-xl text-sm border ${
+            verified ? "border-green-500/40 bg-green-500/10 text-green-500"
+              : verification.status === "pending" ? "border-[var(--primary)]/40 bg-[var(--primary)]/10 text-[var(--text)]"
+              : "border-amber-500/40 bg-amber-500/10 text-amber-500"
+          }`}
+        >
+          {verified
+            ? "Perfil verificado. O selo aparece no seu perfil e nos seus serviços."
+            : verification.status === "pending"
+              ? "Documentos em análise. Enviar de novo substitui o envio anterior."
+              : `Verificação recusada${verification.note ? `: ${verification.note}` : ""}. Envie os documentos de novo.`}
+        </p>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         {/* Documento de Identificação */}
-        <FileUploadCard
+        {!verified && <FileUploadCard
           label="Documento de identificação"
           description="RG / CNH / CNPJ"
           icon={<ShieldCheck className="w-5 h-5" />}
           file={form.idDocument}
           onChange={(f) => onIdDocument(f as File | null)}
-        />
+        />}
 
         {/* Certificações */}
-        <FileUploadCard
+        {!verified && <FileUploadCard
           label="Certificações (opcional)"
           description="Faça upload de certificados profissionais"
           icon={<FileText className="w-5 h-5" />}
@@ -61,7 +88,7 @@ export default function StepDocuments({
           onChange={(files) =>
             onCertifications(Array.isArray(files) ? (files as File[]) : null)
           }
-        />
+        />}
 
         {/* Links profissionais */}
         <div className="md:col-span-2 flex flex-col gap-2">
@@ -134,6 +161,7 @@ function FileUploadCard({
 
       <input
         type="file"
+        accept="image/png,image/jpeg,image/webp,application/pdf"
         className="hidden"
         multiple={multiple}
         onChange={(e) => {

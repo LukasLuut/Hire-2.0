@@ -54,6 +54,9 @@ export interface ProviderEntity {
   level?: string;
   /** cancelamentos em cima da hora nos últimos 12 meses */
   lateCancellations?: number;
+  /** verificação de documentos pela administração */
+  verificationStatus?: "none" | "pending" | "verified" | "rejected";
+  verifiedAt?: string | null;
 }
 
 export interface ServiceEntity {

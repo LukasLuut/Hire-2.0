@@ -382,6 +382,9 @@ export default function ServiceDetail({
                     className="mt-2 text-sm text-[var(--primary)] hover:underline"
                   >
                     Prestador: {providerName}
+                    {service.provider?.verified && (
+                      <span className="ml-2 text-xs text-green-500" title="Documento de identidade conferido pela equipe do Hire">✓ Verificado</span>
+                    )}
                   </button>
                 )}
                 {!!service.provider?.lateCancellations && (

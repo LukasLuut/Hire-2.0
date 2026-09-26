@@ -18,6 +18,15 @@ import { Subcategory } from "./Subcategory";
 import { Availability } from "./Availability";
 import { Link } from "./Link";
 
+export enum VerificationStatus {
+  NONE = "none",
+  PENDING = "pending",
+  VERIFIED = "verified",
+  REJECTED = "rejected",
+}
+
+export type VerificationFile = { kind: "id" | "cert"; name: string };
+
 @Entity("service_providers")
 export class ServiceProvider {
   @PrimaryGeneratedColumn()
@@ -96,6 +105,21 @@ export class ServiceProvider {
 
   @Column({ type: "varchar", length: 255, nullable: true })
   profileImageUrl?: string | null;
+
+  // Verificação: documentos em armazenamento privado, revisão manual e selo no perfil
+  @Column({ type: "varchar", length: 20, default: "none" })
+  verificationStatus: VerificationStatus;
+
+  // arquivos privados aguardando análise (não saem nas consultas públicas)
+  @Column({ type: "json", nullable: true, select: false })
+  verificationFiles?: VerificationFile[] | null;
+
+  // motivo da recusa, visto só pelo prestador e pela administração
+  @Column({ type: "varchar", length: 300, nullable: true, select: false })
+  verificationNote?: string | null;
+
+  @Column({ type: "datetime", nullable: true })
+  verifiedAt?: Date | null;
 
   @OneToMany(() => Subcategory, (subcategory) => subcategory.provider)
   subcategories: Subcategory[];

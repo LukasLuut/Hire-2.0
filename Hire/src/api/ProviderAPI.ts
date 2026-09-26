@@ -1,6 +1,13 @@
 import { apiRequest } from "./ApiClient";
 import type { ProviderEntity, ServiceEntity } from "../interfaces/Entities";
 
+export interface Verification {
+  status: "none" | "pending" | "verified" | "rejected";
+  note: string | null;
+  verifiedAt: string | null;
+  files: { kind: "id" | "cert"; url: string }[];
+}
+
 const auth = (token: string) => ({ Authorization: "Bearer " + token });
 
 export const providerApi = {
@@ -19,6 +26,18 @@ export const providerApi = {
       headers: auth(token),
       body: data,
     });
+  },
+
+  /** Situação da verificação de documentos do próprio prestador */
+  verification: (token: string) =>
+    apiRequest<Verification>("/providers/me/verification", { headers: auth(token) }),
+
+  /** Envia documento de identidade (obrigatório) e certificados para análise */
+  submitVerification: (idDocument: File, certifications: File[], token: string) => {
+    const body = new FormData();
+    body.append("idDocument", idDocument);
+    for (const f of certifications.slice(0, 4)) body.append("certifications", f);
+    return apiRequest<Verification>("/providers/me/verification", { method: "POST", headers: auth(token), body });
   },
 
   /** Perfil de prestador do usuário logado (erro 404 quando ainda não é prestador). */

@@ -22,6 +22,11 @@ export default function ProviderChecklist({ provider, servicesCount, servicesWit
     { label: "Disponibilidade semanal", done: (provider.availabilities?.length ?? 0) > 0, action: { text: "Definir", run: onEditProfile } },
     { label: "Primeiro serviço publicado", done: servicesCount > 0, action: { text: "Publicar", run: onNewService } },
     { label: "Serviço com foto", done: servicesWithPhoto > 0, hint: "Edite um serviço e adicione imagens" },
+    {
+      label: provider.verificationStatus === "pending" ? "Identidade verificada (em análise)" : "Identidade verificada",
+      done: provider.verificationStatus === "verified" || provider.verificationStatus === "pending",
+      action: { text: "Enviar documentos", run: onEditProfile },
+    },
     { label: "Primeira avaliação recebida", done: reviewsCount > 0, hint: "Chega depois do primeiro serviço concluído" },
   ];
   const done = items.filter((i) => i.done).length;

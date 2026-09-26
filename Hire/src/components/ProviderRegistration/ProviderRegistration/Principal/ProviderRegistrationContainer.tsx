@@ -270,8 +270,22 @@ export default function ProviderRegistrationContainer({ isOpen, onClose, existin
         }
       }
 
+      // documentos para verificação vão para armazenamento privado e análise manual
+      let docsSent = false;
+      if (form.idDocument instanceof File) {
+        try {
+          await providerApi.submitVerification(form.idDocument, form.certifications, token);
+          docsSent = true;
+        } catch (err) {
+          showToast(getErrorMessage(err, "Perfil salvo, mas os documentos não foram enviados."), "warning");
+        }
+      }
+
       await refresh();
-      showToast(isEdit ? "Perfil de prestador atualizado!" : "Empresa cadastrada! Agora publique seu primeiro serviço.", "success");
+      showToast(
+        (isEdit ? "Perfil de prestador atualizado!" : "Empresa cadastrada! Agora publique seu primeiro serviço.") + (docsSent ? " Documentos enviados para verificação." : ""),
+        "success"
+      );
       onDone?.();
       onClose();
     } catch (err) {

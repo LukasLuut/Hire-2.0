@@ -14,6 +14,7 @@ export interface AdminOverview {
   hires: Record<string, number>;
   lateCancels: number;
   openReports: number;
+  pendingVerifications: number;
 }
 
 export interface AdminUser {
@@ -56,7 +57,17 @@ export interface AdminCategory {
   description?: string;
 }
 
+export interface AdminVerification {
+  provider: { id: number; name: string; cnpj: string | null; user: { id: number; name: string; email: string; cpf_cnpj: string } | null };
+  status: "none" | "pending" | "verified" | "rejected";
+  note: string | null;
+  verifiedAt: string | null;
+  files: { kind: "id" | "cert"; url: string }[];
+}
+
 export const adminAPI = {
+  verifications: (status = "") => apiRequest<AdminVerification[]>(`/admin/verifications${status ? `?status=${status}` : ""}`, { headers: auth() }),
+  decideVerification: (providerId: number, approve: boolean, note = "") => post(`/admin/verifications/${providerId}`, { approve, note }),
   overview: () => apiRequest<AdminOverview>("/admin/overview", { headers: auth() }),
   users: (q = "") => apiRequest<AdminUser[]>(`/admin/users?q=${encodeURIComponent(q)}`, { headers: auth() }),
   setBlocked: (id: number, blocked: boolean, reason = "") => post(`/admin/users/${id}/block`, { blocked, reason }),

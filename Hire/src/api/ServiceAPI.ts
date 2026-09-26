@@ -44,6 +44,7 @@ export interface ServiceData {
     attendsOnline?: boolean,
     serviceRadiusKm?: number,
     lateCancellations?: number,
+    verified?: boolean,
   },
 }
 
@@ -87,6 +88,7 @@ export function toServiceData(e: ServiceEntity): ServiceData {
           attendsOnline: e.provider.attendsOnline,
           serviceRadiusKm: e.provider.serviceRadiusKm,
           lateCancellations: e.provider.lateCancellations ?? 0,
+          verified: e.provider.verificationStatus === "verified",
         }
       : undefined,
   };
