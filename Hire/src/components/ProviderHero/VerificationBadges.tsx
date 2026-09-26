@@ -6,7 +6,7 @@ import { BadgeCheck, Building2, GraduationCap, MailCheck } from "lucide-react";
  * confirmação do e-mail ou a análise da administração.
  * Telefone não é verificado pelo Hire (não há envio de SMS), então não aparece.
  * -------------------------------------------------------------------------- */
-const chip = "px-3 py-1 rounded-full text-xs sm:text-sm border border-green-500/40 bg-green-500/10 text-green-500 inline-flex items-center gap-1";
+const chip = "px-3 py-1 rounded-full text-xs sm:text-sm border border-green-500/40 bg-green-500/10 text-green-500 inline-flex items-center gap-1 whitespace-nowrap";
 
 export default function VerificationBadges({
   identity,

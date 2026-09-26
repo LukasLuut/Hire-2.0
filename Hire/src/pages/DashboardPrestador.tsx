@@ -123,9 +123,10 @@ export default function DashboardPrestador() {
                 provider={provider}
                 servicesCount={myServices.length}
                 servicesWithPhoto={myServices.filter((s) => (s.images?.length ?? 0) > 0 || !!s.imageUrl).length}
-                reviewsCount={reviews?.length ?? 0}
+                portfolioCount={portfolio?.length ?? 0}
                 onEditProfile={() => setEditRequest((n) => n + 1)}
                 onNewService={() => setOpenCreateService(true)}
+                onPortfolio={() => document.getElementById("portfolio-manager-title")?.scrollIntoView({ behavior: "smooth", block: "center" })}
               />
             )}
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className=" lg:block hidden md:flex mb-4 bg-[var(--bg-light)]/40 backdrop-blur-xl rounded-2xl p-4 border border-[var(--border)] shadow-md">
