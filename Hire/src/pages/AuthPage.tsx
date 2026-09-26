@@ -8,6 +8,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import UseTerms from "../components/Terms/UseTerms";
 import { useToast } from "../components/Toast/ToastContext"
 import { useSession } from "../context/SessionContext";
+import { getErrorMessage } from "../utils/errors";
 
 
 
@@ -89,9 +90,9 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
         cleanForm();
 
       }
-    } catch (error: any) {
-      console.error(isLogin ? "Usuário não encontrado: " : "Erro ao registrar usuário:", error);
-      isLogin ? showToast('E-mail e/ou senha informado é inválido', 'error') : showToast(error.message || "Erro na requisição!","error");
+    } catch (error) {
+      // o servidor já responde sem revelar se o e-mail existe (e avisa trava por tentativas / conta suspensa)
+      showToast(getErrorMessage(error, isLogin ? "E-mail ou senha incorretos" : "Erro na requisição!"), "error");
     }
   };
 

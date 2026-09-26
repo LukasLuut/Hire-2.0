@@ -17,7 +17,8 @@ const storage = multer.diskStorage({
   }
 });
 
-const ALLOWED = /^(image\/(png|jpe?g|gif|webp|svg\+xml)|application\/pdf)$/;
+// sem SVG: arquivo público servido do mesmo domínio poderia carregar script
+const ALLOWED = /^(image\/(png|jpe?g|gif|webp)|application\/pdf)$/;
 
 export const upload = multer({
   storage,

@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { ConversationController } from "../controllers/ConversationController";
 import { authMiddleware } from "../middlewares/authMidlleware";
-import { upload } from "../middlewares/uploadMiddleware";
+// anexos da negociação são privados: só as partes veem (link assinado)
+import { privateUpload as upload } from "../middlewares/uploadMiddleware";
 
 const conversationRouter = Router();
 const controller = new ConversationController();

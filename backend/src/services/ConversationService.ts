@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { fileUrl, privateRef } from "../utils/signedFile";
 import { durationMinutes } from "../utils/schedule";
 import { OFFLINE_MESSAGE, providerOffline } from "../utils/availability";
 import { closedMessage, openState } from "../utils/openStatus";
@@ -168,7 +169,7 @@ export class ConversationService {
         id: m.id,
         role: m.role,
         text: m.text,
-        attachmentUrl: m.attachmentUrl,
+        attachmentUrl: fileUrl(m.attachmentUrl),
         attachmentName: m.attachmentName,
         createdAt: m.createdAt,
         sender: m.sender ? { id: m.sender.id, name: m.sender.name } : null,
@@ -187,7 +188,7 @@ export class ConversationService {
         sender: { id: userId },
         role: this.roleOf(conv, userId)!,
         text: clean || (file ? "Arquivo enviado" : ""),
-        attachmentUrl: file ? `/uploads/${file.filename}` : null,
+        attachmentUrl: file ? privateRef(file.filename) : null,
         attachmentName: file ? file.originalname : null,
       })
     );
@@ -363,7 +364,7 @@ export class ConversationService {
           sender: { id: userId },
           role,
           text: "Arquivo enviado",
-          attachmentUrl: `/uploads/${file.filename}`,
+          attachmentUrl: privateRef(file.filename),
           attachmentName: file.originalname,
         })
       );

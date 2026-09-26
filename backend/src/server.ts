@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import fileRouter from "./routes/fileRoutes";
 import express, { Application, NextFunction, Request, Response } from "express";
 import { AppDataSource } from "./config/data-source";
 import router from "./routes/index";
@@ -24,14 +25,12 @@ app.use(express.json());
 AppDataSource.initialize()
   .then(() => {
     console.log("Database connected successfully");
-    app.use(
-      cors(/* {
-        origin: "http://localhost:5173", // ou a origem do teu frontend
-        methods: ["GET", "POST", "PUT", "DELETE"],
-        allowedHeaders: ["Content-Type", "Authorization"], // 🔥 ESSA LINHA É ESSENCIAL
-      } */)
-    );
-    app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+    // CORS só para os endereços do frontend (CORS_ORIGINS no .env, separados por vírgula).
+    // Requisições sem Origin (mesmo domínio, curl, testes) passam normalmente.
+    const origins = (process.env.CORS_ORIGINS ?? "http://localhost:5173,http://127.0.0.1:5173").split(",").map((o) => o.trim()).filter(Boolean);
+    app.use(cors({ origin: (origin, cb) => cb(null, !origin || origins.includes(origin)) }));
+    app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads'), { setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff') }));
+    app.use('/files', fileRouter);
     // SEO: robots.txt, sitemap.xml e, quando existe o build do frontend, a SPA com meta tags por página
     app.use(seoRouter);
     app.use(spaHandler());
