@@ -33,7 +33,13 @@ export function failureLimiter({ windowMs, max }: { windowMs: number; max: numbe
   };
 }
 
-export function rateLimit({ windowMs, max, message = "Muitas requisições. Tente de novo em instantes." }: { windowMs: number; max: number; message?: string }) {
+const LOOPBACK = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
+
+/**
+ * localDevBypass: em desenvolvimento, pedidos da própria máquina não contam
+ * (testes automatizados criam muitas contas seguidas); em produção o limite vale sempre.
+ */
+export function rateLimit({ windowMs, max, message = "Muitas requisições. Tente de novo em instantes.", localDevBypass = false }: { windowMs: number; max: number; message?: string; localDevBypass?: boolean }) {
   const hits = new Map<string, { count: number; reset: number }>();
   setInterval(() => {
     const now = Date.now();
@@ -41,6 +47,7 @@ export function rateLimit({ windowMs, max, message = "Muitas requisições. Tent
   }, windowMs).unref();
 
   return (req: Request, res: Response, next: NextFunction) => {
+    if (localDevBypass && process.env.NODE_ENV !== "production" && LOOPBACK.has(req.ip ?? "")) return next();
     const key = req.ip ?? "unknown";
     const now = Date.now();
     const entry = hits.get(key);

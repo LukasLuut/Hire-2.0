@@ -66,6 +66,24 @@ type Provider = {
 
 const filterField = "w-full p-2.5 rounded-xl bg-[var(--bg-dark)] border border-[var(--border)] text-[var(--text)] outline-none focus:border-[var(--primary)]";
 
+/** Nota "bayesiana": poucas avaliações puxam para a média geral (4,0) */
+const score = (s: Service) => (s.rating * s.ratingCount + 4 * 3) / (s.ratingCount + 3) + (s.data.provider?.openNow === false ? -1 : 0);
+
+/** Ordena por pontuação e distribui em rodadas: um serviço de cada prestador por vez */
+function relevance(list: Service[]): Service[] {
+  const groups = new Map<number | string, Service[]>();
+  for (const s of [...list].sort((a, b) => score(b) - score(a))) {
+    const key = s.provider?.id ?? `s${s.id}`;
+    groups.set(key, [...(groups.get(key) ?? []), s]);
+  }
+  const queues = [...groups.values()];
+  const out: Service[] = [];
+  while (out.length < list.length) {
+    for (const q of queues) if (q.length) out.push(q.shift()!);
+  }
+  return out;
+}
+
 /** Converte o serviço da API para o formato dos cards desta tela. */
 function toCard(e: ServiceData): Service {
   return {
@@ -203,8 +221,9 @@ export default function ServiceDashboardSophisticated() {
     if (sortBy === "rating") return list.sort((a, b) => b.rating - a.rating);
     if (sortBy === "price") return list.sort((a, b) => a.price - b.price);
     if (sortBy === "distance") return list.sort((a, b) => (a.data.distanceKm ?? Infinity) - (b.data.distanceKm ?? Infinity));
-    // relevance fallback
-    return list;
+    // relevância: nota ponderada pelo número de avaliações, intercalando prestadores
+    // (a vitrine não mostra vários serviços seguidos da mesma pessoa)
+    return relevance(list);
   }, [services, debouncedQuery, categoryFilter, subFilter, sortBy, maxPrice, onlyOpen, onlyOnline, onlyScheduling]);
 
   // painel de filtros (ícone no fim da barra de busca): fecha com Esc ou clique fora

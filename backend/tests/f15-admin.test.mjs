@@ -43,7 +43,8 @@ test("15. papel de administrador e moderação de serviço", async () => {
   assert.equal((await req("PUT", `/admin/users/${cli.id}/role`, adm, { role: "user" })).s, 200);
   assert.equal((await req("GET", "/admin/overview", t.cli)).s, 403);
 
-  const svc = (await req("GET", "/admin/services?q=Instalação", adm)).j[0];
+  // serviço do eletricista de teste (a busca também traz serviços de outras contas)
+  const svc = (await req("GET", "/admin/services?q=Instalação", adm)).j.find((s) => s.provider?.id === 1);
   assert.ok(svc);
   assert.equal((await req("POST", `/admin/services/${svc.id}/active`, adm, { active: false, reason: "teste" })).j.active, false);
   const notes = (await req("GET", "/notifications", t.ele)).j;

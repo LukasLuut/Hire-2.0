@@ -10,14 +10,17 @@ const [lim] = await db("SELECT p.id, p.slug, u.id AS userId FROM service_provide
 const limServices = (await req("GET", "/services")).j.filter((s) => s.provider?.id === 2);
 const simple = limServices.find((s) => !s.requiresScheduling && !s.packages?.length && s.priceUnit === "fixo");
 
+// prestadores na página "Limpeza em Caxias do Sul" (a página pode ter outras contas)
+const limPage = async () => (await req("GET", "/discover")).j.find((p) => p.citySlug === "caxias-do-sul-rs" && p.categoryId === 2)?.providers ?? 0;
 test("RN11: conta suspensa — perfil, serviços, listas e pedidos", async () => {
+  const pageBefore = await limPage();
   assert.equal((await req("POST", `/admin/users/${lim.userId}/block`, adm, { blocked: true, reason: "teste" })).s, 200);
   try {
     assert.equal((await req("GET", `/providers/${lim.slug}/public`)).s, 404, "perfil some (sem expor a suspensão)");
     assert.ok(!(await req("GET", "/services")).j.some((s) => s.provider?.id === 2), "fora da vitrine");
     assert.equal((await req("GET", `/services/${simple.id}`)).s, 404);
     assert.ok(!(await req("GET", "/providers/all")).j.some((p) => p.id === 2));
-    assert.ok(!(await req("GET", "/discover")).j.some((p) => p.citySlug === "caxias-do-sul-rs"));
+    assert.equal(await limPage(), Math.max(0, pageBefore - 1), "sai da página da cidade");
     assert.doesNotMatch(await (await fetch(API + "/sitemap.xml")).text(), new RegExp(`/prestador/${lim.slug}<`));
     assert.equal((await req("POST", "/hires", t.cli, { serviceId: simple.id })).s, 400, "não recebe pedido");
     assert.equal((await req("POST", "/conversations", t.cli, { providerId: 2 })).s, 400, "não recebe conversa");

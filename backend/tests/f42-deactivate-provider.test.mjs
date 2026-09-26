@@ -56,7 +56,10 @@ test("desativar bloqueia com negociação em andamento (aguardando resposta ou r
   assert.equal((await req("POST", "/providers/me/reactivate", t.lim)).s, 200);
 });
 
+// prestadores na página "Limpeza em Caxias do Sul" (a página pode ter outras contas)
+const limPage = async () => (await req("GET", "/discover")).j.find((p) => p.citySlug === "caxias-do-sul-rs" && p.categoryId === 2)?.providers ?? 0;
 test("desativada: perfil 410, serviços somem da vitrine, detalhe, cidade e sitemap", async () => {
+  const pageBefore = await limPage();
   assert.equal((await req("POST", "/providers/me/deactivate", t.lim)).s, 200);
   const pub = await req("GET", `/providers/${lim.slug}/public`);
   assert.equal(pub.s, 410);
@@ -65,7 +68,7 @@ test("desativada: perfil 410, serviços somem da vitrine, detalhe, cidade e site
   assert.ok(!(await req("GET", "/services")).j.some((s) => s.provider?.id === 2), "fora da vitrine");
   assert.equal((await req("GET", `/services/${limServices[0].id}`)).s, 404);
   assert.ok(!(await req("GET", "/providers/all")).j.some((p) => p.id === 2));
-  assert.ok(!(await req("GET", "/discover")).j.some((p) => p.citySlug === "caxias-do-sul-rs"), "página da cidade some");
+  assert.equal(await limPage(), Math.max(0, pageBefore - 1), "sai da página da cidade");
   assert.doesNotMatch(await (await fetch(API + "/sitemap.xml")).text(), new RegExp(`/prestador/${lim.slug}<`));
   assert.equal((await fetch(`${API}/providers/${lim.slug}/qr`)).status, 404);
 });
