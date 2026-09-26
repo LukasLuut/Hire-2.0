@@ -9,6 +9,7 @@ import { getErrorMessage } from "../utils/errors";
 import { formatCurrency, formatDateTime } from "../utils/format";
 import { reportAPI, reasonLabel, type ReportItem } from "../api/ReportAPI";
 import SupportTab from "../components/Admin/SupportTab";
+import SummaryTab from "../components/Admin/SummaryTab";
 import PaymentsTab from "../components/Admin/PaymentsTab";
 import ReviewsTab from "../components/Admin/ReviewsTab";
 import { adminBtn as btn, adminInput as input } from "../components/Admin/adminStyles";
@@ -18,9 +19,10 @@ import { adminBtn as btn, adminInput as input } from "../components/Admin/adminS
  * Números da plataforma, suspensão de contas, papel de administrador,
  * moderação de serviços, pedidos recentes e categorias.
  * -------------------------------------------------------------------------- */
-type Tab = "overview" | "regions" | "reports" | "support" | "verifications" | "users" | "services" | "hires" | "payments" | "reviews" | "categories";
+type Tab = "overview" | "summary" | "regions" | "reports" | "support" | "verifications" | "users" | "services" | "hires" | "payments" | "reviews" | "categories";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Visão geral" },
+  { id: "summary", label: "Relatórios" },
   { id: "regions", label: "Regiões" },
   { id: "reports", label: "Denúncias" },
   { id: "support", label: "Suporte" },
@@ -70,6 +72,7 @@ export default function AdminPage() {
         </div>
         <section role="tabpanel" aria-label={TABS.find((t) => t.id === tab)?.label}>
           {tab === "overview" && <OverviewTab />}
+          {tab === "summary" && <SummaryTab />}
           {tab === "regions" && <RegionsTab />}
           {tab === "reports" && <ReportsTab />}
           {tab === "support" && <SupportTab />}

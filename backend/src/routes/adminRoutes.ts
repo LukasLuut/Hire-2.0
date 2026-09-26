@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express'
+import { platformReportService } from '../services/PlatformReportService'
 import { reviewService } from '../services/ReviewService'
 import { authMiddleware } from '../middlewares/authMidlleware'
 import { adminMiddleware } from '../middlewares/adminMiddleware'
@@ -35,6 +36,7 @@ adminRouter.get('/support', handle((req) => supportService.adminList(req.query.s
 adminRouter.post('/support/:id', handle((req) => supportService.answer(Number(req.params.id), req.body ?? {}, me(req))))
 adminRouter.get('/reviews', handle((req) => reviewService.adminList({ q: req.query.q ? String(req.query.q) : undefined, hidden: req.query.hidden === '1' })))
 adminRouter.post('/reviews/:id/moderate', handle((req) => reviewService.moderate(Number(req.params.id), req.body?.hidden === true, req.body?.reason)))
+adminRouter.get('/summary', handle((req) => platformReportService.summary(req.query.days)))
 adminRouter.get('/regions', handle(() => regionalOverview()))
 adminRouter.get('/hires', handle((req) => adminService.listHires(req.query.status ? String(req.query.status) : undefined)))
 
