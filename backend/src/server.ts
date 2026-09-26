@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { CategoryService } from "./services/CategoryService";
 import { errorInfo, log, requestLogger } from "./utils/logger";
 import fileRouter from "./routes/fileRoutes";
 import express, { Application, NextFunction, Request, Response } from "express";
@@ -53,6 +54,9 @@ AppDataSource.initialize()
 
     // perfis antigos ganham endereço público (/prestador/<slug>)
     new ProviderService().ensureSlugs().catch((err) => log.error("slugs.failed", errorInfo(err)));
+
+    // catálogo de categorias (as que faltarem são criadas; edições da administração ficam)
+    new CategoryService().ensureCatalog().catch((err) => log.error("categories.failed", errorInfo(err)));
 
     // contas suspensas (consultadas pelo authMiddleware)
     loadBlockedUsers().catch((err) => log.error("blocked-users.failed", errorInfo(err)));

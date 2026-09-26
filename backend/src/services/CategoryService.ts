@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { CATEGORY_CATALOG } from "../data/categories";
 import { Category } from "../models/Category";
 import { Service } from "../models/Service";
 import { ServiceProvider } from "../models/ServiceProvider";
@@ -30,6 +31,16 @@ export class CategoryService {
 
     const category = this.categoryRepository.create({ name: data.name, description: data.description, subcategories: this.parseSubcategories(data.subcategories) });
     return await this.categoryRepository.save(category);
+  }
+
+  /** Garante o catálogo de categorias (ver data/categories.ts): cria as que faltam; não sobrescreve edições. */
+  async ensureCatalog() {
+    const existing = await this.categoryRepository.find();
+    for (const item of CATEGORY_CATALOG) {
+      const found = existing.find((c) => c.name.toLowerCase() === item.name.toLowerCase());
+      if (!found) await this.categoryRepository.save(this.categoryRepository.create(item));
+      else if (!found.subcategories?.length) await this.categoryRepository.update(found.id, { subcategories: item.subcategories });
+    }
   }
 
   async list() {
