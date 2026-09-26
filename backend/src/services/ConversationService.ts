@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { OFFLINE_MESSAGE, providerOffline } from "../utils/availability";
 import { closedMessage, openState } from "../utils/openStatus";
 import { inviteService } from "./InviteService";
 import { Conversation, ConversationStatus, NegotiationTopic, QuoteRequest, RequestStatus } from "../models/Conversation";
@@ -108,7 +109,7 @@ export class ConversationService {
     const providerId = Number(data.providerId ?? service?.provider?.id);
     const provider = await this.providerRepository.findOne({ where: { id: providerId }, relations: { user: true } });
     if (!provider) throw new Error("Prestador não encontrado");
-    if (provider.deactivatedAt) throw new HttpError(400, "Este profissional não está mais disponível no Hire");
+    if (providerOffline(provider)) throw new HttpError(400, OFFLINE_MESSAGE);
     if (provider.user?.id === userId) throw new Error("Você não pode negociar com o seu próprio perfil");
 
     const existing = await this.conversationRepository.findOne({
@@ -261,6 +262,12 @@ export class ConversationService {
     if (pending.length > 0) throw new HttpError(400, `Ainda falta acordar: ${pending.map((t) => t.label).join(", ")}`);
     const price = extractAmount(topics.find((t) => t.key === "payment")?.content ?? "");
     if (!Number.isFinite(price) || price <= 0) throw new HttpError(400, "Informe um valor válido no tópico \"Valor & método\"");
+
+    // o que mudou durante a negociação: serviço pausado, prestador fora do ar ou fechado sem data
+    if (providerOffline(conv.provider)) throw new HttpError(400, OFFLINE_MESSAGE);
+    if (conv.service && conv.service.active === false) throw new HttpError(400, "Este serviço foi pausado pelo prestador e não recebe pedidos no momento");
+    const state = openState(conv.provider);
+    if (!state.open && !state.closedUntil) throw new HttpError(400, closedMessage(state));
 
     const role = this.roleOf(conv, userId);
     const now = new Date();

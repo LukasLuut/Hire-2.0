@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { OFFLINE_MESSAGE, providerOffline } from "../utils/availability";
 import { closedMessage, openState } from "../utils/openStatus";
 import { inviteService } from "./InviteService";
 import { Hire, StatusEnum } from "../models/Hire";
@@ -50,7 +51,7 @@ export class HireService {
         if (!service) throw new HttpError(404, "Serviço não encontrado");
         if (service.provider?.user?.id === userId) throw new HttpError(400, "Você não pode contratar o próprio serviço");
         if (service.active === false) throw new HttpError(400, "Este serviço está pausado pelo prestador e não recebe pedidos no momento");
-        if (service.provider?.deactivatedAt) throw new HttpError(400, "Este profissional não está mais disponível no Hire");
+        if (providerOffline(service.provider)) throw new HttpError(400, OFFLINE_MESSAGE);
         // fechado: aceita só agendamento para depois da data de reabertura
         const state = openState(service.provider);
         if (!state.open) {

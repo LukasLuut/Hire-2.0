@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { providerOffline } from "../utils/availability";
 import { Contract } from "../models/Contract";
 import { IsNull } from "typeorm";
 import { toPublicProvider } from "../utils/publicProvider";
@@ -106,7 +107,7 @@ export class ServiceService {
     return services.map((s) => ({
       ...s,
       // serviço de conta profissional desativada aparece como indisponível (ex.: nos favoritos)
-      active: s.active !== false && !s.provider?.deactivatedAt,
+      active: s.active !== false && !providerOffline(s.provider),
       rating: serviceStats.get(s.id) ?? { average: 0, count: 0 },
       // prestador só com dados públicos (sem contato, coordenadas, CNPJ...)
       provider: s.provider
@@ -132,7 +133,7 @@ export class ServiceService {
   async favorites(userId: number) {
     const likes = await this.likeRepository.find({
       where: { user: { id: userId } },
-      relations: { service: { category: true, provider: true } },
+      relations: { service: { category: true, provider: { user: true } } },
       order: { id: "DESC" },
     });
     return this.withStats(likes.map((l) => l.service).filter(Boolean));
@@ -185,7 +186,8 @@ export class ServiceService {
    * onlyNearby, a lista fica só com quem atende.
    */
   async list(opts: { lat?: unknown; lng?: unknown; onlyNearby?: unknown } = {}) {
-    const services = await this.serviceRepository.find({ where: { active: true, provider: { deactivatedAt: IsNull() } }, relations: { category: true, provider: true }, order: { id: "DESC" } });
+    // conta suspensa ou profissional desativado: fora da vitrine
+    const services = await this.serviceRepository.find({ where: { active: true, provider: { deactivatedAt: IsNull(), user: { blocked: false } } }, relations: { category: true, provider: { user: true } }, order: { id: "DESC" } });
     const withStats = await this.withStats(services);
     const lat = coord(opts.lat, 90);
     const lng = coord(opts.lng, 180);
@@ -203,8 +205,8 @@ export class ServiceService {
   }
 
   async getById(id: number) {
-    const service = await this.serviceRepository.findOne({ where: { id: id }, relations: { category: true, provider: true }});
-    if (!service || service.provider?.deactivatedAt) throw new Error("Serviço não encontrado");
+    const service = await this.serviceRepository.findOne({ where: { id: id }, relations: { category: true, provider: { user: true } }});
+    if (!service || providerOffline(service.provider)) throw new Error("Serviço não encontrado");
     return (await this.withStats([service]))[0];
   }
 

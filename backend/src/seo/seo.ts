@@ -88,9 +88,9 @@ export async function metaFor(pathname: string): Promise<Meta | { redirect: stri
   if (m) {
     const slug = decodeURIComponent(m[1]);
     const p = isSlug(slug)
-      ? await AppDataSource.getRepository(ServiceProvider).findOne({ where: { slug }, relations: { category: true } })
+      ? await AppDataSource.getRepository(ServiceProvider).findOne({ where: { slug }, relations: { category: true, user: true } })
       : null;
-    if (!p) return { ...base, title: `Perfil não encontrado | ${SITE}`, noindex: true, status: 404 };
+    if (!p || p.user?.blocked) return { ...base, title: `Perfil não encontrado | ${SITE}`, noindex: true, status: 404 };
     if (p.deactivatedAt) return { ...base, title: `Perfil indisponível | ${SITE}`, noindex: true, status: 410 };
     const name = p.companyName || p.professionalName;
     const where = p.baseCity ? ` em ${p.baseCity}${p.baseState ? `/${p.baseState}` : ""}` : "";
@@ -105,8 +105,8 @@ export async function metaFor(pathname: string): Promise<Meta | { redirect: stri
 
   m = pathname.match(/^\/service\/(\d+)\/?$/);
   if (m) {
-    const s = await AppDataSource.getRepository(Service).findOne({ where: { id: Number(m[1]) }, relations: { provider: true, category: true } });
-    if (!s || s.provider?.deactivatedAt) return { ...base, title: `Serviço não encontrado | ${SITE}`, noindex: true, status: 404 };
+    const s = await AppDataSource.getRepository(Service).findOne({ where: { id: Number(m[1]) }, relations: { provider: { user: true }, category: true } });
+    if (!s || s.provider?.deactivatedAt || s.provider?.user?.blocked) return { ...base, title: `Serviço não encontrado | ${SITE}`, noindex: true, status: 404 };
     const who = s.provider?.companyName || s.provider?.professionalName;
     return {
       title: `${s.title}${who ? ` — ${who}` : ""} | ${SITE}`,
@@ -141,10 +141,11 @@ async function sitemap() {
     .createQueryBuilder("p")
     .select(["p.slug"])
     .innerJoin("p.services", "s", "s.active = 1")
+    .innerJoin("p.user", "u", "u.blocked = 0")
     .where("p.slug IS NOT NULL AND p.deactivatedAt IS NULL")
     .groupBy("p.id")
     .getMany();
-  const services = await AppDataSource.getRepository(Service).find({ where: { active: true, provider: { deactivatedAt: IsNull() } }, select: { id: true } });
+  const services = await AppDataSource.getRepository(Service).find({ where: { active: true, provider: { deactivatedAt: IsNull(), user: { blocked: false } } }, select: { id: true } });
   const pages = (await cityPages()).filter((p) => p.indexable);
   const urls = [
     `${site}/`,

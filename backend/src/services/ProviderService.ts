@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { providerOffline } from "../utils/availability";
 import { openState } from "../utils/openStatus";
 import { Conversation, ConversationStatus, RequestStatus } from "../models/Conversation";
 import { Hire, StatusEnum } from "../models/Hire";
@@ -160,8 +161,8 @@ export class ProviderService {
 
   /** Slug do prestador (gera se ainda não tiver) */
   async slugOf(id: number) {
-    const p = await this.providerRepository.findOne({ where: { id }, select: { id: true, slug: true, companyName: true, professionalName: true, deactivatedAt: true } });
-    if (!p || p.deactivatedAt) throw new Error("Prestador não encontrado");
+    const p = await this.providerRepository.findOne({ where: { id }, relations: { user: true } });
+    if (!p || providerOffline(p)) throw new Error("Prestador não encontrado");
     if (p.slug) return p.slug;
     const slug = await this.newSlug(p.companyName || p.professionalName, p.id);
     await this.providerRepository.update(p.id, { slug });
@@ -255,6 +256,8 @@ export class ProviderService {
     if (!provider) throw new Error("Prestador não encontrado");
     // conta profissional desativada: some do público (410 = existiu e não está mais disponível)
     if (provider.deactivatedAt) throw new HttpError(410, "Este perfil profissional foi desativado");
+    // conta suspensa pela administração: some como se não existisse (não expõe a suspensão)
+    if (provider.user?.blocked) throw new HttpError(404, "Prestador não encontrado");
     const [decorated] = await this.decorate([provider]);
     // perfil público mostra só os serviços ativos
     const services = await serviceService.withStats(provider.services.filter((s) => s.active !== false).map((s) => ({ ...s, provider } as any)));
@@ -308,7 +311,15 @@ export class ProviderService {
 
   /** Todos os prestadores com nota, ordenados pelos mais bem avaliados. */
   async list() {
-    const providers = await this.providerRepository.find({ where: { deactivatedAt: IsNull() }, relations: { user: true, category: true, subcategories: true } });
+    // RN02: só aparece em listas quem tem ao menos um serviço ativo (e conta no ar)
+    const providers = await this.providerRepository
+      .createQueryBuilder("p")
+      .innerJoinAndSelect("p.user", "u", "u.blocked = 0")
+      .leftJoinAndSelect("p.category", "c")
+      .leftJoinAndSelect("p.subcategories", "sc")
+      .where("p.deactivatedAt IS NULL")
+      .andWhere("EXISTS (SELECT 1 FROM services s WHERE s.providerId = p.id AND s.active = 1)")
+      .getMany();
     const decorated = await this.decorate(providers);
     return decorated
       .map((p) => toPublicProvider(p as any) as any)
