@@ -8,6 +8,12 @@
     "build": "tsc",
     "start": "tsc && node dist/index.js",
     "dev": "npx ts-node-dev src/server.ts",
+    "backup": "node scripts/backup.mjs",
+    "restore": "node scripts/restore.mjs",
+    "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/config/data-source.ts",
+    "migration:run": "typeorm-ts-node-commonjs migration:run -d src/config/data-source.ts",
+    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/config/data-source.ts",
+    "migration:baseline": "node scripts/mark-baseline.mjs",
     "test:api": "node --test --test-concurrency=1 \"tests/*.test.mjs\""
   },
   "repository": {

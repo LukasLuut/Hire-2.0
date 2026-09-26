@@ -45,10 +45,12 @@ export const AppDataSource = new DataSource({
 
     database: DB_NAME,
 
-    // O synchronize: true cria automaticamente as tabelas e colunas com base nas entidades.
-    // ⚠️ Importante: Isso é útil apenas em desenvolvimento.
-    // Em produção, deve ser false, para não apagar ou alterar dados automaticamente.
-    synchronize: true, 
+    // Desenvolvimento: synchronize cria/ajusta tabelas a partir das entidades (padrão).
+    // Produção: DB_SYNC=false desliga o synchronize e aplica as migrations de src/migrations ao subir
+    // (npm run migration:generate -- src/migrations/Nome para gerar a partir das entidades).
+    synchronize: process.env.DB_SYNC !== "false",
+    migrations: [__dirname + "/../migrations/*.{ts,js}"],
+    migrationsRun: process.env.DB_SYNC === "false",
 
     // logging mostra no terminal todos os comandos SQL; ligue só para depurar (DB_LOGGING=true no .env)
     logging: process.env.DB_LOGGING === "true",
