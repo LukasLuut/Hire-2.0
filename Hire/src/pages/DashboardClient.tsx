@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { providerPath } from "../utils/providerPath";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import {
   Search,
-  Filter,
+  SlidersHorizontal,
   Star,
   Clock,
   ChevronLeft,
@@ -64,6 +64,8 @@ type Provider = {
   specialty: string;
 };
 
+const filterField = "w-full p-2.5 rounded-xl bg-[var(--bg-dark)] border border-[var(--border)] text-[var(--text)] outline-none focus:border-[var(--primary)]";
+
 /** Converte o serviço da API para o formato dos cards desta tela. */
 function toCard(e: ServiceData): Service {
   return {
@@ -99,7 +101,6 @@ export default function ServiceDashboardSophisticated() {
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("Todos");
   const [subFilter, setSubFilter] = useState("");
-  const [minRating, setMinRating] = useState<number>(0);
   // preço máximo e disponibilidade (aberto agora, online, agenda para marcar horário)
   const [maxPrice, setMaxPrice] = useState("");
   const [onlyOpen, setOnlyOpen] = useState(false);
@@ -189,7 +190,6 @@ export default function ServiceDashboardSophisticated() {
         s.shortDescription.toLowerCase().includes(debouncedQuery.toLowerCase());
       const matchesCategory =
         (categoryFilter === "Todos" || s.category === categoryFilter) && (!subFilter || s.data.subcategory === subFilter);
-      const matchesRating = s.rating >= minRating;
       const max = Number(maxPrice.replace(",", "."));
       // "sob orçamento" não tem preço para comparar: sai quando há teto de preço
       const matchesPrice = !maxPrice || !(max > 0) || (s.data.priceUnit !== "orcamento" && s.price <= max);
@@ -197,7 +197,7 @@ export default function ServiceDashboardSophisticated() {
         (!onlyOpen || s.data.provider?.openNow !== false) &&
         (!onlyOnline || !!s.data.online) &&
         (!onlyScheduling || !!s.data.requiresScheduling);
-      return matchesQuery && matchesCategory && matchesRating && matchesPrice && matchesAvailability;
+      return matchesQuery && matchesCategory && matchesPrice && matchesAvailability;
     });
 
     if (sortBy === "rating") return list.sort((a, b) => b.rating - a.rating);
@@ -205,7 +205,30 @@ export default function ServiceDashboardSophisticated() {
     if (sortBy === "distance") return list.sort((a, b) => (a.data.distanceKm ?? Infinity) - (b.data.distanceKm ?? Infinity));
     // relevance fallback
     return list;
-  }, [services, debouncedQuery, categoryFilter, subFilter, minRating, sortBy, maxPrice, onlyOpen, onlyOnline, onlyScheduling]);
+  }, [services, debouncedQuery, categoryFilter, subFilter, sortBy, maxPrice, onlyOpen, onlyOnline, onlyScheduling]);
+
+  // painel de filtros (ícone no fim da barra de busca): fecha com Esc ou clique fora
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setFiltersOpen(false);
+    const onClick = (e: MouseEvent) => { if (!filtersRef.current?.contains(e.target as Node)) setFiltersOpen(false); };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("mousedown", onClick);
+    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("mousedown", onClick); };
+  }, [filtersOpen]);
+  const activeFilters = [categoryFilter !== "Todos", !!subFilter, !!maxPrice, onlyOpen, onlyOnline, onlyScheduling, sortBy !== "relevance"].filter(Boolean).length;
+  const clearFilters = () => {
+    setCategoryFilter("Todos");
+    setSubFilter("");
+    setMaxPrice("");
+    setOnlyOpen(false);
+    setOnlyOnline(false);
+    setOnlyScheduling(false);
+    setSortBy("relevance");
+    setPage(1);
+  };
 
   // subcategorias com serviço publicado na categoria escolhida
   const subcategories = useMemo(() => {
@@ -255,7 +278,7 @@ export default function ServiceDashboardSophisticated() {
       </h1>
       <h3 className=" md:flex hidden px-12 leading-tight">
         Escolha o tipo de serviço e encontre profissionais disponíveis. Filtre
-        por categoria, avaliação e preço.
+        por categoria, preço e disponibilidade.
       </h3>
       <div className="min-h-screen w-full bg-[var(--bg-dark)] text-[var(--text)] p-6 md:p-10 ">
         {/* Floating Search + Filters (sophisticated) */}
@@ -270,134 +293,153 @@ export default function ServiceDashboardSophisticated() {
               className="absolute top-6 left-1/2 -translate-x-1/2 w-full md:w-[90%] lg:w-full"
               aria-hidden
             />
-            <div className="flex flex-col mb-10 md:flex-row items-stretch gap-4">
-              {/* search box */}
-              <div className="flex-1 relative">
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-start gap-4 mb-10">
+              {/* busca: ocupa todo o espaço até a localização; filtros no ícone do fim da barra */}
+              <div className="flex-1 min-w-0 relative" ref={filtersRef}>
                 <div
-                  className="flex items-center gap-3 p-3 rounded-2xl bg-[linear-gradient(90deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01))] border border-[var(--border-muted)] shadow-lg"
+                  className="flex items-center gap-3 h-[52px] pl-4 pr-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)] focus-within:border-[var(--primary)] transition"
                   role="search"
                 >
-                  <Search className=" text-[var(--text-muted)]" />
+                  <Search className="shrink-0 text-[var(--text-muted)]" size={20} aria-hidden />
                   <input
                     aria-label="Buscar serviços"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Procure por serviços, habilidades ou palavras-chave..."
-                    className="bg-transparent outline-none text-[var(--text)] placeholder:[var(--text-muted)] flex-1"
+                    className="bg-transparent outline-none text-[var(--text)] placeholder:text-[var(--text-muted)] flex-1 min-w-0"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setFiltersOpen((v) => !v)}
+                    aria-expanded={filtersOpen}
+                    aria-controls="search-filters"
+                    aria-label={activeFilters ? `Filtros (${activeFilters} ativos)` : "Filtros"}
+                    className={`relative shrink-0 flex items-center gap-2 h-9 px-3 rounded-xl border transition ${filtersOpen || activeFilters ? "border-[var(--primary)] text-[var(--text)]" : "border-transparent text-[var(--text-muted)] hover:text-[var(--text)]"}`}
+                  >
+                    <SlidersHorizontal size={18} aria-hidden />
+                    <span className="hidden sm:inline text-sm">Filtros</span>
+                    {activeFilters > 0 && (
+                      <span className="min-w-5 h-5 px-1 rounded-full bg-[var(--primary)] text-white text-xs flex items-center justify-center">{activeFilters}</span>
+                    )}
+                  </button>
                 </div>
-                {/* subtle suggestion chips */}
-                <div className="lg:absolute  mt-2 flex gap-2 flex-wrap">
-                  {categories.filter((c) => c !== "Todos").slice(0, 4).map((chip) => (
-                    <motion.button
+
+                <AnimatePresence>
+                  {filtersOpen && (
+                    <motion.div
+                      id="search-filters"
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute z-30 left-0 right-0 mt-2 p-4 rounded-2xl bg-[var(--bg)] border border-[var(--border)] shadow-xl grid gap-4 sm:grid-cols-2"
+                    >
+                      <label className="grid gap-1 text-sm">
+                        <span className="text-[var(--text-muted)]">Categoria</span>
+                        <select
+                          value={categoryFilter}
+                          onChange={(e) => { setCategoryFilter(e.target.value); setSubFilter(""); setPage(1); }}
+                          className={filterField}
+                          aria-label="Filtrar por categoria"
+                        >
+                          {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </label>
+
+                      <label className="grid gap-1 text-sm">
+                        <span className="text-[var(--text-muted)]">Subcategoria</span>
+                        <select
+                          value={subFilter}
+                          onChange={(e) => { setSubFilter(e.target.value); setPage(1); }}
+                          disabled={subcategories.length === 0}
+                          className={`${filterField} disabled:opacity-50`}
+                          aria-label="Filtrar por subcategoria"
+                        >
+                          <option value="">{categoryFilter === "Todos" ? "Escolha uma categoria" : "Todas as subcategorias"}</option>
+                          {subcategories.map((sc) => <option key={sc} value={sc}>{sc}</option>)}
+                        </select>
+                      </label>
+
+                      <label className="grid gap-1 text-sm">
+                        <span className="text-[var(--text-muted)]">Preço máximo (R$)</span>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          min={0}
+                          step={10}
+                          value={maxPrice}
+                          onChange={(e) => { setMaxPrice(e.target.value); setPage(1); }}
+                          placeholder="Sem limite"
+                          aria-label="Preço máximo em reais"
+                          className={filterField}
+                        />
+                      </label>
+
+                      <label className="grid gap-1 text-sm">
+                        <span className="text-[var(--text-muted)]">Ordenar por</span>
+                        <select
+                          value={sortBy}
+                          onChange={(e) => setSortBy(e.target.value as "relevance" | "rating" | "price" | "distance")}
+                          className={filterField}
+                          aria-label="Ordenar por"
+                        >
+                          <option value="relevance">Relevância</option>
+                          <option value="rating">Avaliação</option>
+                          <option value="price">Menor preço</option>
+                          {location && <option value="distance">Mais perto</option>}
+                        </select>
+                      </label>
+
+                      <div role="group" aria-label="Disponibilidade" className="sm:col-span-2 grid gap-1 text-sm">
+                        <span className="text-[var(--text-muted)]">Disponibilidade</span>
+                        <div className="flex flex-wrap gap-2">
+                          {([
+                            ["Aberto agora", onlyOpen, setOnlyOpen],
+                            ["Online", onlyOnline, setOnlyOnline],
+                            ["Agenda online", onlyScheduling, setOnlyScheduling],
+                          ] as [string, boolean, (v: boolean) => void][]).map(([label, on, set]) => (
+                            <button
+                              key={label}
+                              type="button"
+                              aria-pressed={on}
+                              onClick={() => { set(!on); setPage(1); }}
+                              className={`px-3 py-1.5 rounded-full border transition ${on ? "bg-[var(--primary)] border-[var(--primary)] text-white" : "border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]"}`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="sm:col-span-2 flex justify-between items-center pt-1 border-t border-[var(--border)]">
+                        <button type="button" onClick={clearFilters} disabled={!activeFilters} className="text-sm text-[var(--text-muted)] hover:text-[var(--text)] disabled:opacity-40 pt-3">
+                          Limpar filtros
+                        </button>
+                        <button type="button" onClick={() => setFiltersOpen(false)} className="mt-3 px-4 py-2 rounded-xl bg-[var(--primary)] text-white text-sm font-medium">
+                          Ver {filtered.length} resultado{filtered.length === 1 ? "" : "s"}
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* atalhos de categoria */}
+                <div className="mt-3 flex gap-2 flex-wrap">
+                  {categories.filter((c) => c !== "Todos").slice(0, 6).map((chip) => (
+                    <button
                       key={chip}
-                      whileHover={{ scale: 1.04 }}
-                      onClick={() => { setQuery(""); setCategoryFilter(chip); }}
-                      className="text-xs px-3 py-1 rounded-full bg-[var(--bg-light)]/30 border border-[var(--border-muted)] text-[var(--text-muted)]"
+                      onClick={() => { setQuery(""); setCategoryFilter(chip === categoryFilter ? "Todos" : chip); setSubFilter(""); setPage(1); }}
+                      aria-pressed={chip === categoryFilter}
+                      className={`text-xs px-3 py-1 rounded-full border transition ${chip === categoryFilter ? "bg-[var(--primary)] border-[var(--primary)] text-white" : "bg-[var(--bg-light)]/30 border-[var(--border-muted)] text-[var(--text-muted)] hover:text-[var(--text)]"}`}
                     >
                       #{chip}
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-
-              {/* filters */}
-              <div className="flex flex-wrap items-center  gap-3">
-                <div className="flex items-center gap-2 p-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)]">
-                  <Filter className="text-[var(--text-muted)]" />
-                  <select
-                    value={categoryFilter}
-                    onChange={(e) => { setCategoryFilter(e.target.value); setSubFilter(""); }}
-                    className="bg-[var(--bg)] outline-none text-[var(--text)]"
-                    aria-label="Filtrar por categoria"
-                  >
-                    {categories.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {subcategories.length > 0 && (
-                  <div className="flex items-center gap-2 p-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)]">
-                    <select
-                      value={subFilter}
-                      onChange={(e) => { setSubFilter(e.target.value); setPage(1); }}
-                      className="bg-[var(--bg)] outline-none text-[var(--text)]"
-                      aria-label="Filtrar por subcategoria"
-                    >
-                      <option value="">Todas as subcategorias</option>
-                      {subcategories.map((sc) => <option key={sc} value={sc}>{sc}</option>)}
-                    </select>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-2 p-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)]" title={`Avaliação mínima: ${minRating}`}>
-                  <Star fill="currentColor" className="text-yellow-400" />
-                  <input
-                    aria-label="Avaliação mínima"
-                    type="range"
-                    min={0}
-                    max={5}
-                    step={0.5}
-                    value={minRating}
-                    onChange={(e) => setMinRating(Number(e.target.value))}
-                    className="accent-[var(--highlight)]"
-                  />
-                  <span className="text-xs text-[var(--text-muted)] w-6">{minRating > 0 ? minRating : "—"}</span>
-                </div>
-
-                <label className="flex items-center gap-2 p-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)] text-sm">
-                  <span className="text-[var(--text-muted)] whitespace-nowrap">Até R$</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step={10}
-                    value={maxPrice}
-                    onChange={(e) => { setMaxPrice(e.target.value); setPage(1); }}
-                    placeholder="—"
-                    aria-label="Preço máximo em reais"
-                    className="w-20 bg-transparent outline-none text-[var(--text)]"
-                  />
-                </label>
-
-                <div role="group" aria-label="Disponibilidade" className="flex flex-wrap items-center gap-1 p-1 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)] text-sm">
-                  {([
-                    ["Aberto agora", onlyOpen, setOnlyOpen],
-                    ["Online", onlyOnline, setOnlyOnline],
-                    ["Agenda online", onlyScheduling, setOnlyScheduling],
-                  ] as [string, boolean, (v: boolean) => void][]).map(([label, on, set]) => (
-                    <button
-                      key={label}
-                      type="button"
-                      aria-pressed={on}
-                      onClick={() => { set(!on); setPage(1); }}
-                      className={`px-3 py-1.5 rounded-xl transition ${on ? "bg-[var(--primary)] text-white" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
-                    >
-                      {label}
                     </button>
                   ))}
-                </div>
-
-                <div className="flex items-center gap-2 p-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)]">
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as "relevance" | "rating" | "price" | "distance")}
-                    className="bg-[var(--bg)] outline-none text-[var(--text)]"
-                    aria-label="Ordenar por"
-                  >
-                    <option value="relevance">Relevância</option>
-                    <option value="rating">Avaliação</option>
-                    <option value="price">Preço</option>
-                    {location && <option value="distance">Mais perto</option>}
-                  </select>
                 </div>
               </div>
 
               {/* onde o cliente está: distância e "atende minha região" */}
-              <div className="mt-3">
+              <div className="lg:w-[420px] shrink-0">
                 <LocationBar location={location} onChange={setLocation} onlyNearby={onlyNearby} onOnlyNearbyChange={setOnlyNearby} />
               </div>
             </div>
@@ -582,9 +624,9 @@ export default function ServiceDashboardSophisticated() {
                   {(services ?? []).length === 0
                     ? "Ainda não há serviços publicados."
                     : "Nenhum serviço encontrado para sua busca."}
-                  {(query || categoryFilter !== "Todos" || minRating > 0 || maxPrice || onlyOpen || onlyOnline || onlyScheduling) && (
+                  {(query || activeFilters > 0) && (
                     <button
-                      onClick={() => { setQuery(""); setCategoryFilter("Todos"); setSubFilter(""); setMinRating(0); setMaxPrice(""); setOnlyOpen(false); setOnlyOnline(false); setOnlyScheduling(false); }}
+                      onClick={() => { setQuery(""); clearFilters(); }}
                       className="block mx-auto mt-3 text-[var(--primary)] underline"
                     >
                       Limpar filtros
