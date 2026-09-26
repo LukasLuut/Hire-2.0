@@ -499,6 +499,40 @@ export class HireService {
         return hires.map((h) => ({ ...forViewer(h, "provider")!, clientLateCancellations: late.get(h.user?.id) ?? 0 }));
     }
 
+    /**
+     * Agenda do prestador: atendimentos marcados (não cancelados) de `days` dias a partir de `start`
+     * (AAAA-MM-DD, padrão hoje). Endereço segue a mesma regra de privacidade da lista de pedidos.
+     */
+    async agenda(userId: number, start?: unknown, days = 7) {
+        const provider = await this.providerRepository.findOne({ where: { user: { id: userId } } });
+        if (!provider) throw new HttpError(404, "Você não tem conta profissional");
+        const m = String(start ?? "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        const from = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(new Date().setHours(0, 0, 0, 0));
+        const to = new Date(from.getTime() + Math.min(Math.max(days, 1), 31) * 86400000);
+        const hires = await this.hireRepository.find({
+            where: { provider: { id: provider.id }, scheduledAt: Between(from, to), status: Not(StatusEnum.CANCELADO), status_provider: Not(StatusEnum.CANCELADO) },
+            relations: { user: true, service: true },
+            order: { scheduledAt: "ASC" },
+        });
+        return {
+            from,
+            to,
+            items: hires.map((h) => {
+                const v = forViewer(h, "provider")!;
+                return {
+                    id: h.id,
+                    scheduledAt: h.scheduledAt,
+                    durationMinutes: h.durationMinutes ?? 60,
+                    service: h.service?.title ?? h.description_service,
+                    client: h.user?.name ?? null,
+                    status: h.status,
+                    status_provider: h.status_provider,
+                    place: h.service?.online ? "Online" : v.serviceAddress ? [v.serviceAddress.street && `${v.serviceAddress.street}, ${v.serviceAddress.num}`, v.serviceAddress.neighborhood, v.serviceAddress.city].filter(Boolean).join(" — ") : null,
+                };
+            }),
+        };
+    }
+
     /** Expediente do prestador por dia da semana */
     private hoursOf(availabilities: Availability[] | undefined): BusinessHours {
         return Object.fromEntries((availabilities ?? []).map((a) => [a.day, { start: a.start, end: a.end }]));

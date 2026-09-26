@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { HireService } from '../services/HireService'
 import { paymentService } from '../services/PaymentService'
 import { authMiddleware } from '../middlewares/authMidlleware'
 import { ProviderController } from '../controllers/ProviderController'
@@ -22,6 +23,7 @@ providerRouter.delete('/', authMiddleware, controller.delete.bind(controller))
 providerRouter.get('/services', authMiddleware, controller.getServices.bind(controller))
 
 // Verificação do prestador (documentos privados)
+const hireService = new HireService()
 const me = (req: Request) => Number((req as any).user.id)
 const fail = (res: Response, e: any) => res.status(e?.status ?? 400).json({ message: e?.message ?? 'Erro inesperado' })
 providerRouter.get('/me/verification', authMiddleware, async (req, res) => {
@@ -53,6 +55,10 @@ providerRouter.get('/me/earnings', authMiddleware, async (req, res) => {
     const provider = await providerService.mine(me(req))
     res.json(await paymentService.providerSummary(provider.id))
   } catch (e) { fail(res, e) }
+})
+// Agenda da semana (atendimentos marcados)
+providerRouter.get('/me/agenda', authMiddleware, async (req, res) => {
+  try { res.json(await hireService.agenda(me(req), req.query.start, Number(req.query.days) || 7)) } catch (e) { fail(res, e) }
 })
 providerRouter.post('/me/reactivate', authMiddleware, async (req, res) => {
   try { res.json(await providerService.reactivate(me(req))) } catch (e) { fail(res, e) }

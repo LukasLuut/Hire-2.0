@@ -114,10 +114,10 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
     >
       {/* HEADER */}
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-        <div className="flex flex-col sm:flex-row gap-5">
+        <div className="flex flex-col sm:flex-row gap-5 min-w-0">
           <div className="relative">
             {/* Avatar / Logo */}
-            <div className="w-72 h-72 sm:w-40 sm:h-40   md:ml-40 lg:w-72 lg:h-72 rounded-full bg-[var(--bg)] border-4 border-[var(--primary)] flex items-center justify-center shrink-0 mx-auto sm:mx-0">
+            <div className="w-72 h-72 sm:w-40 sm:h-40   md:ml-10 xl:ml-40 lg:w-72 lg:h-72 rounded-full bg-[var(--bg)] border-4 border-[var(--primary)] flex items-center justify-center shrink-0 mx-auto sm:mx-0">
               <EditableAvatar
                 src={imageLink}
                 alt={`Foto de ${name}`}
@@ -205,7 +205,7 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
         </div>
 
         {/* Status */}
-        <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
+        <div className="flex flex-wrap gap-2 justify-start lg:justify-end lg:max-w-[18rem] shrink-0">
           <OpenStatusChip provider={provider} editable={!readOnly} onChanged={refresh} />
           {readOnly && <FavoriteProviderButton providerId={provider.id} />}
 

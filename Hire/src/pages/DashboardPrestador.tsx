@@ -7,6 +7,7 @@ import { providerUrl } from "../utils/providerPath";
 import SharePanel from "../components/Share/SharePanel";
 import ProfileStats from "../components/ProfileStats";
 import EarningsSummary from "../components/Payment/EarningsSummary";
+import ProviderAgenda from "../components/ProviderAgenda";
 import type { PortfolioItem } from "../interfaces/Entities";
 import PortfolioManager from "../components/Portfolio/PortfolioManager";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
@@ -148,8 +149,9 @@ export default function DashboardPrestador() {
         {/* header */}
         <div className="max-w-[90%] mx-auto flex flex-col lg:flex-row gap-6">
           {/* aside (desktop) visible at right; on mobile it will be an accordion below header */}
-          {provider && <ProviderHero key={galleryKey} provider={provider} editRequest={editRequest} onDeactivate={() => setDeactivateOpen(true)} />}
-          <aside className="w-full mt-6 lg:w-80">
+          {/* min-w-0: o conteúdo do perfil encolhe em vez de empurrar a coluna lateral para fora da tela */}
+          {provider && <div className="flex-1 min-w-0"><ProviderHero key={galleryKey} provider={provider} editRequest={editRequest} onDeactivate={() => setDeactivateOpen(true)} /></div>}
+          <aside className="w-full mt-6 lg:w-80 lg:shrink-0">
             {provider && (
               <ProviderChecklist
                 provider={provider}
@@ -161,6 +163,7 @@ export default function DashboardPrestador() {
                 onPortfolio={() => document.getElementById("portfolio-manager-title")?.scrollIntoView({ behavior: "smooth", block: "center" })}
               />
             )}
+            {provider && <ProviderAgenda />}
             {provider && (
               <section aria-labelledby="promote-title" className="mb-4 rounded-2xl p-4 border border-[var(--border)] bg-[var(--bg-light)]/40">
                 <h3 id="promote-title" className="font-semibold mb-1">Divulgue seu perfil</h3>
