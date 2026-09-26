@@ -8,6 +8,7 @@ import { jwtSecret } from "./utils/jwt";
 import { HireService } from "./services/HireService";
 import { registerNotificationMailer } from "./services/NotificationMailer";
 import { loadBlockedUsers } from "./utils/access";
+import { seoRouter, spaHandler } from "./seo/seo";
 import { ProviderService } from "./services/ProviderService";
 
 const app: Application = express();
@@ -31,6 +32,9 @@ AppDataSource.initialize()
       } */)
     );
     app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+    // SEO: robots.txt, sitemap.xml e, quando existe o build do frontend, a SPA com meta tags por página
+    app.use(seoRouter);
+    app.use(spaHandler());
     app.use(router);
 
     // Erros lançados por middlewares (ex.: upload inválido) viram JSON legível para o frontend

@@ -37,6 +37,7 @@ interface ProviderHeroProps {
 
 export default function ProviderHero({ provider, readOnly = false, services, editRequest }: ProviderHeroProps) {
   const { user: sessionUser } = useSession();
+  const NameHeading = readOnly ? "h1" : "h2";
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
@@ -113,9 +114,10 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
           {/* Info principal */}
           <div className="flex items-center md:items-start  flex-col gap-2">
             <div className="flex flex-col md:flex-row sm:items-center gap-2 sm:gap-3">
-              <h2 className="text-4xl sm:text-4xl font-semibold leading-tight">
+              {/* no perfil público o nome é o título principal da página (h1) */}
+              <NameHeading className="text-4xl sm:text-4xl font-semibold leading-tight">
                 {name}
-              </h2>
+              </NameHeading>
               <div className="flex items-center gap-1 text-yellow-400 text-sm">
                 <Star size={16} fill={rating.count > 0 ? "currentColor" : "none"} />
                 <span className="font-semibold">{rating.count > 0 ? rating.average.toFixed(1) : "Novo"}</span>

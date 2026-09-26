@@ -140,9 +140,9 @@ export default function ServiceGalleryZoom({
         {/* ------------------------------------------------------------------
          * CABEÇALHO
          * ------------------------------------------------------------------ */}
-        <h1 className="text-6xl font-bold text-center pt-15 mb-10 ">
+        <h2 className="text-6xl font-bold text-center pt-15 mb-10 ">
           {title}
-        </h1>
+        </h2>
 
         {/* ------------------------------------------------------------------
          * BARRA DE PESQUISA + TAGS + FILTROS
