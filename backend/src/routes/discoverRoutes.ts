@@ -30,7 +30,7 @@ discoverRouter.get('/:category/:city', async (req, res) => {
       .leftJoinAndSelect('s.category', 'c')
       .leftJoinAndSelect('s.provider', 'p')
       .innerJoin('p.user', 'u', 'u.blocked = 0')
-      .where('s.active = 1 AND c.id = :cat AND p.baseCity = :city AND COALESCE(p.baseState, \'\') = :state', {
+      .where('s.active = 1 AND p.deactivatedAt IS NULL AND c.id = :cat AND p.baseCity = :city AND COALESCE(p.baseState, \'\') = :state', {
         cat: page.categoryId,
         city: page.city,
         state: page.state,

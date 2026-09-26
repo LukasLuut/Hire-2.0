@@ -60,6 +60,10 @@ export const providerApi = {
   },
 
   /** Perfil público de um prestador (Ver perfil). */
+  /** Conta profissional: desativar (vira só cliente) e reativar */
+  deactivate: (token: string) => apiRequest("/providers/me/deactivate", { method: "POST", headers: auth(token) }),
+  reactivate: (token: string) => apiRequest("/providers/me/reactivate", { method: "POST", headers: auth(token) }),
+
   /* ---- portfólio do próprio prestador ---- */
   portfolio: (token: string) => apiRequest<PortfolioItem[]>("/providers/me/portfolio", { headers: auth(token) }),
   addPortfolio: (body: FormData, token: string) =>

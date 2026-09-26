@@ -56,6 +56,7 @@ export class VerificationService {
     try {
       const p = await this.load({ userId });
       if (!p) throw new HttpError(404, "Cadastre sua empresa primeiro");
+      if (p.deactivatedAt) throw new HttpError(403, "Sua conta profissional está desativada. Reative para enviar documentos.");
       if (!idDocument) throw new HttpError(400, "Envie o documento de identificação (RG, CNH ou cartão CNPJ)");
       if (p.verificationStatus === VerificationStatus.VERIFIED) throw new HttpError(400, "Seu perfil já está verificado");
 

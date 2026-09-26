@@ -8,6 +8,9 @@
  *  - Busca de serviços e avaliações recebidas como cliente
  * -------------------------------------------------------------------------- */
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { providerApi } from "../api/ProviderAPI";
+import { Heart, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Star, Edit3, MessageSquare, Check } from "lucide-react";
 // o cadastro de prestador traz o mapa (leaflet): só é baixado quando o formulário abre
 const ProviderRegistrationContainer = lazy(() => import("../components/ProviderRegistration/ProviderRegistration/Principal/ProviderRegistrationContainer"));
@@ -33,7 +36,28 @@ export default function ProfilePage() {
   /* ------------------------------------------------------------------------
    * ESTADOS
    * ------------------------------------------------------------------------ */
-  const { user: sessionUser, provider, loading, refresh, logout } = useSession();
+  const { user: sessionUser, provider, providerDeactivated, loading, refresh, logout } = useSession();
+  const [favoritesOpen, setFavoritesOpen] = useState(false);
+  const [reactivateOpen, setReactivateOpen] = useState(false);
+  const [reactivating, setReactivating] = useState(false);
+
+  // conta profissional desativada: reativa com os mesmos dados, serviços e portfólio
+  const reactivate = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    setReactivating(true);
+    try {
+      await providerApi.reactivate(token);
+      await refresh();
+      showToast("Conta profissional reativada. Seu perfil e seus serviços voltaram ao ar.", "success");
+      setReactivateOpen(false);
+      navigate("/business");
+    } catch (e) {
+      showToast(getErrorMessage(e, "Não foi possível reativar."), "error");
+    } finally {
+      setReactivating(false);
+    }
+  };
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isOpenChat, setIsOpenChat]=useState(false)
@@ -224,16 +248,28 @@ export default function ProfilePage() {
 
           {/* BOTÕES DE AÇÃO */}
           <div className="flex items-end gap-4 mt-2">
-             {(!registration && !provider) && (
+             {(!registration && !provider && !providerDeactivated) && (
               <button className="bg-[var(--primary)] rounded-xl w-55 h-15 mt-6 text-lg text-white animate-bounce "
                 onClick={()=>setRegistration(true) }>
                 Cadastre sua empresa
+              </button>
+            )}
+             {(!registration && !provider && providerDeactivated) && (
+              <button className="bg-[var(--primary)] rounded-xl px-5 h-14 mt-6 text-white font-semibold"
+                onClick={() => setReactivateOpen(true)}>
+                Reativar perfil profissional
               </button>
             )}
              <button
                 onClick={()=>{setIsOpenChat(true)}}
                 className="px-2 md:px-4 py-2 border min-h-14 bottom-0 flex gap-2 items-center border-[var(--border)] rounded-lg hover:bg-[var(--bg-light)] transition">
               <MessageSquare size={20} /> Chat
+            </button>
+             <button
+                onClick={() => setFavoritesOpen(true)}
+                aria-haspopup="dialog"
+                className="px-2 md:px-4 py-2 border min-h-14 bottom-0 flex gap-2 items-center border-[var(--border)] rounded-lg hover:bg-[var(--bg-light)] transition">
+              <Heart size={20} className="text-[var(--primary)]" /> Favoritos
             </button>
           </div>
         </div>
@@ -243,6 +279,50 @@ export default function ProfilePage() {
        * SEÇÃO DO CHAT (conversas e negociações)
        * =============================================================== */}
       <ChatInbox isOpen={isOpenChat} onClose={() => setIsOpenChat(false)} />
+
+      {/* painel de favoritos */}
+      <AnimatePresence>
+        {favoritesOpen && (
+          <motion.div
+            className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setFavoritesOpen(false)}
+          >
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="favorites-title"
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.key === "Escape" && setFavoritesOpen(false)}
+              className="w-full sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-[var(--bg-light)] border border-[var(--border)] p-5 text-[var(--text)]"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 id="favorites-title" className="text-lg font-semibold flex items-center gap-2">
+                  <Heart size={20} className="text-[var(--primary)]" fill="currentColor" /> Seus favoritos
+                </h2>
+                <button autoFocus onClick={() => setFavoritesOpen(false)} aria-label="Fechar" className="p-2 rounded-lg hover:bg-[var(--bg)]"><X size={20} /></button>
+              </div>
+              <FavoritesSection />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <ConfirmModal
+        open={reactivateOpen}
+        title="Reativar perfil profissional?"
+        description="Seu perfil público, seus serviços e seu portfólio voltam a aparecer para os clientes, e você volta a receber pedidos."
+        confirmLabel="Reativar"
+        cancelLabel="Voltar"
+        loading={reactivating}
+        onConfirm={reactivate}
+        onClose={() => setReactivateOpen(false)}
+      />
 
         {/* ===============================================================
        * SEÇÃO DE REGISTRO E GALERIA DE SERVIÇOS
@@ -257,7 +337,7 @@ export default function ProfilePage() {
 
           <div className="flex flex-col items-center justify-center min-h-50 bg-[var(--bg-dark)] border-b-1  border-[var(--border)] text-[var(--text)]">
 
-            {!registration&&(<FavoritesSection />)}
+            {/* favoritos: agora abrem pelo botão ao lado do Chat */}
             {!registration&&(<ServiceDashboardSophisticated />)}
 
           </div>

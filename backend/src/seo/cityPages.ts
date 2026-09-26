@@ -31,7 +31,7 @@ export async function cityPages(): Promise<CityPage[]> {
       JOIN service_providers p ON p.id = s.providerId
       JOIN categories c ON c.id = s.category_id
       JOIN users u ON u.id = p.userId
-      WHERE s.active = 1 AND p.baseCity IS NOT NULL AND p.baseCity <> '' AND u.blocked = 0
+      WHERE s.active = 1 AND p.deactivatedAt IS NULL AND p.baseCity IS NOT NULL AND p.baseCity <> '' AND u.blocked = 0
       GROUP BY c.id, c.name, p.baseCity, p.baseState
       ORDER BY providers DESC, services DESC`);
   return rows.map((r) => {
@@ -92,7 +92,7 @@ export async function regionalSupply() {
     FROM service_providers p
     JOIN users u ON u.id = p.userId
     LEFT JOIN services s ON s.providerId = p.id
-    WHERE p.baseCity IS NOT NULL AND p.baseCity <> '' AND u.blocked = 0
+    WHERE p.deactivatedAt IS NULL AND p.baseCity IS NOT NULL AND p.baseCity <> '' AND u.blocked = 0
     GROUP BY p.baseCity, p.baseState
     ORDER BY providers DESC`);
   return rows.map((r) => ({ city: r.city, state: (r.state ?? "").toUpperCase(), providers: Number(r.providers), services: Number(r.services), categories: Number(r.categories) }));

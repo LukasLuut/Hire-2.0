@@ -1,8 +1,10 @@
 import { AppDataSource } from "../config/data-source";
+import { Hire, StatusEnum } from "../models/Hire";
+import { HttpError } from "./HireService";
 import { inviteService } from "./InviteService";
 import { cityPages } from "../seo/cityPages";
 import { portfolioService } from "./PortfolioService";
-import { IsNull } from "typeorm";
+import { In, IsNull } from "typeorm";
 import { isSlug, uniqueSlug } from "../utils/slug";
 import { toPublicProvider } from "../utils/publicProvider";
 import { ServiceProvider } from "../models/ServiceProvider";
@@ -92,10 +94,38 @@ export class ProviderService {
     return missing.length;
   }
 
+  /**
+   * Desativa a conta profissional: o perfil, os serviços e o portfólio saem do público e a
+   * pessoa segue como cliente. Pedidos em andamento precisam ser concluídos ou cancelados antes.
+   */
+  async deactivate(userId: number) {
+    const provider = await this.providerRepository.findOne({ where: { user: { id: userId } } });
+    if (!provider) throw new HttpError(404, "Você não tem conta profissional");
+    if (provider.deactivatedAt) return { deactivatedAt: provider.deactivatedAt };
+    const open = await AppDataSource.getRepository(Hire).count({
+      where: [
+        { provider: { id: provider.id }, status: StatusEnum.PENDENTE, status_provider: In([StatusEnum.PENDENTE, StatusEnum.ACEITO, StatusEnum.EM_ANDAMENTO, StatusEnum.CONCLUIDO]) },
+      ],
+    });
+    if (open) throw new HttpError(400, `Você tem ${open} pedido(s) em andamento como prestador. Conclua ou cancele antes de desativar.`);
+    provider.deactivatedAt = new Date();
+    await this.providerRepository.save(provider);
+    return { deactivatedAt: provider.deactivatedAt };
+  }
+
+  /** Reativa a conta profissional com os mesmos dados, serviços e portfólio */
+  async reactivate(userId: number) {
+    const provider = await this.providerRepository.findOne({ where: { user: { id: userId } } });
+    if (!provider) throw new HttpError(404, "Você não tem conta profissional");
+    provider.deactivatedAt = null;
+    await this.providerRepository.save(provider);
+    return { deactivatedAt: null };
+  }
+
   /** Slug do prestador (gera se ainda não tiver) */
   async slugOf(id: number) {
-    const p = await this.providerRepository.findOne({ where: { id }, select: { id: true, slug: true, companyName: true, professionalName: true } });
-    if (!p) throw new Error("Prestador não encontrado");
+    const p = await this.providerRepository.findOne({ where: { id }, select: { id: true, slug: true, companyName: true, professionalName: true, deactivatedAt: true } });
+    if (!p || p.deactivatedAt) throw new Error("Prestador não encontrado");
     if (p.slug) return p.slug;
     const slug = await this.newSlug(p.companyName || p.professionalName, p.id);
     await this.providerRepository.update(p.id, { slug });
@@ -187,6 +217,8 @@ export class ProviderService {
       relations: { user: true, subcategories: true, links: true, category: true, availabilities: true, services: { category: true } },
     });
     if (!provider) throw new Error("Prestador não encontrado");
+    // conta profissional desativada: some do público (410 = existiu e não está mais disponível)
+    if (provider.deactivatedAt) throw new HttpError(410, "Este perfil profissional foi desativado");
     const [decorated] = await this.decorate([provider]);
     // perfil público mostra só os serviços ativos
     const services = await serviceService.withStats(provider.services.filter((s) => s.active !== false).map((s) => ({ ...s, provider } as any)));
@@ -240,7 +272,7 @@ export class ProviderService {
 
   /** Todos os prestadores com nota, ordenados pelos mais bem avaliados. */
   async list() {
-    const providers = await this.providerRepository.find({ relations: { user: true, category: true, subcategories: true } });
+    const providers = await this.providerRepository.find({ where: { deactivatedAt: IsNull() }, relations: { user: true, category: true, subcategories: true } });
     const decorated = await this.decorate(providers);
     return decorated
       .map((p) => toPublicProvider(p as any) as any)

@@ -39,6 +39,14 @@ providerRouter.get('/verification/:id/files/:name', authMiddleware, async (req, 
   } catch (e) { fail(res, e) }
 })
 
+// Conta profissional: desativar (vira só cliente) e reativar
+providerRouter.post('/me/deactivate', authMiddleware, async (req, res) => {
+  try { res.json(await providerService.deactivate(me(req))) } catch (e) { fail(res, e) }
+})
+providerRouter.post('/me/reactivate', authMiddleware, async (req, res) => {
+  try { res.json(await providerService.reactivate(me(req))) } catch (e) { fail(res, e) }
+})
+
 // Portfólio do próprio prestador (o público vem junto do perfil)
 providerRouter.get('/me/portfolio', authMiddleware, async (req, res) => {
   try { res.json(await portfolioService.mine(me(req))) } catch (e) { fail(res, e) }

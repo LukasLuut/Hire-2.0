@@ -49,7 +49,8 @@ function buildInitialForm(existing: ProviderEntity | null | undefined, user: { n
 
   return {
   // Identidade
-  name: existing?.professionalName ?? user?.name ?? "",
+  // um nome só (etapa de identidade): como o cliente vê você — empresa ou nome profissional
+  name: existing?.companyName || existing?.professionalName || user?.name || "",
   cnpj: existing?.cnpj ?? "",
   professionalEmail: existing?.professionalEmail ?? user?.email ?? "",
   professionalPhone: existing?.professionalPhone ?? "",
@@ -110,7 +111,6 @@ export default function ProviderRegistrationContainer({ isOpen, onClose, existin
   const [profilePreviewUrl, setProfilePreviewUrl] = useState<string | null>(
     uploadUrl(existing?.profileImageUrl)
   );
-  const [portfolioPreviews, setPortfolioPreviews] = useState<string[]>([]);
 
    // Fecha com ESC (exceto durante o envio)
   useEffect(() => {
@@ -136,16 +136,6 @@ export default function ProviderRegistrationContainer({ isOpen, onClose, existin
   const handleProfileFile = (f: FileOrNull) => {
     update("profilePhoto", f);
     if (f) setProfilePreviewUrl(URL.createObjectURL(f));
-  };
-
-  const handlePortfolioFiles = (files: FileList | null) => {
-    if (!files) return;
-    const arr = Array.from(files);
-    update("portfolio", [...form.portfolio, ...arr]);
-    setPortfolioPreviews((prev) => [
-      ...prev,
-      ...arr.map((f) => URL.createObjectURL(f)),
-    ]);
   };
 
   const handleIdDocument = (f: File | null) => update("idDocument", f);
@@ -223,8 +213,9 @@ export default function ProviderRegistrationContainer({ isOpen, onClose, existin
 
     const formData = new FormData();
 
-    formData.append("companyName", form.companyName);
-    formData.append("professionalName", form.name);
+    formData.append("companyName", form.name.trim());
+    // nome da pessoa: só no cadastro (na edição fica o que já existe)
+    if (!isEdit) formData.append("professionalName", user?.name || form.name.trim());
     formData.append("professionalEmail", form.professionalEmail);
     formData.append("professionalPhone", form.professionalPhone);
     formData.append("description", form.shortDescription);
@@ -379,10 +370,8 @@ export default function ProviderRegistrationContainer({ isOpen, onClose, existin
                     <StepProfessional
                       form={form}
                       update={update}
-                      onPortfolioFiles={handlePortfolioFiles}
                       addSubcategory={addSubcategory}
                       removeSubcategory={removeSubcategory}
-                      portfolioPreviews={portfolioPreviews}
                     />
                   </motion.div>
                 )}

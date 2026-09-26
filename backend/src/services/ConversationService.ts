@@ -107,6 +107,7 @@ export class ConversationService {
     const providerId = Number(data.providerId ?? service?.provider?.id);
     const provider = await this.providerRepository.findOne({ where: { id: providerId }, relations: { user: true } });
     if (!provider) throw new Error("Prestador não encontrado");
+    if (provider.deactivatedAt) throw new HttpError(400, "Este profissional não está mais disponível no Hire");
     if (provider.user?.id === userId) throw new Error("Você não pode negociar com o seu próprio perfil");
 
     const existing = await this.conversationRepository.findOne({

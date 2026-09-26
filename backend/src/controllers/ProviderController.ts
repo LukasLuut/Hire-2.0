@@ -71,7 +71,7 @@ export class ProviderController {
       // aceita id numérico (links antigos) ou slug (/prestador/<slug>)
       res.json(await providerService.getPublic(await providerService.resolveId(String(req.params.id))));
     } catch (e: any) {
-      res.status(404).json({ message: e.message });
+      res.status(e?.status === 410 ? 410 : 404).json({ message: e.message, reason: e?.status === 410 ? "deactivated" : "not_found" });
     }
   };
 

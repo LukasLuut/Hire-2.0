@@ -48,7 +48,11 @@ export async function apiRequest<T>(
       message = b.message || b.messages || b.error || message;
     }
 
-    throw new Error(message);
+    // status HTTP junto (ex.: 410 = perfil desativado, 404 = não existe)
+    const err = new Error(message) as Error & { status?: number; reason?: string };
+    err.status = response.status;
+    if (typeof body === "object" && body !== null && "reason" in body) err.reason = String((body as { reason?: unknown }).reason);
+    throw err;
   }
 
   return body as T;

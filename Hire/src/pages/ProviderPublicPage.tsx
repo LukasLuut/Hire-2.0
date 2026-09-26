@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import ProfileUnavailable from "../components/ProfileUnavailable";
 import { providerUrl } from "../utils/providerPath";
 import SharePanel from "../components/Share/SharePanel";
 import { rememberProfileOrigin, track, trackView } from "../utils/analytics";
@@ -37,6 +38,8 @@ export default function ProviderPublicPage() {
   const [provider, setProvider] = useState<ProviderEntity | null>(null);
   const [services, setServices] = useState<ServiceData[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // perfil desativado (410) ou inexistente (404): página própria para o visitante
+  const [unavailable, setUnavailable] = useState<"deactivated" | "not_found" | null>(null);
   const [chatId, setChatId] = useState<number | null>(null);
 
   const providerId = provider?.id ?? 0;
@@ -45,6 +48,7 @@ export default function ProviderPublicPage() {
   useEffect(() => {
     setProvider(null);
     setError(null);
+    setUnavailable(null);
     providerApi
       .getPublic(key)
       .then((p) => {
@@ -57,7 +61,12 @@ export default function ProviderPublicPage() {
           navigate(`/prestador/${p.slug}${location.search}`, { replace: true });
         }
       })
-      .catch((err) => setError(getErrorMessage(err, "Prestador não encontrado.")));
+      .catch((err) => {
+        const status = (err as { status?: number }).status;
+        if (status === 410) setUnavailable("deactivated");
+        else if (status === 404) setUnavailable("not_found");
+        else setError(getErrorMessage(err, "Não foi possível abrir o perfil agora."));
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
@@ -89,11 +98,13 @@ export default function ProviderPublicPage() {
     }
   };
 
+  if (unavailable) return <ProfileUnavailable reason={unavailable} loggedIn={!!token} />;
+
   if (error) {
     return (
       <div className="min-h-screen bg-[var(--bg-dark)] pt-32 px-6 text-center text-[var(--text)]">
         <p className="text-xl font-semibold">{error}</p>
-        <p className="text-sm text-[var(--text-muted)] mt-2">O endereço pode estar errado ou o perfil não existe mais.</p>
+        <p className="text-sm text-[var(--text-muted)] mt-2">Verifique sua conexão e tente de novo.</p>
         <button onClick={() => navigate(token ? "/home" : "/")} className="mt-4 px-4 py-2 rounded-lg bg-[var(--primary)] text-white">
           {token ? "Voltar para a busca" : "Conhecer o Hire"}
         </button>

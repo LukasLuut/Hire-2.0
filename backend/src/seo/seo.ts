@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import express, { Router, type Request, type Response, type NextFunction } from "express";
+import { IsNull } from "typeorm";
 import { AppDataSource } from "../config/data-source";
 import { ServiceProvider } from "../models/ServiceProvider";
 import { Service } from "../models/Service";
@@ -90,6 +91,7 @@ export async function metaFor(pathname: string): Promise<Meta | { redirect: stri
       ? await AppDataSource.getRepository(ServiceProvider).findOne({ where: { slug }, relations: { category: true } })
       : null;
     if (!p) return { ...base, title: `Perfil não encontrado | ${SITE}`, noindex: true, status: 404 };
+    if (p.deactivatedAt) return { ...base, title: `Perfil indisponível | ${SITE}`, noindex: true, status: 410 };
     const name = p.companyName || p.professionalName;
     const where = p.baseCity ? ` em ${p.baseCity}${p.baseState ? `/${p.baseState}` : ""}` : "";
     return {
@@ -104,7 +106,7 @@ export async function metaFor(pathname: string): Promise<Meta | { redirect: stri
   m = pathname.match(/^\/service\/(\d+)\/?$/);
   if (m) {
     const s = await AppDataSource.getRepository(Service).findOne({ where: { id: Number(m[1]) }, relations: { provider: true, category: true } });
-    if (!s) return { ...base, title: `Serviço não encontrado | ${SITE}`, noindex: true, status: 404 };
+    if (!s || s.provider?.deactivatedAt) return { ...base, title: `Serviço não encontrado | ${SITE}`, noindex: true, status: 404 };
     const who = s.provider?.companyName || s.provider?.professionalName;
     return {
       title: `${s.title}${who ? ` — ${who}` : ""} | ${SITE}`,
@@ -139,10 +141,10 @@ async function sitemap() {
     .createQueryBuilder("p")
     .select(["p.slug"])
     .innerJoin("p.services", "s", "s.active = 1")
-    .where("p.slug IS NOT NULL")
+    .where("p.slug IS NOT NULL AND p.deactivatedAt IS NULL")
     .groupBy("p.id")
     .getMany();
-  const services = await AppDataSource.getRepository(Service).find({ where: { active: true }, select: { id: true } });
+  const services = await AppDataSource.getRepository(Service).find({ where: { active: true, provider: { deactivatedAt: IsNull() } }, select: { id: true } });
   const pages = (await cityPages()).filter((p) => p.indexable);
   const urls = [
     `${site}/`,

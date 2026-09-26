@@ -78,7 +78,8 @@ export class ServiceController {
             res.json(services)
         }
         catch(err: any) {
-            res.status(400).json({ message: err.message})
+            // serviço inexistente ou de conta profissional desativada
+            res.status(404).json({ message: err.message})
         }
     }
 

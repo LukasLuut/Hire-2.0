@@ -6,7 +6,7 @@
 import { motion } from "framer-motion";
 import type { Availability, DayKey, ProviderForm } from "../helpers/types-and-helpers";
 import { TagInput, Toggle } from "../helpers/types-and-helpers";
-import { Upload, Layers } from "lucide-react";
+import { Layers } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Category } from "../../../../interfaces/CategoryInterface";
 import { categoryAPI } from "../../../../api/CategoryAPI";
@@ -14,17 +14,13 @@ import { categoryAPI } from "../../../../api/CategoryAPI";
 export default function StepProfessional({
   form,
   update,
-  onPortfolioFiles,
   addSubcategory,
   removeSubcategory,
-  portfolioPreviews,
 }: {
   form: ProviderForm;
   update: <K extends keyof ProviderForm>(k: K, v: ProviderForm[K]) => void;
-  onPortfolioFiles: (files: FileList | null) => void;
   addSubcategory: (t: string) => void;
   removeSubcategory: (t: string) => void;
-  portfolioPreviews: string[];
 }) {
   const days: [DayKey, string][] = [
   ["monday", "Seg"],
@@ -84,20 +80,8 @@ export default function StepProfessional({
 
       <div className="bg-[var(--bg-light)] border border-[var(--border)] rounded-2xl shadow-sm p-6 flex flex-col gap-6">
         
-        {/* Nome e categoria */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div className="flex flex-col">
-            <label className="text-sm font-medium text-[var(--text-muted)] mb-1">
-              Nome comercial
-            </label>
-            <input
-              className="input p-3 rounded-lg border-[var(--border)] bg-[var(--bg)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/30 transition-all"
-              value={form.companyName}
-              onChange={(e) => update("companyName", e.target.value)}
-              placeholder="Ex: Studio Alpha ou João Serviços"
-            />
-          </div>
-
+        {/* Categoria (o nome fica na etapa de identidade) */}
+        <div className="grid grid-cols-1 gap-5">
           <div className="flex flex-col">
             <label className="text-sm font-medium text-[var(--text-muted)] mb-1">
               Categoria principal
@@ -270,40 +254,6 @@ export default function StepProfessional({
           )}
         </motion.div>
 
-        {/* Portfólio */}
-        <div>
-          <label className="text-sm font-medium text-[var(--text-muted)] mb-2">
-            Portfólio (imagens / PDFs)
-          </label>
-
-          <div className="flex items-center gap-3 mb-3">
-            <label className="flex items-center gap-2 cursor-pointer text-[var(--primary)] font-medium hover:underline">
-              <Upload size={16} /> Adicionar arquivos
-              <input
-                type="file"
-                multiple
-                onChange={(e) => onPortfolioFiles(e.target.files)}
-                className="hidden"
-              />
-            </label>
-            <p className="text-xs text-[var(--text-muted)]">PNG, JPG, PDF — até 10 arquivos.</p>
-          </div>
-
-          <motion.div layout className="flex flex-wrap gap-3">
-            {portfolioPreviews.map((url, i) => (
-              <motion.div
-                key={i}
-                layout
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.2 }}
-                className="relative w-24 h-24 rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--bg)] shadow-sm"
-              >
-                <img src={url} alt={`portfolio-${i}`} className="w-full h-full object-cover" />
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
       </div>
     </motion.div>
   );

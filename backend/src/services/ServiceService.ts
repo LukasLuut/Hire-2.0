@@ -1,5 +1,6 @@
 import { AppDataSource } from "../config/data-source";
 import { Contract } from "../models/Contract";
+import { IsNull } from "typeorm";
 import { toPublicProvider } from "../utils/publicProvider";
 import { Hire, StatusEnum } from "../models/Hire";
 import { PRICE_UNITS, PriceUnit, Service, ServicePackage } from "../models/Service";
@@ -64,6 +65,7 @@ export class ServiceService {
   private async providerOf(userId: number) {
     const provider = await this.providerRepository.findOne({ where: { user: { id: userId } } });
     if (!provider) throw new HttpError(403, "Cadastre sua empresa antes de publicar serviços");
+    if (provider.deactivatedAt) throw new HttpError(403, "Sua conta profissional está desativada. Reative para publicar serviços.");
     return provider;
   }
 
@@ -71,6 +73,7 @@ export class ServiceService {
     const service = await this.serviceRepository.findOne({ where: { id }, relations: { provider: { user: true } } });
     if (!service) throw new HttpError(404, "Serviço não encontrado");
     if (service.provider?.user?.id !== userId) throw new HttpError(403, "Você só pode alterar os seus próprios serviços");
+    if (service.provider?.deactivatedAt) throw new HttpError(403, "Sua conta profissional está desativada. Reative para alterar serviços.");
     return service;
   }
 
@@ -102,6 +105,8 @@ export class ServiceService {
     ]);
     return services.map((s) => ({
       ...s,
+      // serviço de conta profissional desativada aparece como indisponível (ex.: nos favoritos)
+      active: s.active !== false && !s.provider?.deactivatedAt,
       rating: serviceStats.get(s.id) ?? { average: 0, count: 0 },
       // prestador só com dados públicos (sem contato, coordenadas, CNPJ...)
       provider: s.provider
@@ -180,7 +185,7 @@ export class ServiceService {
    * onlyNearby, a lista fica só com quem atende.
    */
   async list(opts: { lat?: unknown; lng?: unknown; onlyNearby?: unknown } = {}) {
-    const services = await this.serviceRepository.find({ where: { active: true }, relations: { category: true, provider: true }, order: { id: "DESC" } });
+    const services = await this.serviceRepository.find({ where: { active: true, provider: { deactivatedAt: IsNull() } }, relations: { category: true, provider: true }, order: { id: "DESC" } });
     const withStats = await this.withStats(services);
     const lat = coord(opts.lat, 90);
     const lng = coord(opts.lng, 180);
@@ -199,7 +204,7 @@ export class ServiceService {
 
   async getById(id: number) {
     const service = await this.serviceRepository.findOne({ where: { id: id }, relations: { category: true, provider: true }});
-    if (!service) throw new Error("Serviço não encontrado");
+    if (!service || service.provider?.deactivatedAt) throw new Error("Serviço não encontrado");
     return (await this.withStats([service]))[0];
   }
 

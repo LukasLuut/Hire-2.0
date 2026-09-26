@@ -14,6 +14,8 @@ interface SessionData {
   token: string | null;
   user: User | null;
   provider: ProviderEntity | null;
+  /** tem conta profissional, mas desativada: usa o Hire só como cliente */
+  providerDeactivated: boolean;
   loading: boolean;
   login: (token: string) => void;
   logout: () => void;
@@ -26,6 +28,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem("token"));
   const [user, setUser] = useState<User | null>(null);
   const [provider, setProvider] = useState<ProviderEntity | null>(null);
+  const [providerDeactivated, setProviderDeactivated] = useState(false);
   const [loading, setLoading] = useState<boolean>(!!token);
 
   const refresh = useCallback(async () => {
@@ -41,10 +44,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       const u = await userAPI.getUser(current);
       setUser(u);
       try {
-        setProvider((await providerApi.getByUser(current)) as unknown as ProviderEntity);
+        const p = (await providerApi.getByUser(current)) as unknown as ProviderEntity | null;
+        // desativada: a pessoa é vista só como cliente (sem painel Business)
+        setProviderDeactivated(!!p?.deactivatedAt);
+        setProvider(p?.deactivatedAt ? null : p);
       } catch {
         // 404 = o usuário ainda não é prestador
         setProvider(null);
+        setProviderDeactivated(false);
       }
     } catch {
       setUser(null);
@@ -74,7 +81,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <SessionContext.Provider value={{ token, user, provider, loading, login, logout, refresh }}>
+    <SessionContext.Provider value={{ token, user, provider, providerDeactivated, loading, login, logout, refresh }}>
       {children}
     </SessionContext.Provider>
   );

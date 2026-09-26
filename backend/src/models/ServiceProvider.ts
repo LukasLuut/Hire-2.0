@@ -86,6 +86,10 @@ export class ServiceProvider {
   @Column({ type: "varchar", length: 64, nullable: true, unique: true })
   slug?: string | null;
 
+  // Conta profissional desativada pelo próprio prestador: some do público e ele usa o Hire só como cliente
+  @Column({ type: "datetime", nullable: true })
+  deactivatedAt?: Date | null;
+
   // Mostrar e-mail e telefone profissionais no perfil público (padrão: não; contato pelo chat)
   @Column({ default: false })
   showContact: boolean;

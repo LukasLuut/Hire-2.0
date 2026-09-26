@@ -417,7 +417,7 @@ export function ServiceProgress({
         </div>
         {/* SIDEBAR -------------------------------------------------- */}
         {serviceForCard && (
-        <aside className="flex relative  flex-col items-end " aria-label="Detalhes do serviço">
+        <aside className="relative w-full md:w-80 lg:w-96 shrink-0 self-start" aria-label="Detalhes do serviço">
           <PostCard service={serviceForCard} noEdit={true} />
         </aside>
         )}

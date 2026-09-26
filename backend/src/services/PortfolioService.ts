@@ -33,8 +33,9 @@ export class PortfolioService {
   }
 
   private async providerOf(userId: number) {
-    const p = await this.providers.findOne({ where: { user: { id: userId } }, select: { id: true } });
+    const p = await this.providers.findOne({ where: { user: { id: userId } }, select: { id: true, deactivatedAt: true } });
     if (!p) throw new HttpError(404, "Cadastre sua empresa primeiro");
+    if (p.deactivatedAt) throw new HttpError(403, "Sua conta profissional está desativada. Reative para editar o portfólio.");
     return p;
   }
 

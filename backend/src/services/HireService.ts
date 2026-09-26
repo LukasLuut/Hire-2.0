@@ -49,6 +49,7 @@ export class HireService {
         if (!service) throw new HttpError(404, "Serviço não encontrado");
         if (service.provider?.user?.id === userId) throw new HttpError(400, "Você não pode contratar o próprio serviço");
         if (service.active === false) throw new HttpError(400, "Este serviço está pausado pelo prestador e não recebe pedidos no momento");
+        if (service.provider?.deactivatedAt) throw new HttpError(400, "Este profissional não está mais disponível no Hire");
 
         // Preço: "a partir de" e "sob orçamento" pedem orçamento; pacotes e quantidade definem o total
         if (service.priceUnit === "a_partir_de" || service.priceUnit === "orcamento") {

@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { useToast } from "../components/Toast/ToastContext";
+import { getErrorMessage } from "../utils/errors";
+import ConfirmModal from "../components/Common/ConfirmModal";
 import { Share2 } from "lucide-react";
 import { providerUrl } from "../utils/providerPath";
 import SharePanel from "../components/Share/SharePanel";
@@ -18,7 +21,7 @@ import {
 } from "lucide-react";
 import ServiceEditor from "../components/ServiceEditor/ServiceEditor";
 import ServiceResponseModal from "../components/Negotiation/ServiceResponseModal";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import ChatInbox from "../components/Chat/ChatInbox";
 import { ProviderProfileSkeleton } from "../skeletons/ProviderProfileSkeleton/ProviderProfileSkeleton";
 import { useSession } from "../context/SessionContext";
@@ -42,7 +45,8 @@ type Notification = { id: string; text: string; date: number };
    Component
    --------------------------- */
 export default function DashboardPrestador() {
-  const { provider, loading: sessionLoading } = useSession();
+  const { provider, loading: sessionLoading, refresh } = useSession();
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
   // data (tudo vem da API)
@@ -56,6 +60,27 @@ export default function DashboardPrestador() {
   const [editRequest, setEditRequest] = useState(0);
   const [portfolio, setPortfolio] = useState<PortfolioItem[] | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(false);
+  const [deactivateOpen, setDeactivateOpen] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
+
+  // desativar a conta profissional: perfil e serviços saem do ar; a pessoa segue como cliente
+  const deactivate = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    setDeactivating(true);
+    try {
+      await providerApi.deactivate(token);
+      setDeactivateOpen(false);
+      await refresh();
+      showToast("Conta profissional desativada. Você continua usando o Hire como cliente.", "success");
+      navigate("/home");
+    } catch (e) {
+      showToast(getErrorMessage(e, "Não foi possível desativar."), "error");
+    } finally {
+      setDeactivating(false);
+    }
+  };
 
   // mobile accordion (drawer alternative per sua escolha 'b')
   const [panelOpen, setPanelOpen] = useState(false);
@@ -110,7 +135,8 @@ export default function DashboardPrestador() {
   /* ---------------------------
      Render
      --------------------------- */
-  if (!sessionLoading && !provider) return null;
+  // sem conta profissional ativa (nunca criou ou desativou): volta para a página inicial
+  if (!sessionLoading && !provider) return <Navigate to="/home" replace />;
   const loading = sessionLoading || !provider;
 
   return (
@@ -157,7 +183,6 @@ export default function DashboardPrestador() {
                 />
               </section>
             )}
-            {provider && <ProfileStats />}
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className=" lg:block hidden md:flex mb-4 bg-[var(--bg-light)]/40 backdrop-blur-xl rounded-2xl p-4 border border-[var(--border)] shadow-md">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold">Atalhos</h3>
@@ -171,9 +196,28 @@ export default function DashboardPrestador() {
                 <button onClick={()=>{setIsOpenChat(true)}} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)] hover:border-[var(--highlight)]">
                   <MessageSquare /> <span className="text-sm">Mensagens</span>
                 </button>
-                <button onClick={()=>navigate("/progress")} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)] hover:border-[var(--highlight)]">
-                  <Archive /> <span className="text-sm">Relatórios</span>
+                <button
+                  onClick={() => setReportsOpen((v) => !v)}
+                  aria-expanded={reportsOpen}
+                  aria-controls="reports-panel-desktop"
+                  className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)] hover:border-[var(--highlight)]"
+                >
+                  <Archive /> <span className="text-sm flex-1 text-left">Relatórios</span>
+                  {reportsOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                 </button>
+                <AnimatePresence initial={false}>
+                  {reportsOpen && (
+                    <motion.div
+                      id="reports-panel-desktop"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <ProfileStats />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               <div className="mt-4">
@@ -228,9 +272,28 @@ export default function DashboardPrestador() {
                         <button onClick={()=>{setIsOpenChat(true)}} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)] hover:border-[var(--highlight)]">
                           <MessageSquare /> <span className="text-sm">Mensagens</span>
                         </button>
-                        <button onClick={()=>navigate("/progress")} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)] hover:border-[var(--highlight)]">
-                          <Archive /> <span className="text-sm">Relatórios</span>
+                        <button
+                          onClick={() => setReportsOpen((v) => !v)}
+                          aria-expanded={reportsOpen}
+                          aria-controls="reports-panel-mobile"
+                          className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)] hover:border-[var(--highlight)]"
+                        >
+                          <Archive /> <span className="text-sm flex-1 text-left">Relatórios</span>
+                          {reportsOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                         </button>
+                        <AnimatePresence initial={false}>
+                          {reportsOpen && (
+                            <motion.div
+                              id="reports-panel-mobile"
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              className="overflow-hidden"
+                            >
+                              <ProfileStats />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
 
                       <div className="mt-4">
@@ -351,6 +414,37 @@ export default function DashboardPrestador() {
         <div className="max-w-[90%] mx-auto mt-8">
           <PortfolioManager items={portfolio} services={myServices} onChange={load} />
         </div>
+
+        {/* conta profissional: desativar */}
+        <div className="max-w-[90%] mx-auto mt-8 mb-4">
+          <section aria-labelledby="pro-account-title" className="p-5 rounded-2xl border border-red-500/30 bg-[var(--bg-light)]">
+            <h2 id="pro-account-title" className="font-semibold">Conta profissional</h2>
+            <p className="text-sm text-[var(--text-muted)] mt-1">
+              Desativando, seu perfil público, seus serviços e seu portfólio saem do ar e você passa a usar o Hire só como cliente. Seus dados ficam guardados e você pode reativar quando quiser.
+            </p>
+            <button onClick={() => setDeactivateOpen(true)} className="mt-3 px-4 py-2 rounded-xl border border-red-500/50 text-red-500 hover:bg-red-500/10 text-sm font-medium">
+              Desativar conta profissional
+            </button>
+          </section>
+        </div>
+        <ConfirmModal
+          open={deactivateOpen}
+          title="Desativar conta profissional?"
+          confirmLabel="Desativar"
+          cancelLabel="Voltar"
+          danger
+          loading={deactivating}
+          onConfirm={deactivate}
+          onClose={() => setDeactivateOpen(false)}
+        >
+          <ul className="text-sm text-[var(--text-muted)] list-disc pl-5 space-y-1">
+            <li>Seu perfil público deixa de aparecer (quem abrir o link verá que ele está indisponível).</li>
+            <li>Seus serviços saem da vitrine, das buscas e dos favoritos dos clientes.</li>
+            <li>Você não recebe novos pedidos nem mensagens como prestador.</li>
+            <li>Você continua contratando serviços normalmente como cliente.</li>
+            <li>Pedidos em andamento precisam ser concluídos ou cancelados antes.</li>
+          </ul>
+        </ConfirmModal>
 
         {/* CHAT */}
         <ChatInbox isOpen={isOpenChat} onClose={() => { setIsOpenChat(false); load(); }} />

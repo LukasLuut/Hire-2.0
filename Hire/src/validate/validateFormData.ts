@@ -16,7 +16,6 @@ export const validateFormData = (data: ProviderForm, step: number): string | nul
   }
 
   if (step >= 1) {
-    if (!data.companyName) return "Informe o nome comercial.";
     if (!data.category) return "Escolha a categoria principal dos seus serviços.";
   }
 
