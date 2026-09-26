@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Sun, Moon, LogOut } from "lucide-react";
+import { Menu, X, Sun, Moon, LogOut, LifeBuoy } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useSession } from "../context/SessionContext";
 import NotificationBell from "./NotificationBell";
@@ -46,6 +46,17 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
           ))}
 
           {token && <NotificationBell />}
+
+          {token && (
+            <NavLink
+              to="/ajuda"
+              aria-label="Ajuda"
+              title="Ajuda"
+              className="p-2 rounded-full border border-[var(--border)] bg-[var(--bg-light)] text-[var(--text)] transition hover:border-[var(--highlight)] shadow-lg"
+            >
+              <LifeBuoy size={20} />
+            </NavLink>
+          )}
 
           {/* Toggle Theme */}
           <button
@@ -111,6 +122,17 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
               {theme === "dark" ? <Sun className="ml-2 text-[var(--text)]" size={20} /> : <Moon size={20} />}
               <span className="ml-2 text-[var(--text)]">{theme === "dark" ? "Modo Claro" : "Modo Escuro"}</span>
             </button>
+
+            {token && (
+              <NavLink
+                to="/ajuda"
+                onClick={() => setMobileOpen(false)}
+                className="p-2 rounded-lg border border-[var(--border)] hover:bg-[var(--bg-light)] transition flex items-center justify-center text-[var(--text)]"
+              >
+                <LifeBuoy size={20} className="ml-2" />
+                <span className="ml-2">Ajuda</span>
+              </NavLink>
+            )}
 
             {token && (
               <button

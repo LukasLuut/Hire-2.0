@@ -8,17 +8,20 @@ import ConfirmModal from "../components/Common/ConfirmModal";
 import { getErrorMessage } from "../utils/errors";
 import { formatCurrency, formatDateTime } from "../utils/format";
 import { reportAPI, reasonLabel, type ReportItem } from "../api/ReportAPI";
+import SupportTab from "../components/Admin/SupportTab";
+import { adminBtn as btn, adminInput as input } from "../components/Admin/adminStyles";
 
 /* --------------------------------------------------------------------------
  * /admin — painel mínimo de administração.
  * Números da plataforma, suspensão de contas, papel de administrador,
  * moderação de serviços, pedidos recentes e categorias.
  * -------------------------------------------------------------------------- */
-type Tab = "overview" | "regions" | "reports" | "verifications" | "users" | "services" | "hires" | "categories";
+type Tab = "overview" | "regions" | "reports" | "support" | "verifications" | "users" | "services" | "hires" | "categories";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Visão geral" },
   { id: "regions", label: "Regiões" },
   { id: "reports", label: "Denúncias" },
+  { id: "support", label: "Suporte" },
   { id: "verifications", label: "Verificações" },
   { id: "users", label: "Usuários" },
   { id: "services", label: "Serviços" },
@@ -34,11 +37,6 @@ const STATUS_LABEL: Record<string, string> = {
   CANCELADO: "Cancelados",
 };
 
-const input = "p-2 rounded-lg bg-[var(--bg)] border border-[var(--border)] text-[var(--text)]";
-const btn = (primary = false, danger = false) =>
-  `px-3 py-1.5 rounded-lg text-sm border transition disabled:opacity-60 ${
-    danger ? "border-red-500/50 text-red-500 hover:bg-red-500/10" : primary ? "bg-[var(--primary)] text-white border-[var(--primary)] hover:brightness-110" : "border-[var(--border)] hover:border-[var(--primary)]"
-  }`;
 
 export default function AdminPage() {
   const { user, loading } = useSession();
@@ -70,6 +68,7 @@ export default function AdminPage() {
           {tab === "overview" && <OverviewTab />}
           {tab === "regions" && <RegionsTab />}
           {tab === "reports" && <ReportsTab />}
+          {tab === "support" && <SupportTab />}
           {tab === "verifications" && <VerificationsTab />}
           {tab === "users" && <UsersTab />}
           {tab === "services" && <ServicesTab />}
@@ -96,6 +95,7 @@ function OverviewTab() {
     ["Serviços", data.services, data.pausedServices ? `${data.pausedServices} pausado(s)` : undefined],
     ["Verificações pendentes", data.pendingVerifications, data.pendingVerifications ? "aguardando análise" : undefined],
     ["Denúncias abertas", data.openReports, data.openReports ? "aguardando análise" : undefined],
+    ["Chamados de suporte", data.openTickets ?? 0, data.openTickets ? "aguardando resposta" : undefined],
     ["Cancelamentos em cima da hora", data.lateCancels],
   ];
   return (

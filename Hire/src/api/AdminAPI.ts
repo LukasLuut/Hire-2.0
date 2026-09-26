@@ -14,6 +14,7 @@ export interface AdminOverview {
   hires: Record<string, number>;
   lateCancels: number;
   openReports: number;
+  openTickets?: number;
   pendingVerifications: number;
 }
 

@@ -1,4 +1,5 @@
 import { Like } from "typeorm";
+import { supportService } from "./SupportService";
 import { AppDataSource } from "../config/data-source";
 import { User } from "../models/User";
 import { Service } from "../models/Service";
@@ -36,6 +37,7 @@ export class AdminService {
     const lateCancels = await this.hires.count({ where: { lateCancel: true } });
     const openReports = await reportService.openCount();
     const pendingVerifications = await verificationService.pendingCount();
+    const openTickets = await supportService.openCount();
     const acquisition = await analyticsService.overall(30);
     return {
       users,
@@ -45,6 +47,7 @@ export class AdminService {
       pausedServices: paused,
       hires: Object.fromEntries(byStatus.map((r) => [r.status, Number(r.count)])),
       lateCancels,
+      openTickets,
       openReports,
       pendingVerifications,
       acquisition,
