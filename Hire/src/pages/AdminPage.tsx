@@ -11,6 +11,7 @@ import { reportAPI, reasonLabel, type ReportItem } from "../api/ReportAPI";
 import SupportTab from "../components/Admin/SupportTab";
 import SummaryTab from "../components/Admin/SummaryTab";
 import PaymentsTab from "../components/Admin/PaymentsTab";
+import WithdrawalsTab from "../components/Admin/WithdrawalsTab";
 import ReviewsTab from "../components/Admin/ReviewsTab";
 import { adminBtn as btn, adminInput as input } from "../components/Admin/adminStyles";
 
@@ -19,7 +20,7 @@ import { adminBtn as btn, adminInput as input } from "../components/Admin/adminS
  * Números da plataforma, suspensão de contas, papel de administrador,
  * moderação de serviços, pedidos recentes e categorias.
  * -------------------------------------------------------------------------- */
-type Tab = "overview" | "summary" | "regions" | "reports" | "support" | "verifications" | "users" | "services" | "hires" | "payments" | "reviews" | "categories";
+type Tab = "overview" | "summary" | "regions" | "reports" | "support" | "verifications" | "users" | "services" | "hires" | "payments" | "withdrawals" | "reviews" | "categories";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Visão geral" },
   { id: "summary", label: "Relatórios" },
@@ -31,6 +32,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "services", label: "Serviços" },
   { id: "hires", label: "Pedidos" },
   { id: "payments", label: "Pagamentos" },
+  { id: "withdrawals", label: "Saques" },
   { id: "reviews", label: "Avaliações" },
   { id: "categories", label: "Categorias" },
 ];
@@ -81,6 +83,7 @@ export default function AdminPage() {
           {tab === "services" && <ServicesTab />}
           {tab === "hires" && <HiresTab />}
           {tab === "payments" && <PaymentsTab />}
+          {tab === "withdrawals" && <WithdrawalsTab />}
           {tab === "reviews" && <ReviewsTab />}
           {tab === "categories" && <CategoriesTab />}
         </section>

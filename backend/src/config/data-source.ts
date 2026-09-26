@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { Withdrawal } from '../models/Withdrawal';
 import { DataSource } from 'typeorm';
 import * as dotenv from "dotenv";
 
@@ -57,6 +58,6 @@ export const AppDataSource = new DataSource({
 
     // Aqui registramos as entidades (as classes que representam tabelas).
     // O TypeORM precisa saber quais são para criar o mapeamento com o banco.
-    entities: [User, Address, Category, Service, ServiceProvider, Hire, Contract, Payment, Subcategory, Availability, Link, Review, ReviewPhoto, ServiceLike, Conversation, Message, Notification, AuthToken, Report, PortfolioItem, AnalyticsDaily, Invite, SupportTicket, ProviderFavorite],
+    entities: [User, Address, Category, Service, ServiceProvider, Hire, Contract, Payment, Subcategory, Availability, Link, Review, ReviewPhoto, ServiceLike, Conversation, Message, Notification, AuthToken, Report, PortfolioItem, AnalyticsDaily, Invite, SupportTicket, ProviderFavorite, Withdrawal],
     subscribers: [LiveSubscriber],
 });

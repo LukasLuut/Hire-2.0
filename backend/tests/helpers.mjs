@@ -25,7 +25,8 @@ export async function tokens() {
 }
 
 /** Pagamento simulado do cliente (exigido antes de o prestador iniciar) */
-export const pay = (hireId, token, method = "pix") => req("POST", `/hires/${hireId}/pay`, token, { method });
+export const pay = (hireId, token, method = "pix", details) =>
+  req("POST", `/hires/${hireId}/pay`, token, { method, details: details ?? (method === "cartao" ? { last4: "4242", brand: "Visa", installments: 1 } : undefined) });
 
 /** Requisição JSON (ou FormData); devolve { s: status, j: corpo } */
 export async function req(method, path, token, body) {

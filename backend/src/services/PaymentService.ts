@@ -23,12 +23,13 @@ export class PaymentService {
   private paymentRepository = AppDataSource.getRepository(Payment);
 
   /** Registra o pagamento (simulado) de uma contratação: o valor fica retido até a conclusão. */
-  async pay(data: { hireId: number; providerId: number; userId: number; amount: number; method: PaymentMethod }) {
+  async pay(data: { hireId: number; providerId: number; userId: number; amount: number; method: PaymentMethod; details?: Payment["details"] }) {
     const split = splitAmount(data.amount);
     return await this.paymentRepository.save(
       this.paymentRepository.create({
         ...split,
         method: data.method,
+        details: data.details ?? null,
         status: PaymentStatus.PAGO,
         transactionCode: `SIM-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`,
         hire: { id: data.hireId },

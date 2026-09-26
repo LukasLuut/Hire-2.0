@@ -54,6 +54,10 @@ export class Payment {
   @Column({ type: "enum", enum: PaymentStatus, default: PaymentStatus.PAGO })
   status: PaymentStatus;
 
+  // detalhes da forma de pagamento (cartão: bandeira, final e parcelas; boleto: linha digitável). Nunca o número do cartão.
+  @Column({ type: "json", nullable: true })
+  details: { brand?: string; last4?: string; installments?: number; barcode?: string } | null;
+
   // código de transação simulado (aparece no comprovante)
   @Column({ length: 40 })
   transactionCode: string;

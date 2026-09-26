@@ -137,6 +137,8 @@ export interface PaymentEntity {
   method: PaymentMethod;
   status: "PAGO" | "LIBERADO" | "ESTORNADO";
   transactionCode: string;
+  /** cartão: bandeira, final e parcelas; boleto: linha digitável */
+  details?: { brand?: string; last4?: string; installments?: number; barcode?: string } | null;
   paidAt: string;
   releasedAt?: string | null;
   refundedAt?: string | null;

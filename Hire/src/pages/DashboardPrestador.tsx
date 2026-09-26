@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useToast } from "../components/Toast/ToastContext";
 import { getErrorMessage } from "../utils/errors";
 import ConfirmModal from "../components/Common/ConfirmModal";
-import { Share2 } from "lucide-react";
+import { Share2, Wallet } from "lucide-react";
 import { providerUrl } from "../utils/providerPath";
 import SharePanel from "../components/Share/SharePanel";
 import ProfileStats from "../components/ProfileStats";
@@ -199,6 +199,9 @@ export default function DashboardPrestador() {
                 </button>
                 <button onClick={()=>{setIsOpenChat(true)}} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)] hover:border-[var(--highlight)]">
                   <MessageSquare /> <span className="text-sm">Mensagens</span>
+                </button>
+                <button onClick={() => navigate("/carteira")} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)] hover:border-[var(--highlight)]">
+                  <Wallet /> <span className="text-sm">Carteira</span>
                 </button>
                 <button
                   onClick={() => setReportsOpen((v) => !v)}

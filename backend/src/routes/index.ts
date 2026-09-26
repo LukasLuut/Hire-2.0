@@ -1,5 +1,6 @@
 // src/routes/index.ts
 import { Router } from 'express'
+import walletRouter from './walletRoutes';
 import authRoutes from './authRoutes'
 import userRouter from './UserRoutes'
 import categoryRouter from './categoryRoutes'
@@ -39,5 +40,6 @@ router.use('/analytics', analyticsRouter);
 router.use('/discover', discoverRouter);
 router.use('/invites', inviteRouter);
 router.use('/support', supportRouter);
+router.use('/wallet', walletRouter);
 
 export default router

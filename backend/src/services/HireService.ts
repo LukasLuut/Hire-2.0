@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import QRCode from "qrcode";
 import { PaymentMethod } from "../models/Payment";
 import { METHODS, paymentService } from "./PaymentService";
 import { OFFLINE_MESSAGE, providerOffline } from "../utils/availability";
@@ -13,6 +14,16 @@ import { Availability } from "../models/Availability";
 import { notificationService } from "./NotificationService";
 import { statsService } from "./StatsService";
 import { User } from "../models/User";
+
+/** CRC16-CCITT do payload Pix (EMV) */
+function crc16(payload: string) {
+    let crc = 0xffff;
+    for (const ch of Buffer.from(payload, "utf8")) {
+        crc ^= ch << 8;
+        for (let i = 0; i < 8; i++) crc = crc & 0x8000 ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
+    }
+    return crc.toString(16).toUpperCase().padStart(4, "0");
+}
 
 /** Endereço do cadastro do cliente (cópia para o pedido) */
 export async function profileAddress(userId: number): Promise<ServiceAddress | null> {
@@ -308,18 +319,60 @@ export class HireService {
      * Pagamento simulado pelo cliente, depois do aceite do prestador.
      * O valor fica retido e só é liberado ao prestador quando o cliente confirma a conclusão.
      */
-    async pay(id: number, method: unknown, requesterId: number) {
-        const { hire, role } = await this.loadWithRole(id, requesterId);
+    /** Pedido que o cliente pode pagar agora (aceito, com pagamento pela plataforma, ainda sem pagamento) */
+    private assertPayable(hire: Hire, role: Role) {
         if (role !== "client") throw new HttpError(403, "Quem paga é o cliente");
         if (!hire.paymentRequired) throw new HttpError(400, "Este pedido não usa pagamento pela plataforma");
         if (hire.payment) throw new HttpError(400, "Este pedido já foi pago");
         if (hire.status !== StatusEnum.PENDENTE || hire.status_provider !== StatusEnum.ACEITO) {
             throw new HttpError(400, hire.status_provider === StatusEnum.PENDENTE ? "Aguarde o prestador aceitar o pedido para pagar" : "Este pedido não pode mais ser pago");
         }
+    }
+
+    /**
+     * Instruções simuladas de pagamento: Pix (copia e cola + QR Code, vale 30 min)
+     * ou boleto (linha digitável, vence em 3 dias). Nada é cobrado de verdade.
+     */
+    async paymentInstructions(id: number, method: unknown, requesterId: number) {
+        const { hire, role } = await this.loadWithRole(id, requesterId);
+        this.assertPayable(hire, role);
+        const amount = Number(hire.price).toFixed(2);
+        if (method === "pix") {
+            const txid = `HIRE${String(hire.id).padStart(6, "0")}${Date.now().toString(36).toUpperCase()}`.slice(0, 25);
+            const payload = `00020126360014BR.GOV.BCB.PIX0114+5551999999999520400005303986540${amount.length}${amount}5802BR5913HIRE SERVICOS6012PORTO ALEGRE62${String(txid.length + 4).padStart(2, "0")}05${String(txid.length).padStart(2, "0")}${txid}6304`;
+            const crc = crc16(payload);
+            const code = payload + crc;
+            return { method: "pix", code, qr: await QRCode.toDataURL(code, { margin: 1, width: 240 }), expiresAt: new Date(Date.now() + 30 * 60000) };
+        }
+        if (method === "boleto") {
+            const due = new Date(Date.now() + 3 * 86400000);
+            const cents = String(Math.round(Number(hire.price) * 100)).padStart(10, "0");
+            const base = `23790${String(hire.id).padStart(5, "0")}${String(Date.now()).slice(-10)}${cents}`.slice(0, 47).padEnd(47, "0");
+            const line = `${base.slice(0, 5)}.${base.slice(5, 10)} ${base.slice(10, 15)}.${base.slice(15, 21)} ${base.slice(21, 26)}.${base.slice(26, 32)} ${base.slice(32, 33)} ${base.slice(33)}`;
+            return { method: "boleto", barcode: line, dueDate: due };
+        }
+        throw new HttpError(400, "Instruções só para Pix ou boleto");
+    }
+
+    async pay(id: number, method: unknown, requesterId: number, rawDetails?: unknown) {
+        const { hire, role } = await this.loadWithRole(id, requesterId);
+        this.assertPayable(hire, role);
         if (typeof method !== "string" || !METHODS.includes(method)) throw new HttpError(400, "Escolha a forma de pagamento: Pix, cartão ou boleto");
+        // cartão: guarda só bandeira, final e parcelas (o número completo nunca chega ao servidor)
+        const d = (rawDetails ?? {}) as Record<string, unknown>;
+        let details: { brand?: string; last4?: string; installments?: number; barcode?: string } | null = null;
+        if (method === "cartao") {
+            const last4 = String(d.last4 ?? "");
+            const installments = Number(d.installments ?? 1);
+            if (!/^\d{4}$/.test(last4)) throw new HttpError(400, "Dados do cartão incompletos");
+            if (!Number.isInteger(installments) || installments < 1 || installments > 3) throw new HttpError(400, "Parcele em até 3x sem juros");
+            details = { brand: String(d.brand ?? "cartão").slice(0, 20), last4, installments };
+        } else if (method === "boleto" && typeof d.barcode === "string") {
+            details = { barcode: d.barcode.slice(0, 60) };
+        }
         // hireId é único em payments: dois cliques ao mesmo tempo não cobram duas vezes
         const payment = await paymentService
-            .pay({ hireId: hire.id, providerId: hire.provider.id, userId: requesterId, amount: Number(hire.price), method: method as PaymentMethod })
+            .pay({ hireId: hire.id, providerId: hire.provider.id, userId: requesterId, amount: Number(hire.price), method: method as PaymentMethod, details })
             .catch((e) => {
                 if (e?.code === "ER_DUP_ENTRY") throw new HttpError(400, "Este pedido já foi pago");
                 throw e;

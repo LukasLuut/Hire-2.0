@@ -20,9 +20,9 @@ import { conversationAPI } from "../api/ConversationAPI";
 import { serviceImages, toServiceData } from "../api/ServiceAPI";
 import ServiceDetail from "./ServiceGallery/ServiceDetail/ServiceDetail";
 import { useToast } from "./Toast/ToastContext";
-import type { HireEntity, PaymentMethod, ServiceAddress } from "../interfaces/Entities";
+import type { HireEntity, ServiceAddress } from "../interfaces/Entities";
 import ServiceAddressForm from "./Hires/ServiceAddressForm";
-import PaymentMethodPicker from "./Payment/PaymentMethodPicker";
+import PaymentCheckout from "./Payment/PaymentCheckout";
 import { METHOD_LABEL } from "../utils/payment";
 import { HIRE_STEPS, HIRE_STAGE_LABEL, HIRE_STAGE_LABEL_PROVIDER, getHireStage, stepIndex } from "../utils/hireStatus";
 import { formatCurrency, formatDate, formatDateTime } from "../utils/format";
@@ -42,7 +42,7 @@ export type ServiceProgressProps = {
   onChanged: () => void;
 };
 
-type Action = "accept" | "begin" | "deliver" | "confirm" | "cancel" | "reschedule" | "schedule" | "pay" | "address";
+type Action = "accept" | "begin" | "deliver" | "confirm" | "cancel" | "reschedule" | "schedule" | "address";
 
 const ACTION_TEXT: Record<Action, { title: string; confirm: string; done: string }> = {
   accept: { title: "Aceitar este pedido?", confirm: "Aceitar pedido", done: "Pedido aceito. O cliente foi avisado." },
@@ -53,7 +53,6 @@ const ACTION_TEXT: Record<Action, { title: string; confirm: string; done: string
   reschedule: { title: "Propor outro horário", confirm: "Enviar proposta", done: "Proposta enviada. A outra parte precisa aceitar." },
   schedule: { title: "Escolher o horário", confirm: "Marcar horário", done: "Horário marcado. O prestador foi avisado." },
   address: { title: "Endereço do atendimento", confirm: "Salvar endereço", done: "Endereço salvo." },
-  pay: { title: "Pagamento", confirm: "Pagar", done: "Pagamento confirmado. O valor fica guardado até você confirmar a conclusão." },
 };
 
 const buttonClass = (primary = false) =>
@@ -83,11 +82,12 @@ export function ServiceProgress({
   const [newSlot, setNewSlot] = useState<string | null>(null);
   const [agenda, setAgenda] = useState<Agenda | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
-  const [method, setMethod] = useState<PaymentMethod | null>(null);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [address, setAddress] = useState<ServiceAddress | null>(null);
   // depois de confirmar a conclusão, a lista só recarrega quando o modal de avaliação fecha
   // (senão o card vai para "Encerradas" e o modal some junto)
   const refreshAfterReview = useRef(false);
+  const paidRef = useRef(false);
 
   const stage = getHireStage(data);
   const currentIndex = stepIndex(stage);
@@ -132,10 +132,6 @@ export function ServiceProgress({
       if (pending === "address") {
         if (!address) return;
         await hireAPI.setAddress(data.id, address);
-      }
-      if (pending === "pay") {
-        if (!method) { showToast("Escolha a forma de pagamento.", "warning"); return; }
-        await hireAPI.pay(data.id, method);
       }
       if (pending === "reschedule" || pending === "schedule") {
         if (!newSlot) { showToast("Escolha o horário.", "warning"); return; }
@@ -432,7 +428,7 @@ export function ServiceProgress({
                       {(stage === "requested" || stage === "accepted") && (
                         <>
                           {awaitingPayment && (
-                            <button className={`${buttonClass(true)} flex items-center gap-2`} onClick={() => { setMethod(null); setPending("pay"); }}>
+                            <button className={`${buttonClass(true)} flex items-center gap-2`} onClick={() => setCheckoutOpen(true)}>
                               <Wallet size={16} /> Pagar {formatCurrency(data.price)}
                             </button>
                           )}
@@ -519,19 +515,6 @@ export function ServiceProgress({
               <ServiceAddressForm value={address} onChange={setAddress} />
             </div>
           )}
-          {pending === "pay" && (
-            <div className="text-sm grid gap-3">
-              <p className="flex justify-between text-[var(--text)]">
-                <span>{data.service?.title ?? data.description_service}</span>
-                <strong>{formatCurrency(data.price)}</strong>
-              </p>
-              <PaymentMethodPicker value={method} onChange={setMethod} />
-              <p className="text-xs text-[var(--text-muted)]">
-                O valor fica guardado pela Hire e só é repassado ao prestador quando você confirmar a conclusão. Se o pedido for cancelado, você recebe de volta.
-                <strong className="block mt-1">Ambiente de demonstração: nenhum valor é cobrado de verdade.</strong>
-              </p>
-            </div>
-          )}
           {(pending === "reschedule" || pending === "schedule") && (
             <div className="text-sm">
               <p className="text-[var(--text-muted)] mb-3">
@@ -565,6 +548,14 @@ export function ServiceProgress({
           )}
         </ConfirmModal>
       )}
+
+      {/* checkout em etapas: forma → pagamento → comprovante (a lista atualiza ao fechar) */}
+      <PaymentCheckout
+        hire={data}
+        open={checkoutOpen}
+        onPaid={() => { paidRef.current = true; }}
+        onClose={() => { setCheckoutOpen(false); if (paidRef.current) { paidRef.current = false; onChanged(); } }}
+      />
 
       <ReportModal
         open={reportOpen}

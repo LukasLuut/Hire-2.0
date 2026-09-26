@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Wallet } from "lucide-react";
+import { Link } from "react-router-dom";
 import { apiRequest } from "../../api/ApiClient";
 import { formatCurrency } from "../../utils/format";
 
-type Earnings = { pending: number; available: number; fees: number; feePercent: number };
+type Earnings = { pending: number; available: number };
 
 /**
  * Valores do prestador vindos dos pagamentos (simulados): a receber = pagos, aguardando o cliente
@@ -16,7 +17,7 @@ export default function EarningsSummary() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
-    apiRequest<Earnings>("/providers/me/earnings", { headers: { Authorization: "Bearer " + token } })
+    apiRequest<Earnings>("/wallet", { headers: { Authorization: "Bearer " + token } })
       .then(setData)
       .catch(() => setError(true));
   }, []);
@@ -37,13 +38,16 @@ export default function EarningsSummary() {
               <dd className="font-semibold">{formatCurrency(data.pending)}</dd>
             </div>
             <div className="flex justify-between gap-2">
-              <dt className="text-[var(--text-muted)]">Liberado</dt>
+              <dt className="text-[var(--text-muted)]">Disponível para saque</dt>
               <dd className="font-semibold">{formatCurrency(data.available)}</dd>
             </div>
           </dl>
           <p className="text-xs text-[var(--text-muted)] mt-2">
-            Valores já descontada a taxa da Hire ({data.feePercent}%). Pagamentos simulados no ambiente de demonstração.
+            Já descontada a taxa da Hire. Pagamentos simulados no ambiente de demonstração.
           </p>
+          <Link to="/carteira" className="mt-3 block text-center w-full py-2 rounded-xl border border-[var(--border)] hover:border-[var(--primary)] text-sm">
+            Abrir carteira
+          </Link>
         </>
       )}
     </section>

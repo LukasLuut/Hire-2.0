@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { walletService } from "./services/WalletService";
 import { CategoryService } from "./services/CategoryService";
 import { errorInfo, log, requestLogger } from "./utils/logger";
 import fileRouter from "./routes/fileRoutes";
@@ -66,6 +67,9 @@ AppDataSource.initialize()
     const expire = () => hires.expireStale().catch((err) => log.error("hires.expire.failed", errorInfo(err)));
     expire();
     setInterval(expire, 10 * 60 * 1000);
+
+    // saques simulados andam sozinhos em desenvolvimento (WALLET_AUTO_PAYOUT)
+    setInterval(() => walletService.autoPayout().catch((err) => log.error("wallet.autopayout.failed", errorInfo(err))), 30 * 1000);
 
     app.listen(PORTA, () => {
       log.info("server.listening", { port: PORTA });

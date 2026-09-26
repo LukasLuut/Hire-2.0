@@ -66,9 +66,17 @@ export class HireController {
         }
     }
 
+    paymentInstructions = async (req: Request, res: Response) => {
+        try {
+            res.json(await hireService.paymentInstructions(Number(req.params.id), req.query.method, userId(req)));
+        } catch (e: any) {
+            fail(res, e);
+        }
+    }
+
     pay = async (req: Request, res: Response) => {
         try {
-            res.json(await hireService.pay(Number(req.params.id), req.body?.method, userId(req)));
+            res.json(await hireService.pay(Number(req.params.id), req.body?.method, userId(req), req.body?.details));
         } catch (e: any) {
             fail(res, e);
         }

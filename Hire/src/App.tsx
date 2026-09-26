@@ -16,6 +16,7 @@ const ServicePage = lazy(() => import("./pages/ServicePage"));
 const PendingPage = lazy(() => import("./pages/PendingPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const SupportPage = lazy(() => import("./pages/SupportPage"));
+const WalletPage = lazy(() => import("./pages/WalletPage"));
 const CategoryCityPage = lazy(() => import("./pages/CategoryCityPage"));
 const InvitePage = lazy(() => import("./pages/InvitePage"));
 const InviteLandingPage = lazy(() => import("./pages/InviteLandingPage"));
@@ -94,6 +95,7 @@ export default function App() {
           <Route path="/business" element={<RequireAuth><DashboardPrestador /></RequireAuth>} />
           <Route path="/admin" element={<RequireAuth><AdminPage /></RequireAuth>} />
           <Route path="/ajuda" element={<RequireAuth><SupportPage /></RequireAuth>} />
+          <Route path="/carteira" element={<RequireAuth><WalletPage /></RequireAuth>} />
           <Route path="/client" element={<RequireAuth><div className="pt-20"><ServiceDashboardSophisticated /></div></RequireAuth>} />
           <Route path="/progress" element={<RequireAuth><ServiceProgressContainer viewFor="provider" /></RequireAuth>} />
           <Route path="/hires" element={<RequireAuth><ServiceProgressContainer viewFor="client" /></RequireAuth>} />

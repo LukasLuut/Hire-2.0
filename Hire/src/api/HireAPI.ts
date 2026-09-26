@@ -2,6 +2,10 @@ import { apiRequest } from "./ApiClient";
 import type { Agenda } from "../components/Schedule";
 import type { HireEntity, PaymentMethod, ServiceAddress } from "../interfaces/Entities";
 
+export type PaymentInstructions =
+  | { method: "pix"; code: string; qr: string; expiresAt: string }
+  | { method: "boleto"; barcode: string; dueDate: string };
+
 // Todas as rotas de contratação exigem login
 const auth = (token = localStorage.getItem("token")) => ({ Authorization: "Bearer " + token });
 
@@ -60,8 +64,12 @@ export const hireAPI = {
     apiRequest<HireEntity>(`/hires/${id}/address`, { method: "PUT", headers: auth(), body: JSON.stringify(address) }),
 
   /** Pagamento simulado do cliente depois do aceite */
-  pay: (id: number, method: PaymentMethod) =>
-    apiRequest<HireEntity>(`/hires/${id}/pay`, { method: "POST", headers: auth(), body: JSON.stringify({ method }) }),
+  pay: (id: number, method: PaymentMethod, details?: { last4?: string; brand?: string; installments?: number; barcode?: string }) =>
+    apiRequest<HireEntity>(`/hires/${id}/pay`, { method: "POST", headers: auth(), body: JSON.stringify({ method, details }) }),
+
+  /** Pix (copia e cola + QR Code) ou boleto (linha digitável) simulados */
+  paymentInstructions: async (id: number, method: "pix" | "boleto") =>
+    (await apiRequest<PaymentInstructions>(`/hires/${id}/pay/instructions?method=${method}`, { headers: auth() }))!,
 
   /** Pedido negociado: o cliente marca o horário na agenda do serviço. */
   schedule: (id: number, scheduledAt: string) =>
