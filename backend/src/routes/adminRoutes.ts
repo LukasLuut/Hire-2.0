@@ -4,6 +4,7 @@ import { adminMiddleware } from '../middlewares/adminMiddleware'
 import { adminService } from '../services/AdminService'
 import { reportService } from '../services/ReportService'
 import { verificationService } from '../services/VerificationService'
+import { regionalOverview } from '../seo/cityPages'
 
 // Painel de administração: todas as rotas exigem login e papel de administrador
 const adminRouter = Router()
@@ -28,6 +29,7 @@ adminRouter.get('/reports', handle((req) => reportService.list(req.query.status 
 adminRouter.post('/reports/:id/resolve', handle((req) => reportService.resolve(Number(req.params.id), req.body?.status, req.body?.resolution, me(req))))
 adminRouter.get('/verifications', handle((req) => verificationService.list(req.query.status ? String(req.query.status) : undefined)))
 adminRouter.post('/verifications/:providerId', handle((req) => verificationService.decide(Number(req.params.providerId), req.body?.approve === true, req.body?.note, { company: req.body?.company, credentials: req.body?.credentials })))
+adminRouter.get('/regions', handle(() => regionalOverview()))
 adminRouter.get('/hires', handle((req) => adminService.listHires(req.query.status ? String(req.query.status) : undefined)))
 
 export default adminRouter

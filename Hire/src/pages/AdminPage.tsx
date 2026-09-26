@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Navigate } from "react-router-dom";
 import { Shield, Search, Loader2 } from "lucide-react";
-import { adminAPI, type AdminVerification, type AdminCategory, type AdminHire, type AdminOverview, type AdminService, type AdminUser } from "../api/AdminAPI";
+import { adminAPI, type AdminVerification, type RegionData, type AdminCategory, type AdminHire, type AdminOverview, type AdminService, type AdminUser } from "../api/AdminAPI";
 import { useSession } from "../context/SessionContext";
 import { useToast } from "../components/Toast/ToastContext";
 import ConfirmModal from "../components/Common/ConfirmModal";
@@ -14,9 +14,10 @@ import { reportAPI, reasonLabel, type ReportItem } from "../api/ReportAPI";
  * Números da plataforma, suspensão de contas, papel de administrador,
  * moderação de serviços, pedidos recentes e categorias.
  * -------------------------------------------------------------------------- */
-type Tab = "overview" | "reports" | "verifications" | "users" | "services" | "hires" | "categories";
+type Tab = "overview" | "regions" | "reports" | "verifications" | "users" | "services" | "hires" | "categories";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Visão geral" },
+  { id: "regions", label: "Regiões" },
   { id: "reports", label: "Denúncias" },
   { id: "verifications", label: "Verificações" },
   { id: "users", label: "Usuários" },
@@ -67,6 +68,7 @@ export default function AdminPage() {
         </div>
         <section role="tabpanel" aria-label={TABS.find((t) => t.id === tab)?.label}>
           {tab === "overview" && <OverviewTab />}
+          {tab === "regions" && <RegionsTab />}
           {tab === "reports" && <ReportsTab />}
           {tab === "verifications" && <VerificationsTab />}
           {tab === "users" && <UsersTab />}
@@ -634,5 +636,62 @@ function VerificationsTab() {
         </ConfirmModal>
       )}
     </>
+  );
+}
+
+/* ----------------------------- Regiões ----------------------------- */
+function RegionsTab() {
+  const { showToast } = useToast();
+  const [data, setData] = useState<RegionData | null>(null);
+  useEffect(() => {
+    adminAPI.regions().then(setData).catch((e) => showToast(getErrorMessage(e, "Erro ao carregar regiões."), "error"));
+  }, [showToast]);
+  if (!data) return <Loader2 className="animate-spin" />;
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-[var(--text-muted)]">
+        Oferta por cidade (prestadores com cidade informada) e pessoas cadastradas com endereço na cidade (só contagem).
+        Cidades com menos de {data.lowSupplyBelow} prestadores aparecem como pouca oferta.
+      </p>
+      {data.regions.length === 0 ? (
+        <p className="text-[var(--text-muted)]">Ainda não há prestadores ou clientes com cidade informada.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+          <table className="w-full text-sm">
+            <thead className="bg-[var(--bg-light)] text-left text-[var(--text-muted)]">
+              <tr><th className="p-2">Cidade</th><th className="p-2">Prestadores</th><th className="p-2">Serviços ativos</th><th className="p-2">Categorias</th><th className="p-2">Pessoas com endereço</th><th className="p-2">Situação</th></tr>
+            </thead>
+            <tbody>
+              {data.regions.map((r) => (
+                <tr key={`${r.city}-${r.state}`} className="border-t border-[var(--border)]">
+                  <td className="p-2 whitespace-nowrap">{r.city}{r.state ? `/${r.state}` : ""}</td>
+                  <td className="p-2">{r.providers}</td>
+                  <td className="p-2">{r.services}</td>
+                  <td className="p-2">{r.categories}</td>
+                  <td className="p-2">{r.clients}</td>
+                  <td className="p-2 whitespace-nowrap">{r.lowSupply ? <span className="text-amber-500">Pouca oferta</span> : "Ok"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div>
+        <h2 className="font-semibold mb-2">Páginas públicas por categoria e cidade</h2>
+        {data.pages.length === 0 ? (
+          <p className="text-sm text-[var(--text-muted)]">Nenhuma ainda: aparecem quando há prestador com cidade e serviço ativo.</p>
+        ) : (
+          <ul className="flex flex-wrap gap-2">
+            {data.pages.map((p) => (
+              <li key={`${p.categorySlug}-${p.citySlug}`}>
+                <a href={`/servicos/${p.categorySlug}/${p.citySlug}`} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-full border border-[var(--border)] text-sm hover:border-[var(--primary)] inline-block">
+                  {p.categoryName} em {p.city} ({p.providers}){p.indexable ? "" : " · não indexada"}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
   );
 }

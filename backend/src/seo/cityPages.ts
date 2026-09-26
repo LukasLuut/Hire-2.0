@@ -55,6 +55,33 @@ export async function findCityPage(categorySlug: string, citySlug: string) {
   return (await cityPages()).find((p) => p.categorySlug === categorySlug && p.citySlug === citySlug) ?? null;
 }
 
+/**
+ * Retrato regional para a administração: oferta (prestadores, serviços, categorias),
+ * demanda aproximada (clientes com endereço na cidade — só contagem) e as páginas
+ * categoria/cidade existentes. Cidades com clientes e pouca oferta aparecem marcadas.
+ */
+export async function regionalOverview(lowSupplyBelow = 3) {
+  const supply = await regionalSupply();
+  const clients: { city: string; state: string | null; clients: string }[] = await AppDataSource.query(`
+    SELECT a.city AS city, a.state AS state, COUNT(DISTINCT u.id) AS clients
+    FROM users u JOIN address a ON a.id = u.addressId
+    WHERE u.blocked = 0 AND a.city IS NOT NULL AND a.city <> ''
+    GROUP BY a.city, a.state`);
+  const key = (city: string, state: string | null) => `${city.trim().toLowerCase()}|${(state ?? "").trim().toUpperCase()}`;
+  const rows = new Map<string, { city: string; state: string; providers: number; services: number; categories: number; clients: number }>();
+  for (const s of supply) rows.set(key(s.city, s.state), { ...s, clients: 0 });
+  for (const c of clients) {
+    const k = key(c.city, c.state);
+    const row = rows.get(k) ?? { city: c.city, state: (c.state ?? "").toUpperCase(), providers: 0, services: 0, categories: 0, clients: 0 };
+    row.clients = Number(c.clients);
+    rows.set(k, row);
+  }
+  const regions = [...rows.values()]
+    .map((r) => ({ ...r, lowSupply: r.providers < lowSupplyBelow }))
+    .sort((a, b) => b.clients - a.clients || b.providers - a.providers);
+  return { lowSupplyBelow, regions, pages: await cityPages() };
+}
+
 /** Oferta por cidade (todas as categorias): prestadores e serviços ativos — base da estratégia regional */
 export async function regionalSupply() {
   const rows: { city: string; state: string | null; providers: string; services: string; categories: string }[] = await AppDataSource.query(`

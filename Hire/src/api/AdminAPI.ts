@@ -65,7 +65,12 @@ export interface AdminVerification {
   files: { kind: "id" | "cert" | "company"; url: string }[];
 }
 
+export interface RegionRow { city: string; state: string; providers: number; services: number; categories: number; clients: number; lowSupply: boolean }
+export interface RegionData { lowSupplyBelow: number; regions: RegionRow[]; pages: { categoryName: string; city: string; state: string; categorySlug: string; citySlug: string; providers: number; indexable: boolean }[] }
+
+
 export const adminAPI = {
+  regions: () => apiRequest<RegionData>("/admin/regions", { headers: auth() }),
   verifications: (status = "") => apiRequest<AdminVerification[]>(`/admin/verifications${status ? `?status=${status}` : ""}`, { headers: auth() }),
   decideVerification: (providerId: number, approve: boolean, note = "", extra: { company?: boolean; credentials?: boolean } = {}) =>
     post(`/admin/verifications/${providerId}`, { approve, note, ...extra }),
