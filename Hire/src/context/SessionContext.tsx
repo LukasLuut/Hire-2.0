@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { resetLive } from "../utils/liveEvents";
 import { userAPI } from "../api/UserAPI";
 import { providerApi } from "../api/ProviderAPI";
 import type { User } from "../interfaces/UserInterface";
@@ -60,6 +61,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const login = useCallback((newToken: string) => {
     localStorage.setItem("token", newToken);
     setToken(newToken);
+    resetLive(); // tempo real com a conta nova
   }, []);
 
   const logout = useCallback(() => {
@@ -68,6 +70,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setToken(null);
     setUser(null);
     setProvider(null);
+    resetLive(); // fecha a conexão de tempo real da conta anterior
   }, []);
 
   return (

@@ -1,4 +1,5 @@
 import { In, MoreThan, Not } from "typeorm";
+import { publish } from "../utils/events";
 import { AppDataSource } from "../config/data-source";
 import { Notification } from "../models/Notification";
 import { Hire, StatusEnum } from "../models/Hire";
@@ -55,7 +56,9 @@ export class NotificationService {
       if (recent) {
         recent.title = input.title.slice(0, 120);
         recent.body = (input.body ?? "").slice(0, 300);
-        return this.repo.save(recent);
+        const updated = await this.repo.save(recent);
+        publish([userId], { type: "notification" });
+        return updated;
       }
     }
     const saved = await this.repo.save(
@@ -67,6 +70,7 @@ export class NotificationService {
         link: input.link ?? "",
       })
     );
+    publish([userId], { type: "notification" });
     // ouvintes (e-mail, tempo real) rodam em segundo plano: não atrasam a resposta da API
     for (const l of listeners) {
       Promise.resolve()

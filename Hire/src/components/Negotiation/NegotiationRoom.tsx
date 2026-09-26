@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLiveEvent, liveConnected } from "../../utils/liveEvents";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -56,7 +57,9 @@ type AgreementCard = {
   proposedBy?: Role | null;
 };
 
+// reserva: mensagens chegam em tempo real; sem conexão ao vivo, confere a cada 4 s
 const POLL_MS = 4000;
+const POLL_LIVE_MS = 30_000;
 const WARRANTY_KEY = "warranty";
 
 function toMessage(m: ChatMessage): Message {
@@ -134,9 +137,20 @@ export default function NegotiationFlow() {
   useEffect(() => {
     lastIdRef.current = 0;
     load(true);
-    const timer = setInterval(() => load(false), POLL_MS);
+    // com a conexão ao vivo aberta, o polling só roda a cada 30 s
+    let last = Date.now();
+    const timer = setInterval(() => {
+      if (liveConnected() && Date.now() - last < POLL_LIVE_MS) return;
+      last = Date.now();
+      load(false);
+    }, POLL_MS);
     return () => clearInterval(timer);
   }, [load]);
+
+  // mensagem ou mudança nesta negociação: busca só o que é novo
+  useLiveEvent((e) => {
+    if (e.type === "conversation" && e.id === conversationId) load(false);
+  });
 
   const providerId = conversation?.provider?.id;
   useEffect(() => {

@@ -21,6 +21,7 @@ import { Message } from '../models/Message';
 import { Notification } from '../models/Notification';
 import { AuthToken } from '../models/AuthToken';
 import { Report } from '../models/Report';
+import { LiveSubscriber } from '../subscribers/LiveSubscriber';
 
 dotenv.config();
 
@@ -50,4 +51,5 @@ export const AppDataSource = new DataSource({
     // Aqui registramos as entidades (as classes que representam tabelas).
     // O TypeORM precisa saber quais são para criar o mapeamento com o banco.
     entities: [User, Address, Category, Service, ServiceProvider, Hire, Contract, Payment, Subcategory, Availability, Link, Review, ReviewPhoto, ServiceLike, Conversation, Message, Notification, AuthToken, Report],
+    subscribers: [LiveSubscriber],
 });

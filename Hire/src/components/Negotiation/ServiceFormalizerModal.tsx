@@ -1,5 +1,6 @@
 // ServiceNegotiationModal.tsx
 import { useEffect, useRef, useState } from "react";
+import { subscribe, liveConnected } from "../../utils/liveEvents";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -73,6 +74,8 @@ const stateColor = (state: TopicState) =>
    ========================================================================= */
 
 const POLL_MS = 4000;
+// com a conexão ao vivo aberta, o polling vira reserva
+const POLL_LIVE_MS = 30_000;
 
 type UiMessage = {
   id: string;
@@ -177,10 +180,20 @@ export default function ServiceNegotiationModal({
     };
 
     load(true);
-    const timer = setInterval(() => load(false), POLL_MS);
+    let last = Date.now();
+    const timer = setInterval(() => {
+      if (liveConnected() && Date.now() - last < POLL_LIVE_MS) return;
+      last = Date.now();
+      load(false);
+    }, POLL_MS);
+    // mensagem ou mudança nesta negociação chega na hora
+    const unsubscribe = subscribe((e) => {
+      if (e.type === "conversation" && e.id === conversationId) load(false);
+    });
     return () => {
       active = false;
       clearInterval(timer);
+      unsubscribe();
     };
   }, [isOpen, conversationId, token]);
 

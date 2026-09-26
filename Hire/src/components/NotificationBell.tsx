@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLiveEvent } from "../utils/liveEvents";
 import { AnimatePresence, motion } from "framer-motion";
 import { Bell } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { notificationAPI, timeAgo, type NotificationItem } from "../api/NotificationAPI";
 
-const POLL_MS = 30_000;
+// reserva: os avisos chegam em tempo real (liveEvents); o polling cobre quedas da conexão
+const POLL_MS = 120_000;
 
 /** Evento global para outras partes do app pedirem atualização (ex.: tempo real). */
 export const NOTIFICATIONS_REFRESH = "hire:notifications-refresh";
@@ -30,6 +32,11 @@ export default function NotificationBell({ onNavigate }: { onNavigate?: () => vo
       /* sem conexão: tenta de novo no próximo ciclo */
     }
   }, []);
+
+  // aviso novo chega na hora
+  useLiveEvent((e) => {
+    if (e.type === "notification") load();
+  });
 
   // atualiza ao trocar de página, periodicamente e quando alguém pede
   useEffect(() => {

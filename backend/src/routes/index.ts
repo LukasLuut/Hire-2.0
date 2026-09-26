@@ -13,6 +13,7 @@ import conversationRouter from './conversationRoutes'
 import notificationRouter from './notificationRoutes';
 import adminRouter from './adminRoutes';
 import reportRouter from './reportRoutes';
+import eventRouter from './eventRoutes';
 
 const router = Router()
 
@@ -29,5 +30,6 @@ router.use('/conversations', conversationRouter);
 router.use('/notifications', notificationRouter);
 router.use('/admin', adminRouter);
 router.use('/reports', reportRouter);
+router.use('/events', eventRouter);
 
 export default router
