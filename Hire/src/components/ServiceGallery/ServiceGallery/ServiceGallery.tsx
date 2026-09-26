@@ -182,8 +182,8 @@ export default function ServiceGalleryZoom({
           </div>
           </div>          
 
-          {/* Filtros adicionais */}
-          <div className="flex flex-wrap bg-[var(--bg)] md:rounded-full rounded-2xl py-1 px-4 justify-center gap-4 mt-5 text-sm">
+          {/* Filtros adicionais: só para quem visita (no Business, com os próprios serviços, não fazem sentido) */}
+          {noEdit && <div className="flex flex-wrap bg-[var(--bg)] md:rounded-full rounded-2xl py-1 px-4 justify-center gap-4 mt-5 text-sm">
             {/* Filtro de preço */}
             <div className="flex items-center gap-2">
               <Filter size={16} />
@@ -218,7 +218,7 @@ export default function ServiceGalleryZoom({
                 </button>
               ))}
             </div>
-          </div>
+          </div>}
         </div>
 
         {/* ------------------------------------------------------------------

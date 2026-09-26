@@ -43,6 +43,9 @@ providerRouter.get('/verification/:id/files/:name', authMiddleware, async (req, 
 providerRouter.post('/me/deactivate', authMiddleware, async (req, res) => {
   try { res.json(await providerService.deactivate(me(req))) } catch (e) { fail(res, e) }
 })
+providerRouter.put('/me/status', authMiddleware, async (req, res) => {
+  try { res.json(await providerService.setOpenStatus(me(req), req.body ?? {})) } catch (e) { fail(res, e) }
+})
 providerRouter.post('/me/reactivate', authMiddleware, async (req, res) => {
   try { res.json(await providerService.reactivate(me(req))) } catch (e) { fail(res, e) }
 })

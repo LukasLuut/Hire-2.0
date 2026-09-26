@@ -3,6 +3,11 @@
 // ------------------------------------------------------
 
 import React, { lazy, Suspense, useEffect, useState } from "react";
+import { providerApi } from "../../api/ProviderAPI";
+import { getErrorMessage } from "../../utils/errors";
+import { useToast } from "../Toast/ToastContext";
+import OpenStatusChip from "./OpenStatusChip";
+import EditableAvatar from "../Common/EditableAvatar";
 import { useSession } from "../../context/SessionContext";
 import VerificationBadges from "./VerificationBadges";
 import { motion } from "framer-motion";
@@ -33,10 +38,28 @@ interface ProviderHeroProps {
   services?: ServiceData[];
   /** Muda (ex.: contador) para abrir a edição do perfil de fora (checklist do Business) */
   editRequest?: number;
+  /** Business: pede para desativar a conta profissional (o botão aparece no modo edição) */
+  onDeactivate?: () => void;
 }
 
-export default function ProviderHero({ provider, readOnly = false, services, editRequest }: ProviderHeroProps) {
-  const { user: sessionUser } = useSession();
+export default function ProviderHero({ provider, readOnly = false, services, editRequest, onDeactivate }: ProviderHeroProps) {
+  const { user: sessionUser, refresh } = useSession();
+  const { showToast } = useToast();
+
+  // foto do perfil profissional: trocada direto pela foto, no modo edição
+  const changePhoto = async (file: File) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    const body = new FormData();
+    body.append("image", file);
+    try {
+      await providerApi.update(body, token);
+      await refresh();
+      showToast("Foto do perfil profissional atualizada.", "success");
+    } catch (e) {
+      showToast(getErrorMessage(e, "Não foi possível trocar a foto."), "error");
+    }
+  };
   const NameHeading = readOnly ? "h1" : "h2";
   const [isEditing, setIsEditing] = useState(false);
 
@@ -94,9 +117,11 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
           <div className="relative">
             {/* Avatar / Logo */}
             <div className="w-72 h-72 sm:w-40 sm:h-40   md:ml-40 lg:w-72 lg:h-72 rounded-full bg-[var(--bg)] border-4 border-[var(--primary)] flex items-center justify-center shrink-0 mx-auto sm:mx-0">
-              <img
+              <EditableAvatar
                 src={imageLink}
                 alt={`Foto de ${name}`}
+                editing={!readOnly && isEditing}
+                onPick={changePhoto}
                 className="w-full h-full rounded-full object-cover text-[var(--primary)]"
               />
             </div>
@@ -118,6 +143,12 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
               <NameHeading className="text-4xl sm:text-4xl font-semibold leading-tight">
                 {name}
               </NameHeading>
+              {/* mesmo lugar do "Excluir Usuário" da Home: só no modo edição */}
+              {!readOnly && isEditing && onDeactivate && (
+                <button className="px-2 py-2 text-md bg-red-700 rounded-md text-white whitespace-nowrap" onClick={onDeactivate}>
+                  Desativar perfil profissional
+                </button>
+              )}
               <div className="flex items-center gap-1 text-yellow-400 text-sm">
                 <Star size={16} fill={rating.count > 0 ? "currentColor" : "none"} />
                 <span className="font-semibold">{rating.count > 0 ? rating.average.toFixed(1) : "Novo"}</span>
@@ -174,15 +205,7 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
 
         {/* Status */}
         <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
-          <span
-            className={`px-3 py-1 rounded-full text-xs sm:text-sm border ${
-              provider.status === "available"
-                ? "bg-[var(--primary)]/10 text-[var(--primary)] border-[var(--primary)]/30"
-                : "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
-            }`}
-          >
-            {provider.status === "available" ? "Aberto" : "Agenda fechada"}
-          </span>
+          <OpenStatusChip provider={provider} editable={!readOnly} onChanged={refresh} />
 
           <span
             className="px-3 py-1 rounded-full text-xs sm:text-sm border border-[var(--border)]"

@@ -86,6 +86,10 @@ export class ServiceProvider {
   @Column({ type: "varchar", length: 64, nullable: true, unique: true })
   slug?: string | null;
 
+  // Fechado até esta data (férias, recesso); com status "paused". Sem data = fechado até reabrir
+  @Column({ type: "datetime", nullable: true })
+  closedUntil?: Date | null;
+
   // Conta profissional desativada pelo próprio prestador: some do público e ele usa o Hire só como cliente
   @Column({ type: "datetime", nullable: true })
   deactivatedAt?: Date | null;

@@ -1,4 +1,6 @@
 import { AppDataSource } from "../config/data-source";
+import path from "path";
+import fs from "fs";
 import { Hire, StatusEnum } from "../models/Hire";
 import { ServiceProvider } from "../models/ServiceProvider";
 import { User } from "../models/User";
@@ -51,6 +53,18 @@ export class UserService {
       delete clone.password;
       return clone;
     });
+  }
+
+  /** Troca a foto do perfil pessoal; apaga o arquivo anterior */
+  async setAvatar(id: number, file?: Express.Multer.File) {
+    if (!file) throw new Error("Envie uma imagem PNG, JPG, WEBP ou GIF");
+    const user = await this.repo.findOne({ where: { id } });
+    if (!user) throw new Error("Usuário não encontrado");
+    const old = user.avatarUrl;
+    user.avatarUrl = `/uploads/${file.filename}`;
+    await this.repo.save(user);
+    if (old?.startsWith("/uploads/")) fs.promises.unlink(path.join(__dirname, "..", "..", "uploads", path.basename(old))).catch(() => {});
+    return { avatarUrl: user.avatarUrl };
   }
 
   async findById(id: number) {

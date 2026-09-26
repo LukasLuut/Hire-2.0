@@ -64,6 +64,10 @@ export class User {
   @Column({ type: "varchar", length: 300, nullable: true })
   blockedReason: string | null;
 
+  // Foto do perfil pessoal (upload público de imagem)
+  @Column({ type: "varchar", length: 255, nullable: true })
+  avatarUrl?: string | null;
+
   // Convite pelo qual a pessoa se cadastrou (atribuição) e quando fez o que o convite propunha
   @ManyToOne(() => Invite, { nullable: true, onDelete: "SET NULL" })
   invite?: Invite | null;

@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { closedMessage, openState } from "../utils/openStatus";
 import { inviteService } from "./InviteService";
 import { Hire, StatusEnum } from "../models/Hire";
 import { ServiceProvider } from "../models/ServiceProvider";
@@ -50,6 +51,13 @@ export class HireService {
         if (service.provider?.user?.id === userId) throw new HttpError(400, "Você não pode contratar o próprio serviço");
         if (service.active === false) throw new HttpError(400, "Este serviço está pausado pelo prestador e não recebe pedidos no momento");
         if (service.provider?.deactivatedAt) throw new HttpError(400, "Este profissional não está mais disponível no Hire");
+        // fechado: aceita só agendamento para depois da data de reabertura
+        const state = openState(service.provider);
+        if (!state.open) {
+            const when = parseLocalDateTime(data.scheduledAt);
+            const afterReopen = !!state.closedUntil && !!when && when.getTime() >= state.closedUntil.getTime();
+            if (!afterReopen) throw new HttpError(400, closedMessage(state));
+        }
 
         // Preço: "a partir de" e "sob orçamento" pedem orçamento; pacotes e quantidade definem o total
         if (service.priceUnit === "a_partir_de" || service.priceUnit === "orcamento") {
@@ -373,6 +381,9 @@ export class HireService {
                 .filter((b) => b.start.getTime() + b.minutes * 60000 > now)
                 .map((b) => ({ start: b.start, end: new Date(b.start.getTime() + b.minutes * 60000) })),
             hours: this.hoursOf(service.provider.availabilities),
+            // fechado até: a agenda só oferece horários a partir da reabertura
+            closedUntil: openState(service.provider).closedUntil,
+            closed: !openState(service.provider).open,
             durationMinutes: durationMinutes(service.duration),
         };
     }

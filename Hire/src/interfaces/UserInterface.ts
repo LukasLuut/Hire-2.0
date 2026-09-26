@@ -10,6 +10,8 @@ export interface User {
     emailVerified?: boolean,
     /** receber os avisos também por e-mail */
     emailNotifications?: boolean,
+    /** foto do perfil pessoal */
+    avatarUrl?: string | null,
     /** acesso ao painel de administração */
     isAdmin?: boolean,
 }

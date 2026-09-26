@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { closedMessage, openState } from "../utils/openStatus";
 import { inviteService } from "./InviteService";
 import { Conversation, ConversationStatus, NegotiationTopic, QuoteRequest, RequestStatus } from "../models/Conversation";
 import { HttpError } from "./HireService";
@@ -359,6 +360,8 @@ export class ConversationService {
     if (!data.serviceId) throw new HttpError(400, "Serviço não informado");
     const target = await this.serviceRepository.findOne({ where: { id: Number(data.serviceId) } });
     if (target && target.active === false) throw new HttpError(400, "Este serviço está pausado pelo prestador e não recebe pedidos no momento");
+    const targetProvider = target ? await this.providerRepository.findOne({ where: { services: { id: target.id } } }) : null;
+    if (targetProvider && !openState(targetProvider).open) throw new HttpError(400, closedMessage(openState(targetProvider)));
 
     const summary = await this.open(userId, { serviceId: data.serviceId });
     const conv = await this.load(summary.id, userId);

@@ -8,6 +8,7 @@
  *  - Busca de serviços e avaliações recebidas como cliente
  * -------------------------------------------------------------------------- */
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import EditableAvatar from "../components/Common/EditableAvatar";
 import { providerApi } from "../api/ProviderAPI";
 import { Heart, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -25,7 +26,7 @@ import ChatInbox from "../components/Chat/ChatInbox";
 import ConfirmModal from "../components/Common/ConfirmModal";
 import ReviewsSection from "../components/Reviews/ReviewsSection";
 import FavoritesSection from "../components/Favorites/FavoritesSection";
-import { defaultAvatar } from "../utils/avatar";
+import { defaultAvatar, uploadUrl } from "../utils/avatar";
 import { getErrorMessage } from "../utils/errors";
 import type { RatingStats } from "../interfaces/Entities";
 
@@ -38,6 +39,19 @@ export default function ProfilePage() {
    * ------------------------------------------------------------------------ */
   const { user: sessionUser, provider, providerDeactivated, loading, refresh, logout } = useSession();
   const [favoritesOpen, setFavoritesOpen] = useState(false);
+
+  // foto do perfil pessoal: no modo edição, clicando na foto
+  const changeAvatar = async (file: File) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    try {
+      await userAPI.setAvatar(file, token);
+      await refresh();
+      showToast("Foto atualizada.", "success");
+    } catch (e) {
+      showToast(getErrorMessage(e, "Não foi possível trocar a foto."), "error");
+    }
+  };
   const [reactivateOpen, setReactivateOpen] = useState(false);
   const [reactivating, setReactivating] = useState(false);
 
@@ -171,11 +185,15 @@ export default function ProfilePage() {
       <section className="relative flex flex-col md:flex-row items-center justify-center gap-6 bg-[var(--bg-dark)] p-8">
         {/* IMAGEM DE PERFIL */}
         <div className="relative">
-          <img
-            src={defaultAvatar(sessionUser.email || sessionUser.name)}
-            alt={`Foto de perfil de ${user.name}`}
-            className="w-70 h-70 rounded-full border-4 border-[var(--primary)] object-cover"
-          />
+          <div className="w-70 h-70">
+            <EditableAvatar
+              src={uploadUrl(sessionUser.avatarUrl) ?? defaultAvatar(sessionUser.email || sessionUser.name)}
+              alt={`Foto de perfil de ${user.name}`}
+              editing={isEditing}
+              onPick={changeAvatar}
+              className="w-70 h-70 rounded-full border-4 border-[var(--primary)] object-cover"
+            />
+          </div>
 
           {/* BOTÃO DE EDIÇÃO */}
           <button

@@ -83,7 +83,7 @@ export const NOTICE_OPTIONS = ['', 'até 2h antes', 'até 12h antes', 'até 24h 
 
 /** Agenda devolvida por GET /hires/booked/:serviceId */
 export type BusinessHours = Record<string, { start: string; end: string }>;
-export type Agenda = { busy: { start: string; end: string }[]; hours: BusinessHours; durationMinutes: number };
+export type Agenda = { busy: { start: string; end: string }[]; hours: BusinessHours; durationMinutes: number; closed?: boolean; closedUntil?: string | null };
 
 const hhmmToMin = (t: string) => {
   const [h, m] = t.split(':').map(Number);
@@ -308,7 +308,8 @@ export function SlotPicker({
   const options = useMemo(() => {
     const busy = (agenda?.busy ?? []).map((b) => [new Date(b.start).getTime(), new Date(b.end).getTime()]);
     const minutes = agenda?.durationMinutes ?? 60;
-    const now = Date.now();
+    // prestador fechado até uma data: nada antes da reabertura
+    const now = Math.max(Date.now(), agenda?.closedUntil ? new Date(agenda.closedUntil).getTime() - 1 : 0);
     const list: { date: Date; times: string[] }[] = [];
     for (let i = 0; i < days; i++) {
       const date = new Date();

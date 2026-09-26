@@ -149,8 +149,8 @@ export default function StepPreferences({
             value={form.status}
             onChange={(e) => update("status", e.target.value as any)}
           >
-            <option value="available">Disponível</option>
-            <option value="paused">Pausado</option>
+            <option value="available">Aberto</option>
+            <option value="paused">Fechado</option>
           </motion.select>
         </PreferenceCard>
       </div>

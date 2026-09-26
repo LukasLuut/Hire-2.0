@@ -33,6 +33,8 @@ export interface ProviderEntity {
   cityPage?: { path: string; label: string } | null;
   /** (perfil público) trabalhos do portfólio, em ordem */
   portfolio?: PortfolioItem[];
+  /** fechado até esta data (com status "paused"); sem data = fechado até reabrir */
+  closedUntil?: string | null;
   /** conta profissional desativada pelo dono (só aparece para o próprio dono) */
   deactivatedAt?: string | null;
   /** (perfil público) data de entrada no Hire */

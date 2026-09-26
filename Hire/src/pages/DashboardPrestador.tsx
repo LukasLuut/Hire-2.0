@@ -147,7 +147,7 @@ export default function DashboardPrestador() {
         {/* header */}
         <div className="max-w-[90%] mx-auto flex flex-col lg:flex-row gap-6">
           {/* aside (desktop) visible at right; on mobile it will be an accordion below header */}
-          {provider && <ProviderHero key={galleryKey} provider={provider} editRequest={editRequest} />}
+          {provider && <ProviderHero key={galleryKey} provider={provider} editRequest={editRequest} onDeactivate={() => setDeactivateOpen(true)} />}
           <aside className="w-full mt-6 lg:w-80">
             {provider && (
               <ProviderChecklist
@@ -415,18 +415,6 @@ export default function DashboardPrestador() {
           <PortfolioManager items={portfolio} services={myServices} onChange={load} />
         </div>
 
-        {/* conta profissional: desativar */}
-        <div className="max-w-[90%] mx-auto mt-8 mb-4">
-          <section aria-labelledby="pro-account-title" className="p-5 rounded-2xl border border-red-500/30 bg-[var(--bg-light)]">
-            <h2 id="pro-account-title" className="font-semibold">Conta profissional</h2>
-            <p className="text-sm text-[var(--text-muted)] mt-1">
-              Desativando, seu perfil público, seus serviços e seu portfólio saem do ar e você passa a usar o Hire só como cliente. Seus dados ficam guardados e você pode reativar quando quiser.
-            </p>
-            <button onClick={() => setDeactivateOpen(true)} className="mt-3 px-4 py-2 rounded-xl border border-red-500/50 text-red-500 hover:bg-red-500/10 text-sm font-medium">
-              Desativar conta profissional
-            </button>
-          </section>
-        </div>
         <ConfirmModal
           open={deactivateOpen}
           title="Desativar conta profissional?"

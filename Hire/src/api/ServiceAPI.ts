@@ -48,6 +48,9 @@ export interface ServiceData {
     /** false = o prestador escolheu não exibir preços na vitrine */
     pricesOnPage?: boolean,
     slug?: string | null,
+    /** "paused" = fechado (com ou sem data de reabertura) */
+    status?: string,
+    closedUntil?: string | null,
   },
 }
 
@@ -93,6 +96,8 @@ export function toServiceData(e: ServiceEntity): ServiceData {
           lateCancellations: e.provider.lateCancellations ?? 0,
           verified: e.provider.verificationStatus === "verified",
           pricesOnPage: e.provider.pricesOnPage,
+          status: e.provider.status,
+          closedUntil: e.provider.closedUntil ?? null,
           slug: e.provider.slug ?? null,
         }
       : undefined,

@@ -60,6 +60,10 @@ export const providerApi = {
   },
 
   /** Perfil público de um prestador (Ver perfil). */
+  /** Aberto / fechado / fechado até a data (AAAA-MM-DD) */
+  setStatus: (data: { status: "available" | "closed"; closedUntil?: string }, token: string) =>
+    apiRequest("/providers/me/status", { method: "PUT", headers: auth(token), body: JSON.stringify(data) }),
+
   /** Conta profissional: desativar (vira só cliente) e reativar */
   deactivate: (token: string) => apiRequest("/providers/me/deactivate", { method: "POST", headers: auth(token) }),
   reactivate: (token: string) => apiRequest("/providers/me/reactivate", { method: "POST", headers: auth(token) }),

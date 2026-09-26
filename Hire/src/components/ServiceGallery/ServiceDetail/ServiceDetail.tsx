@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { openInfo } from "../../../utils/openStatus";
 import { cameFromProfile, track } from "../../../utils/analytics";
 import { providerPath } from "../../../utils/providerPath";
 import { motion, AnimatePresence } from "framer-motion";
@@ -73,6 +74,9 @@ export default function ServiceDetail({
   const [quantity, setQuantity] = useState("")
   const packages = service.packages ?? []
   const quoteOnly = isQuoteOnly(service.priceUnit)
+  // situação do prestador: fechado bloqueia pedidos; "fechado até" ainda aceita agendar depois da data
+  const closedInfo = openInfo({ status: service.provider?.status, closedUntil: service.provider?.closedUntil })
+  const closedForOrders = closedInfo.kind === "closed" || (closedInfo.kind === "closedUntil" && !service.requiresScheduling)
   const qtyUnit = service.priceUnit === "m2" ? "m²" : "horas"
   const qtyNum = Number(quantity.replace(",", "."))
   const hireTotal = packages.length
@@ -546,7 +550,26 @@ export default function ServiceDetail({
                     <Star size={18} className="text-yellow-400" /> Avaliar {providerName}
                   </button>
                 )}
-              {quoteOnly ? (
+              {closedInfo.kind !== "open" && closedInfo.kind !== "outsideHours" && (
+                <p role="status" className="p-3 rounded-xl border border-yellow-500/40 bg-yellow-500/10 text-sm text-yellow-500">
+                  {closedInfo.kind === "closedUntil"
+                    ? service.requiresScheduling
+                      ? `${providerName} está fechado até ${closedInfo.until.toLocaleDateString("pt-BR")}. Você pode agendar para depois dessa data.`
+                      : `${providerName} está fechado até ${closedInfo.until.toLocaleDateString("pt-BR")} e volta a receber pedidos nesse dia.`
+                    : `${providerName} está fechado no momento e não recebe novos pedidos.`}{" "}
+                  Mensagens continuam liberadas.
+                </p>
+              )}
+              {closedForOrders ? (
+              <div className="flex gap-3">
+                <button
+                  onClick={handleMensagem}
+                  className="flex-1 flex items-center justify-center gap-2 bg-[var(--primary)] text-white font-semibold py-3 rounded-xl shadow-md hover:scale-[1.02] hover:shadow-lg transition-all">
+                  <MessageCircle size={18} />
+                  Mensagem
+                </button>
+              </div>
+              ) : quoteOnly ? (
               <div className="flex gap-3">
                 {/* "a partir de" / "sob orçamento": o preço sai da conversa, não há contratação direta */}
                 <button

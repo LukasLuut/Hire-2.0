@@ -16,6 +16,45 @@ test("desativar exige não ter pedidos em andamento como prestador", async () =>
   await req("PUT", `/hires/${h.j.id}`, t.cli, { status: "CANCELADO" });
 });
 
+test("desativar bloqueia em cada etapa do pedido: aceito, em andamento e entregue sem confirmação", async () => {
+  const svc = limServices.find((s) => !s.requiresScheduling && !s.packages?.length && s.priceUnit === "fixo");
+  const h = (await req("POST", "/hires", t.cli, { serviceId: svc.id })).j;
+  try {
+    for (const step of ["ACEITO", "EM ANDAMENTO", "CONCLUIDO"]) {
+      await req("PUT", `/hires/${h.id}`, t.lim, { status_provider: step });
+      const r = await req("POST", "/providers/me/deactivate", t.lim);
+      assert.equal(r.s, 400, `etapa ${step} deveria bloquear`);
+    }
+    // cliente confirma: pedido encerrado não bloqueia mais
+    await req("PUT", `/hires/${h.id}`, t.cli, { status: "CONCLUIDO" });
+  } finally {
+    await db("UPDATE hires SET status='CONCLUIDO' WHERE id = ?", [h.id]);
+  }
+});
+
+test("desativar bloqueia com negociação em andamento (aguardando resposta ou respondida)", async () => {
+  const svc = limServices[0];
+  const q = await req("POST", "/conversations/request", t.cli, form({ serviceId: svc.id, description: "Limpeza pós-mudança", budget: "R$ 300" }));
+  assert.equal(q.s, 201, JSON.stringify(q.j));
+  try {
+    let r = await req("POST", "/providers/me/deactivate", t.lim);
+    assert.equal(r.s, 400, "pedido de orçamento aguardando resposta");
+    assert.match(r.j.message, /negocia/);
+    await req("POST", `/conversations/${q.j.id}/respond`, t.lim, form({ title: "Pós-mudança", description: "Apartamento", price: "R$ 350,00", deadline: "6 horas" }));
+    r = await req("POST", "/providers/me/deactivate", t.lim);
+    assert.equal(r.s, 400, "orçamento respondido, aguardando aceite");
+    // recusada: deixa de bloquear
+    await req("POST", `/conversations/${q.j.id}/reject`, t.lim, { reason: "teste" });
+  } finally {
+    await db("UPDATE conversations SET status='CLOSED' WHERE id = ?", [q.j.id]);
+  }
+  // conversa simples (sem pedido de orçamento) não bloqueia
+  const chat = await req("POST", "/conversations", t.cli, { providerId: 2 });
+  assert.ok(chat.s < 300);
+  assert.equal((await req("POST", "/providers/me/deactivate", t.lim)).s, 200, "sem pendências, desativa");
+  assert.equal((await req("POST", "/providers/me/reactivate", t.lim)).s, 200);
+});
+
 test("desativada: perfil 410, serviços somem da vitrine, detalhe, cidade e sitemap", async () => {
   assert.equal((await req("POST", "/providers/me/deactivate", t.lim)).s, 200);
   const pub = await req("GET", `/providers/${lim.slug}/public`);

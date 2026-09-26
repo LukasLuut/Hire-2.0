@@ -1,4 +1,5 @@
 import type { ServiceProvider } from "../models/ServiceProvider";
+import { openState } from "./openStatus";
 
 /**
  * Dados de um prestador que podem sair em respostas públicas (sem login):
@@ -18,7 +19,9 @@ export function toPublicProvider(p: (ServiceProvider & Record<string, any>) | nu
     companyName: p.companyName,
     description: p.description,
     profileImageUrl: p.profileImageUrl ?? null,
-    status: p.status,
+    // situação efetiva: "fechado até" com data passada já volta como aberto
+    status: openState(p).open ? "available" : "paused",
+    closedUntil: openState(p).closedUntil,
     attendsPresent: p.attendsPresent,
     attendsOnline: p.attendsOnline,
     personalizedProposals: p.personalizedProposals,

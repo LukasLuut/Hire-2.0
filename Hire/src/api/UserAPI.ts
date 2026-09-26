@@ -19,6 +19,13 @@ export const userAPI = {
     });
   },
 
+  /** Troca a foto do perfil pessoal */
+  setAvatar: async (file: File, token: string) => {
+    const body = new FormData();
+    body.append("image", file);
+    return apiRequest<{ avatarUrl: string }>("/users/me/avatar", { method: "PUT", headers: { Authorization: "Bearer " + token }, body });
+  },
+
   getUser: async (token: string): Promise<User | null> => {
     const response: User = await apiRequest("/users/me", {
       method: "GET",

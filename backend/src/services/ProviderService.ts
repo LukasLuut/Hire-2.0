@@ -1,4 +1,6 @@
 import { AppDataSource } from "../config/data-source";
+import { openState } from "../utils/openStatus";
+import { Conversation, ConversationStatus, RequestStatus } from "../models/Conversation";
 import { Hire, StatusEnum } from "../models/Hire";
 import { HttpError } from "./HireService";
 import { inviteService } from "./InviteService";
@@ -108,9 +110,43 @@ export class ProviderService {
       ],
     });
     if (open) throw new HttpError(400, `Você tem ${open} pedido(s) em andamento como prestador. Conclua ou cancele antes de desativar.`);
+    // negociações com pedido de orçamento ainda sem desfecho (aguardando resposta ou aceite)
+    const negotiating = await AppDataSource.getRepository(Conversation).count({
+      where: { provider: { id: provider.id }, status: ConversationStatus.OPEN, requestStatus: In([RequestStatus.PENDENTE, RequestStatus.RESPONDIDA]) },
+    });
+    if (negotiating) throw new HttpError(400, `Você tem ${negotiating} negociação(ões) em andamento com clientes. Responda, recuse ou encerre antes de desativar.`);
     provider.deactivatedAt = new Date();
     await this.providerRepository.save(provider);
     return { deactivatedAt: provider.deactivatedAt };
+  }
+
+  /**
+   * Aberto / fechado / fechado até uma data (reabre sozinho no dia).
+   * status: "available" | "closed"; closedUntil: "AAAA-MM-DD" (opcional, futuro, até 1 ano)
+   */
+  async setOpenStatus(userId: number, data: { status?: unknown; closedUntil?: unknown }) {
+    const provider = await this.providerRepository.findOne({ where: { user: { id: userId } } });
+    if (!provider || provider.deactivatedAt) throw new HttpError(404, "Você não tem conta profissional ativa");
+    if (data.status === "available") {
+      provider.status = "available";
+      provider.closedUntil = null;
+    } else if (data.status === "closed") {
+      let until: Date | null = null;
+      if (data.closedUntil) {
+        const m = String(data.closedUntil).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!m) throw new HttpError(400, "Data inválida");
+        until = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 0, 0, 0); // reabre no início do dia
+        const now = Date.now();
+        if (until.getTime() <= now) throw new HttpError(400, "Escolha uma data a partir de amanhã");
+        if (until.getTime() > now + 366 * 86400000) throw new HttpError(400, "Escolha uma data em até um ano");
+      }
+      provider.status = "paused";
+      provider.closedUntil = until;
+    } else {
+      throw new HttpError(400, "Situação inválida");
+    }
+    await this.providerRepository.save(provider);
+    return { status: provider.status, ...openState(provider) };
   }
 
   /** Reativa a conta profissional com os mesmos dados, serviços e portfólio */
