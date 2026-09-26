@@ -6,6 +6,7 @@ import { Share2 } from "lucide-react";
 import { providerUrl } from "../utils/providerPath";
 import SharePanel from "../components/Share/SharePanel";
 import ProfileStats from "../components/ProfileStats";
+import EarningsSummary from "../components/Payment/EarningsSummary";
 import type { PortfolioItem } from "../interfaces/Entities";
 import PortfolioManager from "../components/Portfolio/PortfolioManager";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
@@ -214,6 +215,7 @@ export default function DashboardPrestador() {
                       exit={{ height: 0, opacity: 0 }}
                       className="overflow-hidden"
                     >
+                      <EarningsSummary />
                       <ProfileStats />
                     </motion.div>
                   )}
@@ -290,6 +292,7 @@ export default function DashboardPrestador() {
                               exit={{ height: 0, opacity: 0 }}
                               className="overflow-hidden"
                             >
+                              <EarningsSummary />
                               <ProfileStats />
                             </motion.div>
                           )}

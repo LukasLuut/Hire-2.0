@@ -6,7 +6,7 @@
 // - Etapas reais do pedido (status do cliente e do prestador)
 // - Usa variáveis CSS do projeto: --bg, --bg-light, --border, --text, --primary, --highlight
 
-import { CheckCircle, MessageSquare, Star, RotateCcw, CalendarClock, Flag, ShieldAlert } from "lucide-react";
+import { CheckCircle, MessageSquare, Star, RotateCcw, CalendarClock, Flag, ShieldAlert, Wallet } from "lucide-react";
 import ReportModal from "./Reports/ReportModal";
 import { SlotPicker, noticeHours, localDateTimeKey, type Agenda } from "./Schedule";
 import { useEffect, useRef, useState } from "react";
@@ -20,7 +20,9 @@ import { conversationAPI } from "../api/ConversationAPI";
 import { serviceImages, toServiceData } from "../api/ServiceAPI";
 import ServiceDetail from "./ServiceGallery/ServiceDetail/ServiceDetail";
 import { useToast } from "./Toast/ToastContext";
-import type { HireEntity } from "../interfaces/Entities";
+import type { HireEntity, PaymentMethod } from "../interfaces/Entities";
+import PaymentMethodPicker from "./Payment/PaymentMethodPicker";
+import { METHOD_LABEL } from "../utils/payment";
 import { HIRE_STEPS, HIRE_STAGE_LABEL, HIRE_STAGE_LABEL_PROVIDER, getHireStage, stepIndex } from "../utils/hireStatus";
 import { formatCurrency, formatDate, formatDateTime } from "../utils/format";
 import { defaultAvatar, uploadUrl } from "../utils/avatar";
@@ -39,7 +41,7 @@ export type ServiceProgressProps = {
   onChanged: () => void;
 };
 
-type Action = "accept" | "begin" | "deliver" | "confirm" | "cancel" | "reschedule" | "schedule";
+type Action = "accept" | "begin" | "deliver" | "confirm" | "cancel" | "reschedule" | "schedule" | "pay";
 
 const ACTION_TEXT: Record<Action, { title: string; confirm: string; done: string }> = {
   accept: { title: "Aceitar este pedido?", confirm: "Aceitar pedido", done: "Pedido aceito. O cliente foi avisado." },
@@ -49,6 +51,7 @@ const ACTION_TEXT: Record<Action, { title: string; confirm: string; done: string
   cancel: { title: "Cancelar este pedido?", confirm: "Cancelar pedido", done: "Pedido cancelado." },
   reschedule: { title: "Propor outro horário", confirm: "Enviar proposta", done: "Proposta enviada. A outra parte precisa aceitar." },
   schedule: { title: "Escolher o horário", confirm: "Marcar horário", done: "Horário marcado. O prestador foi avisado." },
+  pay: { title: "Pagamento", confirm: "Pagar", done: "Pagamento confirmado. O valor fica guardado até você confirmar a conclusão." },
 };
 
 const buttonClass = (primary = false) =>
@@ -78,6 +81,7 @@ export function ServiceProgress({
   const [newSlot, setNewSlot] = useState<string | null>(null);
   const [agenda, setAgenda] = useState<Agenda | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [method, setMethod] = useState<PaymentMethod | null>(null);
   // depois de confirmar a conclusão, a lista só recarrega quando o modal de avaliação fecha
   // (senão o card vai para "Encerradas" e o modal some junto)
   const refreshAfterReview = useRef(false);
@@ -117,6 +121,10 @@ export function ServiceProgress({
       if (pending === "deliver") await hireAPI.concludeHireProvider(data.id);
       if (pending === "confirm") await hireAPI.concludeHire(data.id);
       if (pending === "cancel") await hireAPI.cancelHire(data.id, viewFor, cancelReason);
+      if (pending === "pay") {
+        if (!method) { showToast("Escolha a forma de pagamento.", "warning"); return; }
+        await hireAPI.pay(data.id, method);
+      }
       if (pending === "reschedule" || pending === "schedule") {
         if (!newSlot) { showToast("Escolha o horário.", "warning"); return; }
         await (pending === "schedule" ? hireAPI.schedule : hireAPI.reschedule)(data.id, newSlot);
@@ -160,6 +168,9 @@ export function ServiceProgress({
   const canReschedule = !!data.scheduledAt && (stage === "requested" || stage === "accepted");
   // pedido que veio de uma negociação: serviço com agenda ainda sem horário marcado
   const awaitingSchedule = stage === "accepted" && !!data.service?.requiresScheduling && !data.scheduledAt;
+  // aceito e ainda não pago (pedidos antigos não têm essa etapa)
+  const awaitingPayment = stage === "accepted" && !!data.paymentRequired && !data.payment;
+  const payment = data.payment;
   // cancelar agora cai dentro do prazo do serviço? (só conta para pedido aceito)
   const notice = noticeHours(data.service?.cancellationNotice);
   const lateNow = !!data.scheduledAt && !!data.acceptedAt && notice > 0 && Date.now() > new Date(data.scheduledAt).getTime() - notice * 3600000;
@@ -174,7 +185,11 @@ export function ServiceProgress({
     }
   };
 
-  const statusLabel = (viewFor === "client" ? HIRE_STAGE_LABEL : HIRE_STAGE_LABEL_PROVIDER)[stage];
+  const statusLabel = awaitingPayment
+    ? "Aceito — aguardando pagamento"
+    : awaitingSchedule
+      ? "Aceito — aguardando horário"
+      : (viewFor === "client" ? HIRE_STAGE_LABEL : HIRE_STAGE_LABEL_PROVIDER)[stage];
   const serviceForCard = data.service
     ? toServiceData({ ...data.service, provider: data.service.provider ?? data.provider ?? null })
     : null;
@@ -203,6 +218,15 @@ export function ServiceProgress({
               </p>
               {data.scheduledAt && (
                 <p className="text-xs text-[var(--text)] mt-1">Agendado para {formatDateTime(data.scheduledAt)}</p>
+              )}
+              {payment && (
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                  {payment.status === "ESTORNADO"
+                    ? `Pagamento estornado (${formatCurrency(payment.amount)}).`
+                    : viewFor === "client"
+                      ? `Pago via ${METHOD_LABEL[payment.method]} · ${payment.status === "LIBERADO" ? "repassado ao prestador" : "valor guardado pela Hire até você confirmar a conclusão"}.`
+                      : `Pago pelo cliente · você recebe ${formatCurrency(payment.net)} (taxa Hire ${formatCurrency(payment.fee)})${payment.status === "LIBERADO" ? " · liberado" : " quando o cliente confirmar a conclusão"}.`}
+                </p>
               )}
               {awaitingSchedule && (
                 <p className="text-xs text-amber-500 mt-1">Horário a definir: {viewFor === "client" ? "escolha na agenda do prestador" : "o cliente vai escolher na sua agenda"}.</p>
@@ -348,8 +372,10 @@ export function ServiceProgress({
                       )}
                       {stage === "accepted" && (
                         <>
-                          {awaitingSchedule ? (
-                            <p className="text-sm text-[var(--text-muted)] sm:self-center">Aguardando o cliente escolher o horário na sua agenda.</p>
+                          {awaitingPayment || awaitingSchedule ? (
+                            <p className="text-sm text-[var(--text-muted)] sm:self-center">
+                              {awaitingPayment ? "Aguardando o pagamento do cliente." : "Aguardando o cliente escolher o horário na sua agenda."}
+                            </p>
                           ) : (
                             <button className={buttonClass(true)} onClick={() => setPending("begin")}>
                               Iniciar serviço
@@ -373,11 +399,16 @@ export function ServiceProgress({
                     <>
                       {(stage === "requested" || stage === "accepted") && (
                         <>
+                          {awaitingPayment && (
+                            <button className={`${buttonClass(true)} flex items-center gap-2`} onClick={() => { setMethod(null); setPending("pay"); }}>
+                              <Wallet size={16} /> Pagar {formatCurrency(data.price)}
+                            </button>
+                          )}
                           {awaitingSchedule ? (
-                            <button className={`${buttonClass(true)} flex items-center gap-2`} onClick={() => openReschedule("schedule")}>
+                            <button className={`${buttonClass(!awaitingPayment)} flex items-center gap-2`} onClick={() => openReschedule("schedule")}>
                               <CalendarClock size={16} /> Escolher horário
                             </button>
-                          ) : (
+                          ) : !awaitingPayment && (
                             <p className="text-sm text-[var(--text-muted)] sm:self-center">
                               {stage === "requested" ? "Aguardando o prestador aceitar. Sem resposta em 48 h, o pedido expira." : "Pedido aceito. Aguardando o prestador iniciar."}
                             </p>
@@ -450,6 +481,19 @@ export function ServiceProgress({
           onConfirm={run}
           onClose={() => setPending(null)}
         >
+          {pending === "pay" && (
+            <div className="text-sm grid gap-3">
+              <p className="flex justify-between text-[var(--text)]">
+                <span>{data.service?.title ?? data.description_service}</span>
+                <strong>{formatCurrency(data.price)}</strong>
+              </p>
+              <PaymentMethodPicker value={method} onChange={setMethod} />
+              <p className="text-xs text-[var(--text-muted)]">
+                O valor fica guardado pela Hire e só é repassado ao prestador quando você confirmar a conclusão. Se o pedido for cancelado, você recebe de volta.
+                <strong className="block mt-1">Ambiente de demonstração: nenhum valor é cobrado de verdade.</strong>
+              </p>
+            </div>
+          )}
           {(pending === "reschedule" || pending === "schedule") && (
             <div className="text-sm">
               <p className="text-[var(--text-muted)] mb-3">

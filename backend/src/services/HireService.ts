@@ -1,4 +1,6 @@
 import { AppDataSource } from "../config/data-source";
+import { PaymentMethod } from "../models/Payment";
+import { METHODS, paymentService } from "./PaymentService";
 import { OFFLINE_MESSAGE, providerOffline } from "../utils/availability";
 import { closedMessage, openState } from "../utils/openStatus";
 import { inviteService } from "./InviteService";
@@ -27,13 +29,13 @@ export class HireService {
     private serviceRepository = AppDataSource.getRepository(Service);
 
     // Relações necessárias para exibir uma contratação completa no frontend
-    private readonly fullRelations = { user: true, provider: true, service: { category: true, provider: true } };
+    private readonly fullRelations = { user: true, provider: true, service: { category: true, provider: true }, payment: true };
 
     /** Carrega a contratação com os donos de cada lado e diz qual papel o usuário tem nela. */
     private async loadWithRole(id: number, requesterId: number): Promise<{ hire: Hire; role: Role }> {
         const hire = await this.hireRepository.findOne({
             where: { id },
-            relations: { user: true, provider: { user: true }, service: true },
+            relations: { user: true, provider: { user: true }, service: true, payment: true },
         });
         if (!hire) throw new HttpError(404, "Contratação não encontrada");
         if (hire.user?.id === requesterId) return { hire, role: "client" };
@@ -105,7 +107,8 @@ export class HireService {
             durationMinutes: minutes,
             provider: { id: service.provider.id },
             user: { id: userId },
-            service: { id: service.id }
+            service: { id: service.id },
+            paymentRequired: true,
         });
 
         const saved = await this.hireRepository.save(hire);
@@ -157,6 +160,10 @@ export class HireService {
         if (role === "provider" && next === StatusEnum.EM_ANDAMENTO && current !== StatusEnum.ACEITO) {
             throw new HttpError(400, current === StatusEnum.PENDENTE ? "Aceite o pedido antes de iniciar o serviço" : "O serviço só pode ser iniciado depois de aceito");
         }
+        // RN: pagamento (simulado) antes de o serviço começar
+        if (role === "provider" && next === StatusEnum.EM_ANDAMENTO && this.awaitingPayment(hire)) {
+            throw new HttpError(400, "Aguardando o pagamento do cliente");
+        }
         // serviço com agenda (RN05): o pedido negociado precisa de horário marcado antes de começar
         if (role === "provider" && next === StatusEnum.EM_ANDAMENTO && this.awaitingSchedule(hire)) {
             throw new HttpError(400, "Aguardando o cliente escolher o horário na agenda");
@@ -190,6 +197,9 @@ export class HireService {
             hire.status_provider = next;
         }
         await this.hireRepository.save(hire);
+        // dinheiro acompanha o pedido: cancelado → estorno; conclusão confirmada → liberado ao prestador
+        if (next === StatusEnum.CANCELADO) await paymentService.refund(hire.id);
+        if (role === "client" && next === StatusEnum.CONCLUIDO) await paymentService.release(hire.id);
         await this.notifyUpdate(hire, role, next);
         return await this.hireRepository.findOne({ where: { id }, relations: this.fullRelations });
     }
@@ -218,6 +228,35 @@ export class HireService {
         const busy = await this.busyOf(service.provider.id, new Date(start.getTime() - 30 * 86400000), new Date(start.getTime() + minutes * 60000), ignoreHireId);
         if (busy.some((b) => overlaps(start, minutes, b.start, b.minutes)))
             throw new HttpError(409, "Esse horário conflita com outro atendimento do prestador. Escolha outro.");
+    }
+
+    /** Pedido aceito que ainda não foi pago */
+    private awaitingPayment(hire: Hire) {
+        return hire.paymentRequired && !hire.payment;
+    }
+
+    /**
+     * Pagamento simulado pelo cliente, depois do aceite do prestador.
+     * O valor fica retido e só é liberado ao prestador quando o cliente confirma a conclusão.
+     */
+    async pay(id: number, method: unknown, requesterId: number) {
+        const { hire, role } = await this.loadWithRole(id, requesterId);
+        if (role !== "client") throw new HttpError(403, "Quem paga é o cliente");
+        if (!hire.paymentRequired) throw new HttpError(400, "Este pedido não usa pagamento pela plataforma");
+        if (hire.payment) throw new HttpError(400, "Este pedido já foi pago");
+        if (hire.status !== StatusEnum.PENDENTE || hire.status_provider !== StatusEnum.ACEITO) {
+            throw new HttpError(400, hire.status_provider === StatusEnum.PENDENTE ? "Aguarde o prestador aceitar o pedido para pagar" : "Este pedido não pode mais ser pago");
+        }
+        if (typeof method !== "string" || !METHODS.includes(method)) throw new HttpError(400, "Escolha a forma de pagamento: Pix, cartão ou boleto");
+        const payment = await paymentService.pay({ hireId: hire.id, providerId: hire.provider.id, userId: requesterId, amount: Number(hire.price), method: method as PaymentMethod });
+        const title = hire.service?.title ?? hire.description_service;
+        await notificationService.notify(hire.provider?.user?.id, {
+            type: "hire.paid",
+            title: `Pagamento confirmado: ${title}`,
+            body: `${hire.user?.name ?? "O cliente"} pagou ${payment.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}. Você recebe ${payment.net.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} quando o cliente confirmar a conclusão.`,
+            link: "/progress",
+        });
+        return await this.hireRepository.findOne({ where: { id }, relations: this.fullRelations });
     }
 
     /** Pedido negociado de serviço com agenda que ainda não tem horário marcado. */

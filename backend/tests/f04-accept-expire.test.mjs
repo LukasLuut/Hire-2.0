@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { req, tokens, db } from "./helpers.mjs";
+import { req, tokens, db, pay } from "./helpers.mjs";
 
 const t = await tokens();
 const SERVICE = 3;
@@ -33,6 +33,7 @@ test("4. prestador recusa com motivo; cliente não cancela depois de começar", 
 
   const h2 = await newHire();
   await put(h2.id, t.ele, { status_provider: "ACEITO" });
+  await pay(h2.id, t.cli);
   await put(h2.id, t.ele, { status_provider: "EM ANDAMENTO" });
   assert.equal((await put(h2.id, t.cli, { status: "CANCELADO" })).s, 400, "já começou");
   await put(h2.id, t.ele, { status_provider: "CANCELADO", reason: "limpeza do teste" });

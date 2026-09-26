@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { req, tokens, login, form, PNG, API, db } from "./helpers.mjs";
+import { req, tokens, login, form, PNG, API, db, pay } from "./helpers.mjs";
 
 const t = await tokens();
 const adm = await login("admin@hire.dev");
@@ -8,7 +8,9 @@ const adm = await login("admin@hire.dev");
 // pedido concluído entre cliente e eletricista para disputar
 const svc = (await req("POST", "/services", t.ele, form({ title: "Disputa (teste)", description_service: "Teste", price: 50, categoryId: 1, duration: "1 hora", negotiable: false, requiresScheduling: false }))).j;
 const hire = (await req("POST", "/hires", t.cli, { serviceId: svc.id })).j;
-for (const s of ["ACEITO", "EM ANDAMENTO", "CONCLUIDO"]) await req("PUT", `/hires/${hire.id}`, t.ele, { status_provider: s });
+await req("PUT", `/hires/${hire.id}`, t.ele, { status_provider: "ACEITO" });
+await pay(hire.id, t.cli);
+for (const s of ["EM ANDAMENTO", "CONCLUIDO"]) await req("PUT", `/hires/${hire.id}`, t.ele, { status_provider: s });
 await req("PUT", `/hires/${hire.id}`, t.cli, { status: "CONCLUIDO" });
 let report;
 

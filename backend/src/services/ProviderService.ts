@@ -125,6 +125,13 @@ export class ProviderService {
    * Aberto / fechado / fechado até uma data (reabre sozinho no dia).
    * status: "available" | "closed"; closedUntil: "AAAA-MM-DD" (opcional, futuro, até 1 ano)
    */
+  /** Conta profissional do usuário (404 se não tiver) */
+  async mine(userId: number) {
+    const provider = await this.providerRepository.findOne({ where: { user: { id: userId } } });
+    if (!provider) throw new HttpError(404, "Você não tem conta profissional");
+    return provider;
+  }
+
   async setOpenStatus(userId: number, data: { status?: unknown; closedUntil?: unknown }) {
     const provider = await this.providerRepository.findOne({ where: { user: { id: userId } } });
     if (!provider || provider.deactivatedAt) throw new HttpError(404, "Você não tem conta profissional ativa");

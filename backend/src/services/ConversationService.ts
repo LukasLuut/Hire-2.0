@@ -321,6 +321,7 @@ export class ConversationService {
         // o acordo já foi aceito pelas duas partes: o pedido nasce aceito
         status_provider: StatusEnum.ACEITO,
         acceptedAt: now,
+        paymentRequired: true,
         // serviço com agenda: a duração acordada ocupa a agenda; o cliente escolhe o horário depois (RN05)
         durationMinutes: conv.service?.requiresScheduling ? durationMinutes(get("duration") || conv.service.duration) : null,
       })
@@ -344,8 +345,9 @@ export class ConversationService {
     conv.contract = contract;
     await this.conversationRepository.save(conv);
     await this.system(conv, `Serviço formalizado ✔️ Contrato ${contract.code} gerado.`);
+    if (!conv.service?.requiresScheduling) await this.system(conv, "Próximo passo: o cliente faz o pagamento em Minhas contratações.");
     if (conv.service?.requiresScheduling) {
-      await this.system(conv, "Próximo passo: o cliente escolhe o horário na agenda do serviço, em Minhas contratações.");
+      await this.system(conv, "Próximos passos: o cliente paga e escolhe o horário na agenda do serviço, em Minhas contratações.");
       await notificationService.notify(conv.client.id, {
         type: "hire.schedule.needed",
         title: "Escolha o horário do atendimento",

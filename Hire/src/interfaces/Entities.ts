@@ -109,6 +109,23 @@ export interface ServiceEntity {
 
 export type ScheduleSlots = Partial<Record<"sunday" | "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday", string[]>>;
 
+export type PaymentMethod = "pix" | "cartao" | "boleto";
+
+/** Pagamento simulado de uma contratação (PAGO = retido até a conclusão) */
+export interface PaymentEntity {
+  id: number;
+  amount: number;
+  feePercent: number;
+  fee: number;
+  net: number;
+  method: PaymentMethod;
+  status: "PAGO" | "LIBERADO" | "ESTORNADO";
+  transactionCode: string;
+  paidAt: string;
+  releasedAt?: string | null;
+  refundedAt?: string | null;
+}
+
 export interface HireEntity {
   id: number;
   price: number;
@@ -138,6 +155,9 @@ export interface HireEntity {
   user?: { id: number; name: string };
   provider?: ProviderEntity;
   service?: ServiceEntity;
+  /** pedido criado com a etapa de pagamento (antigos não têm) */
+  paymentRequired?: boolean;
+  payment?: PaymentEntity | null;
 }
 
 export interface ReviewEntity {

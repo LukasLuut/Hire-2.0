@@ -58,6 +58,14 @@ export class HireController {
         }
     }
 
+    pay = async (req: Request, res: Response) => {
+        try {
+            res.json(await hireService.pay(Number(req.params.id), req.body?.method, userId(req)));
+        } catch (e: any) {
+            fail(res, e);
+        }
+    }
+
     schedule = async (req: Request, res: Response) => {
         try {
             res.json(await hireService.schedule(Number(req.params.id), req.body?.scheduledAt, userId(req)));

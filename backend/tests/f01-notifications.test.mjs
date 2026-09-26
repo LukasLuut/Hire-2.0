@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { req, tokens, form } from "./helpers.mjs";
+import { req, tokens, form, pay } from "./helpers.mjs";
 
 const t = await tokens();
 const SERVICE = 3; // prestador 1 (eletricista)
@@ -25,6 +25,7 @@ test("1. contratação gera avisos e pendências para a parte certa", async () =
 
   await req("PUT", `/hires/${h.id}`, t.ele, { status_provider: "ACEITO" });
   assert.ok(has(await latest(t.cli), "hire.accepted"), "cliente avisado do aceite");
+  await pay(h.id, t.cli);
   await req("PUT", `/hires/${h.id}`, t.ele, { status_provider: "EM ANDAMENTO" });
   assert.ok(has(await latest(t.cli), "hire.started"), "cliente avisado do início");
   await req("PUT", `/hires/${h.id}`, t.ele, { status_provider: "CONCLUIDO" });

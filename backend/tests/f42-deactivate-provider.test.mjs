@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { req, tokens, form, db, API } from "./helpers.mjs";
+import { req, tokens, form, db, API, pay } from "./helpers.mjs";
 
 // Conta profissional desativada: some do público, pessoa segue como cliente, pode reativar
 const t = await tokens();
@@ -22,6 +22,7 @@ test("desativar bloqueia em cada etapa do pedido: aceito, em andamento e entregu
   try {
     for (const step of ["ACEITO", "EM ANDAMENTO", "CONCLUIDO"]) {
       await req("PUT", `/hires/${h.id}`, t.lim, { status_provider: step });
+      if (step === "ACEITO") await pay(h.id, t.cli);
       const r = await req("POST", "/providers/me/deactivate", t.lim);
       assert.equal(r.s, 400, `etapa ${step} deveria bloquear`);
     }

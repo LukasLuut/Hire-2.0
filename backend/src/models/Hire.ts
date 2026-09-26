@@ -111,6 +111,12 @@ export class Hire {
   @JoinColumn()
   service: Service;
 
-  @OneToOne(() => Payment)
-  payment: Payment;
+  // Pagamento (simulado) feito pelo cliente depois do aceite
+  @OneToOne(() => Payment, (payment) => payment.hire)
+  payment: Payment | null;
+
+  // Pedidos criados a partir do fluxo com pagamento exigem pagar antes de o serviço começar
+  // (pedidos antigos, anteriores ao pagamento, seguem sem essa etapa)
+  @Column({ type: "boolean", default: false })
+  paymentRequired: boolean;
 }

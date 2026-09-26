@@ -14,6 +14,7 @@ hireRouter.get('/me', controller.getMine.bind(controller));
 hireRouter.get('/provider/:id', controller.getByProviderId.bind(controller));
 hireRouter.get('/:id', controller.getById.bind(controller));
 hireRouter.put('/:id', controller.update.bind(controller));
+hireRouter.post('/:id/pay', controller.pay.bind(controller));
 hireRouter.post('/:id/schedule', controller.schedule.bind(controller));
 hireRouter.post('/:id/reschedule', controller.requestReschedule.bind(controller));
 hireRouter.post('/:id/reschedule/answer', controller.answerReschedule.bind(controller));

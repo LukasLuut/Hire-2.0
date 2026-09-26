@@ -6,13 +6,9 @@ import { adminMiddleware } from '../middlewares/adminMiddleware';
 const paymentRouter = Router()
 const controller = new PaymentController()
 
-// Pagamentos ainda não fazem parte do fluxo: acesso só pela administração
+// O cliente paga pela contratação (POST /hires/:id/pay); aqui só a visão da administração.
+// Pagamentos não são criados nem alterados à mão: saem do fluxo do pedido.
 paymentRouter.use(authMiddleware, adminMiddleware);
-
-paymentRouter.post('/', controller.create.bind(controller));
-paymentRouter.get('/', controller.list.bind(controller));
-paymentRouter.put('/:id', controller.update.bind(controller));
-paymentRouter.delete('/:id', controller.delete.bind(controller));
-paymentRouter.get('/:id', controller.getById.bind(controller));
+paymentRouter.get('/', controller.overview);
 
 export default paymentRouter

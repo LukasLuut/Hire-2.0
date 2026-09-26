@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { req, tokens } from "./helpers.mjs";
+import { req, tokens, pay } from "./helpers.mjs";
 
 const t = await tokens();
 // Serviço 3 (tomadas) é do prestador 1 e não exige agendamento nos dados de teste
@@ -40,6 +40,8 @@ test("etapas em ordem: não pula, não volta, não cancela depois de entregue", 
   assert.equal((await setStatus(id, t.cli, { status: "CONCLUIDO" })).s, 400, "cliente não confirma antes");
   assert.equal((await setStatus(id, t.ele, { status_provider: "ACEITO" })).s, 200);
   assert.equal((await setStatus(id, t.ele, { status_provider: "ACEITO" })).s, 400, "não aceita duas vezes");
+  assert.equal((await setStatus(id, t.ele, { status_provider: "EM ANDAMENTO" })).s, 400, "não inicia antes do pagamento");
+  assert.equal((await pay(id, t.cli)).s, 200);
   assert.equal((await setStatus(id, t.ele, { status_provider: "EM ANDAMENTO" })).s, 200);
   assert.equal((await setStatus(id, t.ele, { status_provider: "EM ANDAMENTO" })).s, 400, "não inicia duas vezes");
   assert.equal((await setStatus(id, t.ele, { status_provider: "CONCLUIDO" })).s, 200);
@@ -53,6 +55,7 @@ test("etapas em ordem: não pula, não volta, não cancela depois de entregue", 
 test("avaliações mútuas com fotos depois de concluída", async () => {
   const { id } = await newHire();
   await setStatus(id, t.ele, { status_provider: "ACEITO" });
+  await pay(id, t.cli);
   await setStatus(id, t.ele, { status_provider: "EM ANDAMENTO" });
   await setStatus(id, t.ele, { status_provider: "CONCLUIDO" });
   await setStatus(id, t.cli, { status: "CONCLUIDO" });

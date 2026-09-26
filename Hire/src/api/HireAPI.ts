@@ -1,6 +1,6 @@
 import { apiRequest } from "./ApiClient";
 import type { Agenda } from "../components/Schedule";
-import type { HireEntity } from "../interfaces/Entities";
+import type { HireEntity, PaymentMethod } from "../interfaces/Entities";
 
 // Todas as rotas de contratação exigem login
 const auth = (token = localStorage.getItem("token")) => ({ Authorization: "Bearer " + token });
@@ -54,6 +54,10 @@ export const hireAPI = {
     const q = excludeHireId ? `?exclude=${excludeHireId}` : "";
     return (await apiRequest<Agenda>(`/hires/booked/${serviceId}${q}`, { headers: auth() })) ?? { busy: [], hours: {}, durationMinutes: 60 };
   },
+
+  /** Pagamento simulado do cliente depois do aceite */
+  pay: (id: number, method: PaymentMethod) =>
+    apiRequest<HireEntity>(`/hires/${id}/pay`, { method: "POST", headers: auth(), body: JSON.stringify({ method }) }),
 
   /** Pedido negociado: o cliente marca o horário na agenda do serviço. */
   schedule: (id: number, scheduledAt: string) =>

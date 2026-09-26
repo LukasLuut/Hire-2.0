@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { req, tokens, form, nextWeekday, db } from "./helpers.mjs";
+import { req, tokens, form, nextWeekday, db, pay } from "./helpers.mjs";
 import { negotiateUntilAgreed } from "./helpers-negotiation.mjs";
 
 // RN05: pedido negociado de serviço com agenda passa pela agenda antes de começar
@@ -41,6 +41,7 @@ test("45. acordo fechado: pedido nasce aceito, sem horário, com a duração aco
 });
 
 test("45. prestador não inicia sem horário; só o cliente agenda", async () => {
+  assert.equal((await pay(hireId, t.cli)).s, 200);
   const begin = await req("PUT", `/hires/${hireId}`, t.ele, { status_provider: "EM ANDAMENTO" });
   assert.equal(begin.s, 400);
   assert.match(begin.j.message, /horário/);

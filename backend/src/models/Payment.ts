@@ -1,5 +1,6 @@
 import {
   Column,
+  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
@@ -7,33 +8,73 @@ import {
   PrimaryGeneratedColumn,
 } from "typeorm";
 import { ServiceProvider } from "./ServiceProvider";
-import { Service } from "./Service";
 import { User } from "./User";
 import { Hire } from "./Hire";
+
+/**
+ * Pagamento de uma contratação (simulado: não há cobrança real).
+ * PAGO → valor retido pela plataforma até o cliente confirmar a conclusão;
+ * LIBERADO → valor líquido disponível para o prestador (base da carteira);
+ * ESTORNADO → pedido cancelado depois do pagamento, valor devolvido ao cliente.
+ */
+export enum PaymentStatus {
+  PAGO = "PAGO",
+  LIBERADO = "LIBERADO",
+  ESTORNADO = "ESTORNADO",
+}
+
+export enum PaymentMethod {
+  PIX = "pix",
+  CARTAO = "cartao",
+  BOLETO = "boleto",
+}
 
 @Entity("payments")
 export class Payment {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: "double" })
-  price: number;
+  // valor pago pelo cliente (preço da contratação)
+  @Column({ type: "decimal", precision: 10, scale: 2, transformer: { to: (v: number) => v, from: (v: string) => Number(v) } })
+  amount: number;
 
-  @Column({ length: 100, nullable: false })
-  method: string;
+  // taxa da plataforma (percentual e valor) e o que fica para o prestador
+  @Column({ type: "decimal", precision: 5, scale: 2, transformer: { to: (v: number) => v, from: (v: string) => Number(v) } })
+  feePercent: number;
 
-  @Column({ length: 100, nullable: false })
-  status: string;
+  @Column({ type: "decimal", precision: 10, scale: 2, transformer: { to: (v: number) => v, from: (v: string) => Number(v) } })
+  fee: number;
 
-  @Column({ type: "date" })
-  date: Date;
+  @Column({ type: "decimal", precision: 10, scale: 2, transformer: { to: (v: number) => v, from: (v: string) => Number(v) } })
+  net: number;
 
-  @OneToOne(() => Hire, (hire) => hire.payment, {
-    onDelete: "CASCADE",
-  })
+  @Column({ type: "enum", enum: PaymentMethod })
+  method: PaymentMethod;
+
+  @Column({ type: "enum", enum: PaymentStatus, default: PaymentStatus.PAGO })
+  status: PaymentStatus;
+
+  // código de transação simulado (aparece no comprovante)
+  @Column({ length: 40 })
+  transactionCode: string;
+
+  @CreateDateColumn()
+  paidAt: Date;
+
+  @Column({ type: "datetime", nullable: true })
+  releasedAt: Date | null;
+
+  @Column({ type: "datetime", nullable: true })
+  refundedAt: Date | null;
+
+  @OneToOne(() => Hire, (hire) => hire.payment, { onDelete: "CASCADE" })
   @JoinColumn()
   hire: Hire;
 
-  @ManyToOne(() => ServiceProvider, (provider) => provider.payments)
-  provider: ServiceProvider
+  @ManyToOne(() => ServiceProvider, (provider) => provider.payments, { onDelete: "CASCADE" })
+  provider: ServiceProvider;
+
+  // quem pagou
+  @ManyToOne(() => User, { onDelete: "CASCADE" })
+  user: User;
 }

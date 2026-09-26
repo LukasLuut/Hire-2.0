@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { paymentService } from '../services/PaymentService'
 import { authMiddleware } from '../middlewares/authMidlleware'
 import { ProviderController } from '../controllers/ProviderController'
 import { upload, privateUpload, imageUpload } from '../middlewares/uploadMiddleware'
@@ -45,6 +46,13 @@ providerRouter.post('/me/deactivate', authMiddleware, async (req, res) => {
 })
 providerRouter.put('/me/status', authMiddleware, async (req, res) => {
   try { res.json(await providerService.setOpenStatus(me(req), req.body ?? {})) } catch (e) { fail(res, e) }
+})
+// Valores do prestador: a receber (pagos, aguardando conclusão) e disponível (liberado) — base da carteira
+providerRouter.get('/me/earnings', authMiddleware, async (req, res) => {
+  try {
+    const provider = await providerService.mine(me(req))
+    res.json(await paymentService.providerSummary(provider.id))
+  } catch (e) { fail(res, e) }
 })
 providerRouter.post('/me/reactivate', authMiddleware, async (req, res) => {
   try { res.json(await providerService.reactivate(me(req))) } catch (e) { fail(res, e) }
