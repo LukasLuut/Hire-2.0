@@ -6,14 +6,29 @@ import { ServiceProvider } from "../models/ServiceProvider";
 export class CategoryService {
   private categoryRepository = AppDataSource.getRepository(Category);
 
-  async create(data: { name: string; description: string }) {
+  /** Lista de subcategorias vinda do formulário: texto separado por vírgula ou array; sem repetidas, até 30 */
+  private parseSubcategories(raw: unknown): string[] | null {
+    const list = Array.isArray(raw) ? raw : typeof raw === "string" ? raw.split(",") : [];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const item of list) {
+      const name = String(item ?? "").trim().slice(0, 60);
+      if (name && !seen.has(name.toLowerCase())) {
+        seen.add(name.toLowerCase());
+        out.push(name);
+      }
+    }
+    return out.length ? out.slice(0, 30) : null;
+  }
+
+  async create(data: { name: string; description: string; subcategories?: unknown }) {
     const exists = await this.categoryRepository.findOne({
       where: { name: data.name },
     });
 
     if (exists) throw new Error("Categoria já existente");
 
-    const category = this.categoryRepository.create(data);
+    const category = this.categoryRepository.create({ name: data.name, description: data.description, subcategories: this.parseSubcategories(data.subcategories) });
     return await this.categoryRepository.save(category);
   }
 
@@ -25,9 +40,10 @@ export class CategoryService {
     const category = await this.categoryRepository.findOne({ where: { id } });
 
     if (!category) throw new Error("Categoria não encontrada");
-    // só nome e descrição são editáveis
+    // só nome, descrição e subcategorias sugeridas são editáveis
     if (typeof data.name === "string" && data.name.trim()) category.name = data.name.trim();
     if (typeof data.description === "string") category.description = data.description.trim();
+    if ((data as any).subcategories !== undefined) category.subcategories = this.parseSubcategories((data as any).subcategories);
     return await this.categoryRepository.save(category);
   }
 

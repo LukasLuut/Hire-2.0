@@ -10,6 +10,7 @@ export interface CategoryEntity {
   id: number;
   name: string;
   description?: string;
+  subcategories?: string[] | null;
 }
 
 export interface AvailabilityEntity {

@@ -419,12 +419,17 @@ export default function ServiceDashboard({ isOpen, onClose, serviceId, onSaved }
                     <input
                       placeholder="Ex: Desenvolvimento Web, Cabelereiro..."
                       type="text"
+                      list="subcategory-options"
                       value={selectedService.subcategory}
                       onChange={(e) =>
                         handleChange("subcategory", e.target.value)
                       }
                       className="p-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg text-[var(--text)]"
                     />
+                    {/* sugestões da categoria (a administração mantém a lista); texto livre continua valendo */}
+                    <datalist id="subcategory-options">
+                      {(categories.find((c) => c.id === selectedService.categoryId)?.subcategories ?? []).map((s) => <option key={s} value={s} />)}
+                    </datalist>
                   </label>
                 </div>
 

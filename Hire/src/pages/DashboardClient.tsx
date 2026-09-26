@@ -98,6 +98,7 @@ export default function ServiceDashboardSophisticated() {
   // search + filters
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("Todos");
+  const [subFilter, setSubFilter] = useState("");
   const [minRating, setMinRating] = useState<number>(0);
   // preço máximo e disponibilidade (aberto agora, online, agenda para marcar horário)
   const [maxPrice, setMaxPrice] = useState("");
@@ -187,7 +188,7 @@ export default function ServiceDashboardSophisticated() {
         s.title.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
         s.shortDescription.toLowerCase().includes(debouncedQuery.toLowerCase());
       const matchesCategory =
-        categoryFilter === "Todos" || s.category === categoryFilter;
+        (categoryFilter === "Todos" || s.category === categoryFilter) && (!subFilter || s.data.subcategory === subFilter);
       const matchesRating = s.rating >= minRating;
       const max = Number(maxPrice.replace(",", "."));
       // "sob orçamento" não tem preço para comparar: sai quando há teto de preço
@@ -204,7 +205,13 @@ export default function ServiceDashboardSophisticated() {
     if (sortBy === "distance") return list.sort((a, b) => (a.data.distanceKm ?? Infinity) - (b.data.distanceKm ?? Infinity));
     // relevance fallback
     return list;
-  }, [services, debouncedQuery, categoryFilter, minRating, sortBy, maxPrice, onlyOpen, onlyOnline, onlyScheduling]);
+  }, [services, debouncedQuery, categoryFilter, subFilter, minRating, sortBy, maxPrice, onlyOpen, onlyOnline, onlyScheduling]);
+
+  // subcategorias com serviço publicado na categoria escolhida
+  const subcategories = useMemo(() => {
+    if (categoryFilter === "Todos") return [];
+    return [...new Set((services || []).filter((s) => s.category === categoryFilter && s.data.subcategory).map((s) => s.data.subcategory))].sort();
+  }, [services, categoryFilter]);
 
   // pagination (simple)
   const pageSize = 8;
@@ -300,7 +307,7 @@ export default function ServiceDashboardSophisticated() {
                   <Filter className="text-[var(--text-muted)]" />
                   <select
                     value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    onChange={(e) => { setCategoryFilter(e.target.value); setSubFilter(""); }}
                     className="bg-[var(--bg)] outline-none text-[var(--text)]"
                     aria-label="Filtrar por categoria"
                   >
@@ -311,6 +318,20 @@ export default function ServiceDashboardSophisticated() {
                     ))}
                   </select>
                 </div>
+
+                {subcategories.length > 0 && (
+                  <div className="flex items-center gap-2 p-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)]">
+                    <select
+                      value={subFilter}
+                      onChange={(e) => { setSubFilter(e.target.value); setPage(1); }}
+                      className="bg-[var(--bg)] outline-none text-[var(--text)]"
+                      aria-label="Filtrar por subcategoria"
+                    >
+                      <option value="">Todas as subcategorias</option>
+                      {subcategories.map((sc) => <option key={sc} value={sc}>{sc}</option>)}
+                    </select>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-2 p-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)]" title={`Avaliação mínima: ${minRating}`}>
                   <Star fill="currentColor" className="text-yellow-400" />
@@ -563,7 +584,7 @@ export default function ServiceDashboardSophisticated() {
                     : "Nenhum serviço encontrado para sua busca."}
                   {(query || categoryFilter !== "Todos" || minRating > 0 || maxPrice || onlyOpen || onlyOnline || onlyScheduling) && (
                     <button
-                      onClick={() => { setQuery(""); setCategoryFilter("Todos"); setMinRating(0); setMaxPrice(""); setOnlyOpen(false); setOnlyOnline(false); setOnlyScheduling(false); }}
+                      onClick={() => { setQuery(""); setCategoryFilter("Todos"); setSubFilter(""); setMinRating(0); setMaxPrice(""); setOnlyOpen(false); setOnlyOnline(false); setOnlyScheduling(false); }}
                       className="block mx-auto mt-3 text-[var(--primary)] underline"
                     >
                       Limpar filtros

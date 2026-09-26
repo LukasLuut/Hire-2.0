@@ -56,6 +56,7 @@ export interface AdminCategory {
   id: number;
   name: string;
   description?: string;
+  subcategories?: string[] | null;
 }
 
 export interface AdminVerification {
@@ -83,7 +84,7 @@ export const adminAPI = {
   setServiceActive: (id: number, active: boolean, reason = "") => post(`/admin/services/${id}/active`, { active, reason }),
   hires: (status = "") => apiRequest<AdminHire[]>(`/admin/hires${status ? `?status=${encodeURIComponent(status)}` : ""}`, { headers: auth() }),
   categories: () => apiRequest<AdminCategory[]>("/categories"),
-  createCategory: (name: string, description: string) => post<AdminCategory>("/categories", { name, description }),
-  updateCategory: (id: number, name: string, description: string) => post<AdminCategory>(`/categories/${id}`, { name, description }, "PUT"),
+  createCategory: (name: string, description: string, subcategories: string) => post<AdminCategory>("/categories", { name, description, subcategories }),
+  updateCategory: (id: number, name: string, description: string, subcategories: string) => post<AdminCategory>(`/categories/${id}`, { name, description, subcategories }, "PUT"),
   deleteCategory: (id: number) => apiRequest(`/categories/${id}`, { method: "DELETE", headers: auth() }),
 };

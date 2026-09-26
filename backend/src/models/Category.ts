@@ -20,6 +20,10 @@ export class Category {
   @Column({ length: 400, nullable: false })
   description: string;
 
+  // Subcategorias sugeridas (administração): aparecem como opções no cadastro de serviço e como filtro
+  @Column({ type: "json", nullable: true })
+  subcategories: string[] | null;
+
   @OneToMany(() => ServiceProvider, (provider) => provider.category)
   providers: ServiceProvider[];
 

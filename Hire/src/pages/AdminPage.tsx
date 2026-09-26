@@ -358,6 +358,7 @@ function CategoriesTab() {
   const [list, setList] = useState<AdminCategory[] | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [subs, setSubs] = useState("");
   const [editing, setEditing] = useState<AdminCategory | null>(null);
   const [removing, setRemoving] = useState<AdminCategory | null>(null);
   const [busy, setBusy] = useState(false);
@@ -374,6 +375,7 @@ function CategoriesTab() {
       showToast(done, "success");
       setName("");
       setDescription("");
+      setSubs("");
       setEditing(null);
       setRemoving(null);
       load();
@@ -388,7 +390,7 @@ function CategoriesTab() {
     e.preventDefault();
     if (!name.trim()) return showToast("Informe o nome da categoria.", "warning");
     run(
-      () => (editing ? adminAPI.updateCategory(editing.id, name.trim(), description.trim()) : adminAPI.createCategory(name.trim(), description.trim())),
+      () => (editing ? adminAPI.updateCategory(editing.id, name.trim(), description.trim(), subs) : adminAPI.createCategory(name.trim(), description.trim(), subs)),
       editing ? "Categoria atualizada." : "Categoria criada."
     );
   };
@@ -398,10 +400,11 @@ function CategoriesTab() {
       <form onSubmit={submit} className="p-4 mb-4 rounded-2xl bg-[var(--bg-light)] border border-[var(--border)] grid sm:grid-cols-[1fr_2fr_auto] gap-2">
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome" aria-label="Nome da categoria" maxLength={100} className={input} />
         <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descrição" aria-label="Descrição da categoria" maxLength={250} className={input} />
-        <div className="flex gap-2">
+        <div className="flex gap-2 sm:row-span-2">
           <button className={btn(true)} disabled={busy}>{editing ? "Salvar" : "Adicionar"}</button>
-          {editing && <button type="button" className={btn()} onClick={() => { setEditing(null); setName(""); setDescription(""); }}>Cancelar</button>}
+          {editing && <button type="button" className={btn()} onClick={() => { setEditing(null); setName(""); setDescription(""); setSubs(""); }}>Cancelar</button>}
         </div>
+        <input value={subs} onChange={(e) => setSubs(e.target.value)} placeholder="Subcategorias, separadas por vírgula (ex.: Elétrica, Hidráulica, Pintura)" aria-label="Subcategorias sugeridas" className={`${input} sm:col-span-2`} />
       </form>
       {!list ? <Loader2 className="animate-spin" /> : (
         <ul className="space-y-2">
@@ -410,8 +413,9 @@ function CategoriesTab() {
               <div className="flex-1 min-w-48">
                 <div className="font-medium">{c.name}</div>
                 {c.description && <div className="text-xs text-[var(--text-muted)]">{c.description}</div>}
+                {!!c.subcategories?.length && <div className="text-xs text-[var(--text-muted)] mt-1">Subcategorias: {c.subcategories.join(", ")}</div>}
               </div>
-              <button className={btn()} onClick={() => { setEditing(c); setName(c.name); setDescription(c.description ?? ""); }}>Editar</button>
+              <button className={btn()} onClick={() => { setEditing(c); setName(c.name); setDescription(c.description ?? ""); setSubs((c.subcategories ?? []).join(", ")); }}>Editar</button>
               <button className={btn(false, true)} onClick={() => setRemoving(c)}>Excluir</button>
             </li>
           ))}
