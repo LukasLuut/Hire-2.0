@@ -123,6 +123,16 @@ export class ServiceProvider {
   @Column({ length: 18, nullable: true})
   cnpj?: string;
 
+  // Autônomo (pessoa física) ou empresa; empresa guarda razão social e porte do cadastro
+  @Column({ type: "varchar", length: 20, default: "autonomo" })
+  businessType: "autonomo" | "empresa";
+
+  @Column({ type: "varchar", length: 150, nullable: true })
+  legalName?: string | null;
+
+  @Column({ type: "varchar", length: 10, nullable: true })
+  companySize?: string | null;
+
   @Column({ type: "varchar", length: 255, nullable: true })
   profileImageUrl?: string | null;
 

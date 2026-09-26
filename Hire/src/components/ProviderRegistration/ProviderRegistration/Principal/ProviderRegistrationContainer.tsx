@@ -41,7 +41,17 @@ interface ModalProps {
 
 const DAYS: DayKey[] = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
-function buildInitialForm(existing: ProviderEntity | null | undefined, user: { name?: string; email?: string } | null): ProviderForm {
+/** "11222333000181" → "11.222.333/0001-81" */
+const maskCnpj = (v?: string) => {
+  const d = String(v ?? "").replace(/\D/g, "");
+  return d.length === 14 ? `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}` : "";
+};
+
+type RegistrationUser = { name?: string; email?: string; accountType?: string; tradeName?: string | null; cpf_cnpj?: string };
+
+function buildInitialForm(existing: ProviderEntity | null | undefined, user: RegistrationUser | null): ProviderForm {
+  // conta criada como empresa: começa com o nome fantasia e o CNPJ do cadastro
+  const company = !existing && user?.accountType === "empresa";
   const availability = Object.fromEntries(DAYS.map((d) => [d, null])) as Availability;
   for (const a of existing?.availabilities ?? []) {
     if ((DAYS as string[]).includes(a.day)) availability[a.day as DayKey] = { start: a.start, end: a.end };
@@ -50,15 +60,15 @@ function buildInitialForm(existing: ProviderEntity | null | undefined, user: { n
   return {
   // Identidade
   // um nome só (etapa de identidade): como o cliente vê você — empresa ou nome profissional
-  name: existing?.companyName || existing?.professionalName || user?.name || "",
-  cnpj: existing?.cnpj ?? "",
+  name: existing?.companyName || existing?.professionalName || (company ? user?.tradeName : null) || user?.name || "",
+  cnpj: existing?.cnpj ?? (company ? maskCnpj(user?.cpf_cnpj) : ""),
   professionalEmail: existing?.professionalEmail ?? user?.email ?? "",
   professionalPhone: existing?.professionalPhone ?? "",
   shortDescription: existing?.description ?? "",
   profilePhoto: null,
 
   // Profissional
-  companyName: existing?.companyName ?? "",
+  companyName: existing?.companyName ?? (company ? user?.tradeName ?? "" : ""),
   category: existing?.category?.id ? String(existing.category.id) : "",
   subcategories: (existing?.subcategories ?? []).map((s) => s.name),
   experienceLevel: "",

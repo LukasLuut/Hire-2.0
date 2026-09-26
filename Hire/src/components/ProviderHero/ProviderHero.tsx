@@ -213,6 +213,11 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
           >
             Nível {provider.level ?? "Iniciante"}
           </span>
+          {provider.businessType === "empresa" && (
+            <span className="px-3 py-1 rounded-full text-xs sm:text-sm border border-[var(--border)]" title="Cadastrado como empresa (CNPJ)">
+              Empresa
+            </span>
+          )}
           {/* só verificações concluídas; no painel do dono, o e-mail vem da sessão */}
           <VerificationBadges
             identity={provider.verificationStatus === "verified"}

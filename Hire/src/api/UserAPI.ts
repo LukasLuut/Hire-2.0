@@ -13,6 +13,8 @@ export const userAPI = {
         cpf_cnpj: data.cpf,
         password: data.password,
         acceptedTerms: data.acceptedTerms,
+        accountType: data.accountType ?? "cliente",
+        ...(data.accountType === "empresa" ? { legalName: data.legalName, tradeName: data.tradeName, companySize: data.companySize } : {}),
         // código de convite guardado pela página /convite/:code (atribui o cadastro)
         invite: data.invite || undefined,
       }),
@@ -115,9 +117,16 @@ export const userAPI = {
 
 
 
+export type AccountType = "cliente" | "profissional" | "empresa";
+
 export interface UserAPI {
   name: string;
+  /** CPF (cliente/profissional) ou CNPJ (empresa), com máscara */
   cpf: string;
+  accountType?: AccountType;
+  legalName?: string;
+  tradeName?: string;
+  companySize?: string;
   email: string;
   password: string;
   acceptedTerms: boolean;

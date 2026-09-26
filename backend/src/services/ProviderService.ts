@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { formatCnpj } from "../utils/documents";
 import { providerOffline } from "../utils/availability";
 import { openState } from "../utils/openStatus";
 import { Conversation, ConversationStatus, RequestStatus } from "../models/Conversation";
@@ -66,6 +67,14 @@ export class ProviderService {
       category: data.categoryId ? { id: Number(data.categoryId) } : null,
     };
 
+    // conta criada como empresa: o perfil profissional já nasce com os dados da empresa
+    if (user.accountType === "empresa") {
+      newData.businessType = "empresa";
+      newData.legalName = user.legalName;
+      newData.companySize = user.companySize;
+      newData.cnpj = newData.cnpj || formatCnpj(user.cpf_cnpj);
+      newData.companyName = newData.companyName || user.tradeName || newData.professionalName;
+    }
     newData.slug = await this.newSlug(newData.companyName || newData.professionalName);
     const providerSaved = await this.providerRepository.save(
       this.providerRepository.create(newData)

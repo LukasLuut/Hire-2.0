@@ -1,4 +1,6 @@
 import { AppDataSource } from "../config/data-source";
+import { HttpError } from "./HireService";
+import { ACCOUNT_TYPES, COMPANY_SIZES, validCnpj, validCpf, type AccountType } from "../utils/documents";
 import path from "path";
 import fs from "fs";
 import { Hire, StatusEnum } from "../models/Hire";
@@ -18,14 +20,28 @@ export class UserService {
     acceptedTerms: boolean;
     acceptedAt: Date;
     about?: string;
+    accountType?: string;
+    legalName?: string;
+    tradeName?: string;
+    companySize?: string;
   }) {
     const exists = await this.repo.findOne({ where: { email: data.email } });
     
     if (exists) throw new Error("Usuário já existente");
 
-    const cpf = data.cpf_cnpj.replace(/[.-]/g, "");
-
-    data.cpf_cnpj = cpf;
+    // empresa entra com CNPJ, razão social, nome fantasia e porte; as demais contas com CPF
+    const accountType: AccountType = (ACCOUNT_TYPES as readonly string[]).includes(String(data.accountType)) ? (data.accountType as AccountType) : "cliente";
+    const doc = String(data.cpf_cnpj ?? "").replace(/\D/g, "");
+    const company = accountType === "empresa";
+    if (company) {
+      if (!validCnpj(doc)) throw new HttpError(400, "CNPJ inválido");
+      if (!String(data.legalName ?? "").trim()) throw new HttpError(400, "Informe a razão social");
+      if (!String(data.tradeName ?? "").trim()) throw new HttpError(400, "Informe o nome fantasia");
+      if (!(COMPANY_SIZES as readonly string[]).includes(String(data.companySize))) throw new HttpError(400, "Por enquanto o Hire aceita MEI, ME e EPP");
+    } else if (!validCpf(doc)) {
+      throw new HttpError(400, "CPF inválido");
+    }
+    data.cpf_cnpj = doc;
 
     // só os campos do cadastro: papel, verificação de e-mail, suspensão etc. nunca vêm do cliente
     const user = this.repo.create({
@@ -36,6 +52,10 @@ export class UserService {
       acceptedTerms: data.acceptedTerms === true,
       acceptedAt: data.acceptedAt,
       about: data.about ? String(data.about).slice(0, 400) : (undefined as any),
+      accountType,
+      legalName: company ? String(data.legalName).trim().slice(0, 150) : null,
+      tradeName: company ? String(data.tradeName).trim().slice(0, 100) : null,
+      companySize: company ? String(data.companySize) : null,
     });
     await this.repo.save(user);
 
@@ -135,7 +155,7 @@ export class UserService {
   async findByEmail(email: string) {
     return this.repo.findOne({
       where: { email },
-      select: ["id", "name", "email", "password", "cpf_cnpj", "address", "about", "blocked", "blockedReason"],
+      select: ["id", "name", "email", "password", "cpf_cnpj", "address", "about", "blocked", "blockedReason", "accountType"],
     });
   }
 }

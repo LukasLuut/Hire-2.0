@@ -33,6 +33,20 @@ export class User {
   @Column({ length: 14, nullable: false })
   cpf_cnpj: string;
 
+  // Como a pessoa entrou: só contratar, profissional autônomo ou empresa (define o cadastro seguinte)
+  @Column({ type: "varchar", length: 20, default: "cliente" })
+  accountType: "cliente" | "profissional" | "empresa";
+
+  // Empresa: razão social, nome fantasia e porte (por enquanto MEI, ME ou EPP)
+  @Column({ type: "varchar", length: 150, nullable: true })
+  legalName: string | null;
+
+  @Column({ type: "varchar", length: 100, nullable: true })
+  tradeName: string | null;
+
+  @Column({ type: "varchar", length: 10, nullable: true })
+  companySize: string | null;
+
   @Column({ select: false })
   password: string;
 

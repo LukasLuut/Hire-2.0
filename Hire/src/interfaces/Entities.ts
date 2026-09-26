@@ -74,6 +74,8 @@ export interface ProviderEntity {
   verificationStatus?: "none" | "pending" | "verified" | "rejected";
   /** (perfil público) comprovante do CNPJ conferido */
   companyVerified?: boolean;
+  /** autônomo ou empresa (MEI/ME/EPP) */
+  businessType?: "autonomo" | "empresa";
   /** (perfil público) certificados profissionais conferidos */
   credentialsVerified?: boolean;
   /** (painel do dono) datas das verificações extras */

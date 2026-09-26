@@ -17,6 +17,8 @@ export function toPublicProvider(p: (ServiceProvider & Record<string, any>) | nu
     slug: p.slug ?? null,
     professionalName: p.professionalName,
     companyName: p.companyName,
+    // empresa (MEI/ME/EPP) ou autônomo: aparece como selo no perfil
+    businessType: p.businessType ?? "autonomo",
     description: p.description,
     profileImageUrl: p.profileImageUrl ?? null,
     // situação efetiva: "fechado até" com data passada já volta como aberto

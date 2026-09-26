@@ -3,7 +3,7 @@ import { clearPendingInvite, pendingInvite } from "../api/InviteAPI";
 import { useEffect, useState } from "react";
 import bgImage from "../assets/bg-login.webp";
 import hirePng from "../assets/hire-logo.webp";
-import { userAPI, type UserAPI, type UserLoginAPI } from "../api/UserAPI";
+import { userAPI, type AccountType, type UserAPI, type UserLoginAPI } from "../api/UserAPI";
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import UseTerms from "../components/Terms/UseTerms";
 import { useToast } from "../components/Toast/ToastContext"
@@ -24,6 +24,13 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
     password: "",
     acceptedTerms: false
   });
+  // Quero contratar / Sou profissional / Sou empresa (?tipo=profissional|empresa já chega escolhido)
+  const [accountType, setAccountType] = useState<AccountType>(() => {
+    const tipo = new URLSearchParams(window.location.search).get("tipo");
+    return tipo === "profissional" || tipo === "empresa" ? tipo : "cliente";
+  });
+  const [company, setCompany] = useState({ legalName: "", tradeName: "", companySize: "" });
+  const isCompany = accountType === "empresa";
   const [formLoginData, setFormLoginData] = useState({ 
     email: "",
     password: "",
@@ -38,9 +45,11 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
   
 
   // Quem já está logado vai direto para a página inicial
+  // destino depois do login (profissional/empresa sem perfil vai para o cadastro profissional)
+  const [afterLogin, setAfterLogin] = useState<string | null>(null);
   useEffect(() => {
-    if (token && !embedded) navigate(next, { replace: true });
-  }, [token, navigate, embedded, next])
+    if (token && !embedded) navigate(afterLogin ?? next, { replace: true });
+  }, [token, navigate, embedded, next, afterLogin])
 
   const cleanForm = () => {
     setFormData({
@@ -72,9 +81,13 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
       // Chama a função que faz o registro
       if (isLogin) {
         const body: any = await handleLogin(formLoginData);
+        // quem se cadastrou como profissional/empresa segue para o perfil profissional (se ainda não tiver)
+        const pro = body.user?.accountType === "profissional" || body.user?.accountType === "empresa";
+        const target = pro && !nextParam ? "/home?prestador=1" : next;
+        setAfterLogin(target);
         login(body.token);
         showToast("Login realizado com sucesso!", "success")
-        navigate(next);
+        navigate(target);
 
       } else {
 
@@ -104,6 +117,8 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
       password: data.password,
       acceptedTerms: data.acceptedTerms,
       invite: pendingInvite(),
+      accountType,
+      ...(isCompany ? company : {}),
     })
   }
 
@@ -115,8 +130,14 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
   }
 
   const formatCPF = (value: string) => {
-  // Remove tudo que não é número e adiciona máscara
+  // Remove tudo que não é número e adiciona máscara (CNPJ para empresa)
     const onlyNums = value.replace(/\D/g, "");
+    if (isCompany) return onlyNums
+      .slice(0, 14)
+      .replace(/^(\d{2})(\d)/, "$1.$2")
+      .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+      .replace(/\.(\d{3})(\d)/, ".$1/$2")
+      .replace(/(\d{4})(\d)/, "$1-$2");
     return onlyNums
       .replace(/(\d{3})(\d)/, "$1.$2")
       .replace(/(\d{3})(\d)/, "$1.$2")
@@ -137,7 +158,7 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
     >
       <img src={hirePng} width={480} height={679} className="hidden lg:block max-w-120 h-auto" alt="logo hire" />
       <div
-        className="relative w-full max-w-md h-[620px] md:h-[590px] rounded-3xl overflow-hidden shadow-[0_0_40px_10px_var(--primary)]"
+        className={`relative w-full max-w-md ${isLogin ? "h-[620px] md:h-[590px]" : "h-[680px] md:h-[660px]"} rounded-3xl overflow-hidden shadow-[0_0_40px_10px_var(--primary)]`}
         style={{
           backgroundImage: `url(${bgImage})`,
           backgroundSize: "cover",
@@ -196,7 +217,9 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
         </div>
 
         {/* container de formulários */}
-        <div className="absolute inset-0 mt-15 flex items-center justify-center p-6 md:p-8 z-10">
+        {/* rola quando o cadastro (empresa) fica mais alto que o cartão */}
+        <div className="absolute inset-x-0 top-15 bottom-0 overflow-y-auto flex flex-col items-center p-6 md:p-8 z-10">
+          <div className="my-auto w-full">
           <AnimatePresence mode="wait">
             {isLogin ? (
               <motion.div
@@ -273,11 +296,36 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
                   Crie sua conta
                 </h2>
                 <form className="space-y-4" onSubmit={handleSubmit}>
+                  <div role="radiogroup" aria-label="Como você vai usar o Hire" className="grid grid-cols-3 gap-1 p-1 rounded-xl border border-[var(--border)]">
+                    {([
+                      ["cliente", "Quero contratar"],
+                      ["profissional", "Sou profissional"],
+                      ["empresa", "Sou empresa"],
+                    ] as [AccountType, string][]).map(([id, label]) => (
+                      <button
+                        key={id}
+                        type="button"
+                        role="radio"
+                        aria-checked={accountType === id}
+                        onClick={() => { setAccountType(id); setFormData((f) => ({ ...f, cpf: "" })); }}
+                        className={`py-2 px-1 rounded-lg text-xs md:text-sm transition ${accountType === id ? "bg-[var(--primary)] text-white" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {accountType !== "cliente" && (
+                    <p className="text-xs text-[var(--text-muted)]">
+                      {isCompany
+                        ? "Para pequenas empresas (MEI, ME ou EPP). Depois de entrar, você completa o perfil da empresa e publica os serviços."
+                        : "Depois de entrar, você completa o perfil profissional e publica seus serviços. Você também pode contratar com a mesma conta."}
+                    </p>
+                  )}
                   <input
                     type="text"
                     name="name"
                     required
-                    placeholder="Nome completo"
+                    placeholder={isCompany ? "Nome do responsável" : "Nome completo"}
                     className="w-full p-3 rounded-lg placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 text-sm md:text-base text-[var(--text)] border-b-1 border-[var(--border)]"
                     onChange={handleChange}
                     value={formData.name}
@@ -286,14 +334,51 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
                     type="text"
                     name="cpf"
                     required
-                    placeholder="CPF"
+                    placeholder={isCompany ? "CNPJ" : "CPF"}
                     className="w-full p-3 rounded-lg placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 text-sm md:text-base text-[var(--text)] border-b-1 border-[var(--border)]"
                     onChange={handleChangeCPF}
                     value={formatCPF(formData.cpf)}
                     inputMode="numeric"
-                    pattern="\d{3}\.\d{3}\.\d{3}-\d{2}"
-                    maxLength={14}
+                    pattern={isCompany ? "\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2}" : "\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}"}
+                    maxLength={isCompany ? 18 : 14}
+                    aria-label={isCompany ? "CNPJ" : "CPF"}
                   />
+                  {isCompany && (
+                    <>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Razão social"
+                        aria-label="Razão social"
+                        maxLength={150}
+                        className="w-full p-3 rounded-lg placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 text-sm md:text-base text-[var(--text)] border-b-1 border-[var(--border)]"
+                        value={company.legalName}
+                        onChange={(e) => setCompany({ ...company, legalName: e.target.value })}
+                      />
+                      <input
+                        type="text"
+                        required
+                        placeholder="Nome fantasia (como os clientes veem)"
+                        aria-label="Nome fantasia"
+                        maxLength={100}
+                        className="w-full p-3 rounded-lg placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 text-sm md:text-base text-[var(--text)] border-b-1 border-[var(--border)]"
+                        value={company.tradeName}
+                        onChange={(e) => setCompany({ ...company, tradeName: e.target.value })}
+                      />
+                      <select
+                        required
+                        aria-label="Porte da empresa"
+                        className="w-full p-3 rounded-lg focus:outline-none focus:ring-2 text-sm md:text-base text-[var(--text)] bg-[var(--bg-dark)] border-b-1 border-[var(--border)]"
+                        value={company.companySize}
+                        onChange={(e) => setCompany({ ...company, companySize: e.target.value })}
+                      >
+                        <option value="" disabled>Porte da empresa</option>
+                        <option value="MEI">MEI — Microempreendedor individual</option>
+                        <option value="ME">ME — Microempresa</option>
+                        <option value="EPP">EPP — Empresa de pequeno porte</option>
+                      </select>
+                    </>
+                  )}
                   <input
                     type="email"
                     name="email"
@@ -348,6 +433,7 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
               </motion.div>
             )}
           </AnimatePresence>
+          </div>
         </div>
 
         {/* Efeitos orgânicos de luz */}

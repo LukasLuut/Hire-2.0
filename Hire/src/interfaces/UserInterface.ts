@@ -14,4 +14,10 @@ export interface User {
     avatarUrl?: string | null,
     /** acesso ao painel de administração */
     isAdmin?: boolean,
+    /** como entrou no Hire: só contratar, profissional ou empresa */
+    accountType?: "cliente" | "profissional" | "empresa",
+    /** empresa: razão social, nome fantasia e porte */
+    legalName?: string | null,
+    tradeName?: string | null,
+    companySize?: string | null,
 }
