@@ -25,7 +25,16 @@ export class UserService {
 
     data.cpf_cnpj = cpf;
 
-    const user = this.repo.create(data);
+    // só os campos do cadastro: papel, verificação de e-mail, suspensão etc. nunca vêm do cliente
+    const user = this.repo.create({
+      name: String(data.name ?? "").trim(),
+      email: String(data.email ?? "").trim(),
+      password: data.password,
+      cpf_cnpj: data.cpf_cnpj,
+      acceptedTerms: data.acceptedTerms === true,
+      acceptedAt: data.acceptedAt,
+      about: data.about ? String(data.about).slice(0, 400) : (undefined as any),
+    });
     await this.repo.save(user);
 
     const clone: any = { ...user };
