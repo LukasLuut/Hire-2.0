@@ -13,3 +13,6 @@ outbox/
 
 # arquivos privados (provas de relatos, documentos)
 private_uploads/
+
+# backups do banco e dos arquivos (npm run backup)
+backups/
