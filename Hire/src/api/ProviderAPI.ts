@@ -5,7 +5,9 @@ export interface Verification {
   status: "none" | "pending" | "verified" | "rejected";
   note: string | null;
   verifiedAt: string | null;
-  files: { kind: "id" | "cert"; url: string }[];
+  companyVerifiedAt: string | null;
+  credentialsVerifiedAt: string | null;
+  files: { kind: "id" | "cert" | "company"; url: string }[];
 }
 
 const auth = (token: string) => ({ Authorization: "Bearer " + token });
@@ -33,9 +35,10 @@ export const providerApi = {
     apiRequest<Verification>("/providers/me/verification", { headers: auth(token) }),
 
   /** Envia documento de identidade (obrigatório) e certificados para análise */
-  submitVerification: (idDocument: File, certifications: File[], token: string) => {
+  submitVerification: (idDocument: File, certifications: File[], token: string, companyDocument?: File | null) => {
     const body = new FormData();
     body.append("idDocument", idDocument);
+    if (companyDocument) body.append("companyDocument", companyDocument);
     for (const f of certifications.slice(0, 4)) body.append("certifications", f);
     return apiRequest<Verification>("/providers/me/verification", { method: "POST", headers: auth(token), body });
   },

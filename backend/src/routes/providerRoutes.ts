@@ -22,9 +22,9 @@ const fail = (res: Response, e: any) => res.status(e?.status ?? 400).json({ mess
 providerRouter.get('/me/verification', authMiddleware, async (req, res) => {
   try { res.json(await verificationService.mine(me(req))) } catch (e) { fail(res, e) }
 })
-providerRouter.post('/me/verification', authMiddleware, privateUpload.fields([{ name: 'idDocument', maxCount: 1 }, { name: 'certifications', maxCount: 4 }]), async (req, res) => {
+providerRouter.post('/me/verification', authMiddleware, privateUpload.fields([{ name: 'idDocument', maxCount: 1 }, { name: 'certifications', maxCount: 4 }, { name: 'companyDocument', maxCount: 1 }]), async (req, res) => {
   const files = (req.files ?? {}) as Record<string, Express.Multer.File[]>
-  try { res.status(201).json(await verificationService.submit(me(req), files.idDocument?.[0], files.certifications ?? [])) } catch (e) { fail(res, e) }
+  try { res.status(201).json(await verificationService.submit(me(req), files.idDocument?.[0], files.certifications ?? [], files.companyDocument?.[0])) } catch (e) { fail(res, e) }
 })
 providerRouter.get('/verification/:id/files/:name', authMiddleware, async (req, res) => {
   try {

@@ -120,6 +120,8 @@ export interface ProviderForm {
   serviceRadiusKm?: number;
 
   idDocument?: FileOrNull;
+  /** comprovante do CNPJ (cartão CNPJ ou contrato social) — só com CNPJ preenchido */
+  companyDocument?: FileOrNull;
   certifications: File[];
   links: string[];
 

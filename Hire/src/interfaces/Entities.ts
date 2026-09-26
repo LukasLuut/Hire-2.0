@@ -66,6 +66,13 @@ export interface ProviderEntity {
   lateCancellations?: number;
   /** verificação de documentos pela administração */
   verificationStatus?: "none" | "pending" | "verified" | "rejected";
+  /** (perfil público) comprovante do CNPJ conferido */
+  companyVerified?: boolean;
+  /** (perfil público) certificados profissionais conferidos */
+  credentialsVerified?: boolean;
+  /** (painel do dono) datas das verificações extras */
+  companyVerifiedAt?: string | null;
+  credentialsVerifiedAt?: string | null;
   verifiedAt?: string | null;
 }
 

@@ -531,6 +531,8 @@ function VerificationsTab() {
   const [status, setStatus] = useState("pending");
   const [list, setList] = useState<AdminVerification[] | null>(null);
   const [refusing, setRefusing] = useState<AdminVerification | null>(null);
+  // confirmações extras por prestador (empresa / certificados), marcadas na análise
+  const [extras, setExtras] = useState<Record<number, { company?: boolean; credentials?: boolean }>>({});
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -544,7 +546,8 @@ function VerificationsTab() {
     if (!approve && note.trim().length < 5) return showToast("Explique o motivo da recusa.", "warning");
     setBusy(true);
     try {
-      await adminAPI.decideVerification(v.provider.id, approve, approve ? "" : note.trim());
+      const ex = extras[v.provider.id] ?? {};
+      await adminAPI.decideVerification(v.provider.id, approve, approve ? "" : note.trim(), approve ? ex : {});
       showToast(approve ? "Prestador verificado. Os documentos foram apagados." : "Verificação recusada. O prestador foi avisado.", "success");
       setRefusing(null);
       load();
@@ -579,9 +582,27 @@ function VerificationsTab() {
                 <div className="flex flex-wrap gap-2 mt-2">
                   {v.files.map((f, i) => (
                     <button key={f.url} className={btn()} onClick={() => reportAPI.openFile(f.url).catch((e) => showToast(getErrorMessage(e, "Erro ao abrir."), "error"))}>
-                      {f.kind === "id" ? "Documento de identidade" : `Certificado ${i}`}
+                      {f.kind === "id" ? "Documento de identidade" : f.kind === "company" ? "Comprovante da empresa" : `Certificado ${i}`}
                     </button>
                   ))}
+                </div>
+              )}
+              {v.status === "pending" && (v.files.some((f) => f.kind === "company") || v.files.some((f) => f.kind === "cert")) && (
+                <div className="flex flex-wrap gap-4 mt-3 text-sm">
+                  {v.files.some((f) => f.kind === "company") && (
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={!!extras[v.provider.id]?.company} disabled={!v.provider.cnpj}
+                        onChange={(e) => setExtras((x) => ({ ...x, [v.provider.id]: { ...x[v.provider.id], company: e.target.checked } }))} />
+                      Confirmar empresa {v.provider.cnpj ? "(CNPJ confere com o comprovante)" : "(sem CNPJ cadastrado)"}
+                    </label>
+                  )}
+                  {v.files.some((f) => f.kind === "cert") && (
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={!!extras[v.provider.id]?.credentials}
+                        onChange={(e) => setExtras((x) => ({ ...x, [v.provider.id]: { ...x[v.provider.id], credentials: e.target.checked } }))} />
+                      Confirmar certificados
+                    </label>
+                  )}
                 </div>
               )}
               {v.status === "pending" && (

@@ -149,6 +149,7 @@ export default function ProviderRegistrationContainer({ isOpen, onClose, existin
   };
 
   const handleIdDocument = (f: File | null) => update("idDocument", f);
+  const handleCompanyDocument = (f: File | null) => update("companyDocument", f);
 
   const handleCertifications = (files: FileList | File[] | null) => {
   if (!files) return;
@@ -280,7 +281,7 @@ export default function ProviderRegistrationContainer({ isOpen, onClose, existin
       let docsSent = false;
       if (form.idDocument instanceof File) {
         try {
-          await providerApi.submitVerification(form.idDocument, form.certifications, token);
+          await providerApi.submitVerification(form.idDocument, form.certifications, token, form.companyDocument instanceof File && form.cnpj ? form.companyDocument : null);
           docsSent = true;
         } catch (err) {
           showToast(getErrorMessage(err, "Perfil salvo, mas os documentos não foram enviados."), "warning");
@@ -410,6 +411,7 @@ export default function ProviderRegistrationContainer({ isOpen, onClose, existin
                       form={form}
                       update={update}
                       onIdDocument={handleIdDocument}
+                      onCompanyDocument={handleCompanyDocument}
                       onCertifications={handleCertifications}
                     />
                   </motion.div>

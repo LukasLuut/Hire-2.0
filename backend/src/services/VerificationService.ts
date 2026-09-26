@@ -37,6 +37,8 @@ export class VerificationService {
       status: p.verificationStatus,
       note: p.verificationNote ?? null,
       verifiedAt: p.verifiedAt ?? null,
+      companyVerifiedAt: p.companyVerifiedAt ?? null,
+      credentialsVerifiedAt: p.credentialsVerifiedAt ?? null,
       files: (p.verificationFiles ?? []).map((f) => ({ kind: f.kind, url: `/providers/verification/${p.id}/files/${f.name}` })),
     };
   }
@@ -49,8 +51,8 @@ export class VerificationService {
   }
 
   /** Envio dos documentos: substitui um envio anterior ainda não analisado */
-  async submit(userId: number, idDocument: Express.Multer.File | undefined, certifications: Express.Multer.File[]) {
-    const uploaded = [...(idDocument ? [idDocument] : []), ...certifications];
+  async submit(userId: number, idDocument: Express.Multer.File | undefined, certifications: Express.Multer.File[], companyDocument?: Express.Multer.File) {
+    const uploaded = [...(idDocument ? [idDocument] : []), ...certifications, ...(companyDocument ? [companyDocument] : [])];
     try {
       const p = await this.load({ userId });
       if (!p) throw new HttpError(404, "Cadastre sua empresa primeiro");
@@ -61,6 +63,7 @@ export class VerificationService {
       p.verificationFiles = [
         { kind: "id", name: idDocument.filename },
         ...certifications.map((f) => ({ kind: "cert" as const, name: f.filename })),
+        ...(companyDocument ? [{ kind: "company" as const, name: companyDocument.filename }] : []),
       ];
       p.verificationStatus = VerificationStatus.PENDING;
       p.verificationNote = null;
@@ -101,17 +104,29 @@ export class VerificationService {
     }));
   }
 
-  /** Decisão: aprova (selo) ou recusa com motivo; os arquivos são apagados */
-  async decide(providerId: number, approve: boolean, note: unknown) {
+  /**
+   * Decisão: aprova (selo de identidade) ou recusa com motivo; os arquivos são apagados.
+   * Na aprovação, a administração também pode confirmar a empresa e os certificados —
+   * só quando o documento correspondente foi enviado neste pedido.
+   */
+  async decide(providerId: number, approve: boolean, note: unknown, extra: { company?: unknown; credentials?: unknown } = {}) {
     const text = String(note ?? "").trim().slice(0, 300);
     if (!approve && text.length < 5) throw new HttpError(400, "Explique ao prestador por que a verificação foi recusada");
     const p = await this.load({ id: providerId });
     if (!p) throw new HttpError(404, "Prestador não encontrado");
     if (p.verificationStatus !== VerificationStatus.PENDING) throw new HttpError(400, "Não há documentos aguardando análise");
 
+    const kinds = new Set((p.verificationFiles ?? []).map((f) => f.kind));
+    const company = approve && extra.company === true;
+    const credentials = approve && extra.credentials === true;
+    if (company && (!kinds.has("company") || !p.cnpj?.trim())) throw new HttpError(400, "A empresa só pode ser confirmada com CNPJ cadastrado e comprovante enviado");
+    if (credentials && !kinds.has("cert")) throw new HttpError(400, "Não há certificados neste envio");
+
     this.removeFiles(p.verificationFiles);
     p.verificationFiles = null;
     p.verificationStatus = approve ? VerificationStatus.VERIFIED : VerificationStatus.REJECTED;
+    if (company) p.companyVerifiedAt = new Date();
+    if (credentials) p.credentialsVerifiedAt = new Date();
     p.verificationNote = text || null;
     p.verifiedAt = approve ? new Date() : null;
     await this.providers.save(p);

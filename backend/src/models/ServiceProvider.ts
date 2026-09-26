@@ -26,7 +26,7 @@ export enum VerificationStatus {
   REJECTED = "rejected",
 }
 
-export type VerificationFile = { kind: "id" | "cert"; name: string };
+export type VerificationFile = { kind: "id" | "cert" | "company"; name: string };
 
 @Entity("service_providers")
 export class ServiceProvider {
@@ -132,6 +132,14 @@ export class ServiceProvider {
 
   @Column({ type: "datetime", nullable: true })
   verifiedAt?: Date | null;
+
+  // Empresa conferida (comprovante do CNPJ analisado pela administração)
+  @Column({ type: "datetime", nullable: true })
+  companyVerifiedAt?: Date | null;
+
+  // Certificados profissionais conferidos pela administração
+  @Column({ type: "datetime", nullable: true })
+  credentialsVerifiedAt?: Date | null;
 
   @OneToMany(() => Subcategory, (subcategory) => subcategory.provider)
   subcategories: Subcategory[];

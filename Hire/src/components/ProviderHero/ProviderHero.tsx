@@ -3,6 +3,8 @@
 // ------------------------------------------------------
 
 import React, { lazy, Suspense, useEffect, useState } from "react";
+import { useSession } from "../../context/SessionContext";
+import VerificationBadges from "./VerificationBadges";
 import { motion } from "framer-motion";
 import type {
   DayKey,
@@ -15,7 +17,6 @@ import {
   Clock,
   Star,
   Edit3,
-  BadgeCheck,
 } from "lucide-react";
 import ServiceGallery from "../ServiceGallery/ServiceGallery/ServiceGallery";
 // o cadastro de prestador traz o mapa (leaflet): só é baixado quando o formulário abre
@@ -35,6 +36,7 @@ interface ProviderHeroProps {
 }
 
 export default function ProviderHero({ provider, readOnly = false, services, editRequest }: ProviderHeroProps) {
+  const { user: sessionUser } = useSession();
   const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
@@ -186,14 +188,13 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
           >
             Nível {provider.level ?? "Iniciante"}
           </span>
-          {provider.verificationStatus === "verified" && (
-            <span
-              className="px-3 py-1 rounded-full text-xs sm:text-sm border border-green-500/40 bg-green-500/10 text-green-500 inline-flex items-center gap-1"
-              title="Documento de identidade conferido pela equipe do Hire"
-            >
-              <BadgeCheck size={14} /> Verificado
-            </span>
-          )}
+          {/* só verificações concluídas; no painel do dono, o e-mail vem da sessão */}
+          <VerificationBadges
+            identity={provider.verificationStatus === "verified"}
+            email={readOnly ? provider.emailVerified : sessionUser?.emailVerified}
+            company={provider.companyVerified ?? !!provider.companyVerifiedAt}
+            credentials={provider.credentialsVerified ?? !!provider.credentialsVerifiedAt}
+          />
           {!!provider.lateCancellations && (
             <span
               className="px-3 py-1 rounded-full text-xs sm:text-sm border border-amber-500/40 bg-amber-500/10 text-amber-500"

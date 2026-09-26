@@ -249,7 +249,10 @@ export class ProviderService {
     const { categoryId } = data;
 
     // só os campos do formulário; verificação, dono, datas e contagens não vêm do cliente
+    const previousCnpj = (provider.cnpj ?? "").replace(/\D/g, "");
     Object.assign(provider, editableFields(data), areaFields(data));
+    // CNPJ trocado: a empresa conferida antes deixa de valer
+    if ((provider.cnpj ?? "").replace(/\D/g, "") !== previousCnpj) provider.companyVerifiedAt = null;
     if (categoryId) provider.category = { id: Number(categoryId) } as any;
     if (file) provider.profileImageUrl = `/uploads/${file.filename}`;
 

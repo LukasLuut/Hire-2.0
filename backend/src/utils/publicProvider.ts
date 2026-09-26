@@ -30,6 +30,8 @@ export function toPublicProvider(p: (ServiceProvider & Record<string, any>) | nu
     serviceRadiusKm: p.serviceRadiusKm ?? null,
     verificationStatus: p.verificationStatus,
     verifiedAt: p.verifiedAt ?? null,
+    companyVerified: !!p.companyVerifiedAt,
+    credentialsVerified: !!p.credentialsVerifiedAt,
     createdAt: p.createdAt ?? null,
     showContact: !!p.showContact,
   };

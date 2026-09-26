@@ -384,7 +384,7 @@ export default function ServiceDetail({
                   >
                     Prestador: {providerName}
                     {service.provider?.verified && (
-                      <span className="ml-2 text-xs text-green-500" title="Documento de identidade conferido pela equipe do Hire">✓ Verificado</span>
+                      <span className="ml-2 text-xs text-green-500" title="Documento de identidade conferido pela equipe do Hire">✓ Identidade verificada</span>
                     )}
                   </button>
                 )}

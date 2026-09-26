@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from "react";
 import { providerApi, type Verification } from "../../../../api/ProviderAPI";
 import type { ProviderForm } from "../helpers/types-and-helpers";
-import { ShieldCheck, FileText } from "lucide-react";
+import { ShieldCheck, FileText, Building2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { LinkList } from "../helpers/types-and-helpers";
 import { toFiles } from "../helpers/file-helpers";
@@ -15,11 +15,13 @@ export default function StepDocuments({
   update,
   onIdDocument,
   onCertifications,
+  onCompanyDocument,
 }: {
   form: ProviderForm;
   update: <K extends keyof ProviderForm>(k: K, v: ProviderForm[K]) => void;
   onIdDocument: (f: File | null) => void;
   onCertifications: (files: File[] | null) => void;
+  onCompanyDocument?: (f: File | null) => void;
 }) {
   // situação atual da verificação (quando já é prestador)
   const [verification, setVerification] = useState<Verification | null>(null);
@@ -60,7 +62,7 @@ export default function StepDocuments({
           }`}
         >
           {verified
-            ? "Perfil verificado. O selo aparece no seu perfil e nos seus serviços."
+            ? `Identidade verificada${verification.companyVerifiedAt ? " · empresa verificada" : ""}${verification.credentialsVerifiedAt ? " · certificação conferida" : ""}. Os selos aparecem no seu perfil público.`
             : verification.status === "pending"
               ? "Documentos em análise. Enviar de novo substitui o envio anterior."
               : `Verificação recusada${verification.note ? `: ${verification.note}` : ""}. Envie os documentos de novo.`}
@@ -77,6 +79,17 @@ export default function StepDocuments({
           file={form.idDocument}
           onChange={(f) => onIdDocument(f as File | null)}
         />}
+
+        {/* Comprovante da empresa: só faz sentido com CNPJ informado */}
+        {!!form.cnpj?.trim() && !verification?.companyVerifiedAt && onCompanyDocument && (
+          <FileUploadCard
+            label="Comprovante da empresa (opcional)"
+            description="Cartão CNPJ ou contrato social — para o selo Empresa verificada"
+            icon={<Building2 className="w-5 h-5" />}
+            file={form.companyDocument}
+            onChange={(f) => onCompanyDocument(f as File | null)}
+          />
+        )}
 
         {/* Certificações */}
         {!verified && <FileUploadCard
