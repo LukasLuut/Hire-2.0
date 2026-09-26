@@ -88,6 +88,16 @@ export class ProviderService {
     return missing.length;
   }
 
+  /** Slug do prestador (gera se ainda não tiver) */
+  async slugOf(id: number) {
+    const p = await this.providerRepository.findOne({ where: { id }, select: { id: true, slug: true, companyName: true, professionalName: true } });
+    if (!p) throw new Error("Prestador não encontrado");
+    if (p.slug) return p.slug;
+    const slug = await this.newSlug(p.companyName || p.professionalName, p.id);
+    await this.providerRepository.update(p.id, { slug });
+    return slug;
+  }
+
   /** "12" → id; "souza-eletrica" → slug; qualquer outra coisa é inválida */
   async resolveId(idOrSlug: string) {
     if (/^\d+$/.test(idOrSlug)) return Number(idOrSlug);

@@ -3,6 +3,10 @@ import { authMiddleware } from '../middlewares/authMidlleware'
 import { ProviderController } from '../controllers/ProviderController'
 import { upload, privateUpload, imageUpload } from '../middlewares/uploadMiddleware'
 import { portfolioService } from '../services/PortfolioService'
+import QRCode from 'qrcode'
+import { ProviderService } from '../services/ProviderService'
+import { frontendUrl } from '../services/MailService'
+const providerService = new ProviderService()
 import { verificationService } from '../services/VerificationService'
 import { Request, Response } from 'express'
 
@@ -50,6 +54,25 @@ providerRouter.put('/me/portfolio/:itemId', authMiddleware, imageUpload.single('
 })
 providerRouter.delete('/me/portfolio/:itemId', authMiddleware, async (req, res) => {
   try { res.json(await portfolioService.remove(me(req), Number(req.params.itemId))) } catch (e) { fail(res, e) }
+})
+
+// QR Code do perfil público (aponta para /prestador/<slug>?src=qr); PNG para baixar/imprimir ou SVG
+providerRouter.get('/:id/qr', async (req, res) => {
+  try {
+    const id = await providerService.resolveId(String(req.params.id))
+    const slug = await providerService.slugOf(id)
+    const url = `${frontendUrl()}/prestador/${slug}?src=qr`
+    const svg = req.query.format === 'svg'
+    res.setHeader('Cache-Control', 'public, max-age=86400')
+    if (req.query.download) res.setHeader('Content-Disposition', `attachment; filename="qr-${slug}.${svg ? 'svg' : 'png'}"`)
+    if (svg) {
+      res.type('image/svg+xml').send(await QRCode.toString(url, { type: 'svg', margin: 2, errorCorrectionLevel: 'M' }))
+    } else {
+      res.type('png').send(await QRCode.toBuffer(url, { type: 'png', width: 512, margin: 2, errorCorrectionLevel: 'M' }))
+    }
+  } catch (e: any) {
+    res.status(404).json({ message: 'Prestador não encontrado' })
+  }
 })
 
 providerRouter.get('/all', controller.list.bind(controller));

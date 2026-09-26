@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+import { Share2 } from "lucide-react";
+import { providerUrl } from "../utils/providerPath";
+import SharePanel from "../components/Share/SharePanel";
 import ProfileStats from "../components/ProfileStats";
 import type { PortfolioItem } from "../interfaces/Entities";
 import PortfolioManager from "../components/Portfolio/PortfolioManager";
@@ -52,6 +55,7 @@ export default function DashboardPrestador() {
   const [myServices, setMyServices] = useState<ServiceEntity[]>([]);
   const [editRequest, setEditRequest] = useState(0);
   const [portfolio, setPortfolio] = useState<PortfolioItem[] | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
 
   // mobile accordion (drawer alternative per sua escolha 'b')
   const [panelOpen, setPanelOpen] = useState(false);
@@ -129,6 +133,26 @@ export default function DashboardPrestador() {
                 onNewService={() => setOpenCreateService(true)}
                 onPortfolio={() => document.getElementById("portfolio-manager-title")?.scrollIntoView({ behavior: "smooth", block: "center" })}
               />
+            )}
+            {provider && (
+              <section aria-labelledby="promote-title" className="mb-4 rounded-2xl p-4 border border-[var(--border)] bg-[var(--bg-light)]/40">
+                <h3 id="promote-title" className="font-semibold mb-1">Divulgue seu perfil</h3>
+                <p className="text-xs text-[var(--text-muted)] mb-3 break-all">{providerUrl(provider)}</p>
+                <button onClick={() => setShareOpen(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[var(--primary)] text-white font-medium">
+                  <Share2 size={16} /> Compartilhar e QR Code
+                </button>
+                <SharePanel
+                  open={shareOpen}
+                  onClose={() => setShareOpen(false)}
+                  qrFor={provider.slug ?? provider.id}
+                  target={{
+                    url: providerUrl(provider),
+                    title: provider.companyName || provider.professionalName,
+                    text: `Conheça ${provider.companyName || provider.professionalName} no Hire.`,
+                    providerId: provider.id,
+                  }}
+                />
+              </section>
             )}
             {provider && <ProfileStats />}
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className=" lg:block hidden md:flex mb-4 bg-[var(--bg-light)]/40 backdrop-blur-xl rounded-2xl p-4 border border-[var(--border)] shadow-md">

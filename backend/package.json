@@ -32,6 +32,7 @@
     "multer": "^2.0.2",
     "mysql2": "^3.14.3",
     "nodemailer": "^7.0.13",
+    "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "typeorm": "^0.3.26"
   },
@@ -43,6 +44,7 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^24.3.0",
     "@types/nodemailer": "^8.0.2",
+    "@types/qrcode": "^1.5.6",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.2"
   }

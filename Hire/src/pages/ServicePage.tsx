@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import SharePanel from "../components/Share/SharePanel";
 import { trackView } from "../utils/analytics";
 import { providerPath } from "../utils/providerPath";
 import { Link, useParams } from "react-router-dom";
@@ -6,7 +7,6 @@ import { Share2, Star, ChevronLeft, ChevronRight, Handshake, LogIn } from "lucid
 import { serviceAPI, serviceImages, type ServiceData } from "../api/ServiceAPI";
 import { reviewAPI } from "../api/ReviewAPI";
 import { useSession } from "../context/SessionContext";
-import { useToast } from "../components/Toast/ToastContext";
 import ServiceDetail from "../components/ServiceGallery/ServiceDetail/ServiceDetail";
 import ReviewsSection from "../components/Reviews/ReviewsSection";
 import ServiceAreaLine from "../components/ServiceAreaLine";
@@ -24,7 +24,6 @@ export default function ServicePage() {
   const { id } = useParams();
   const serviceId = Number(id);
   const { token } = useSession();
-  const { showToast } = useToast();
   const [service, setService] = useState<ServiceData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
@@ -57,19 +56,9 @@ export default function ServicePage() {
     return { average, count: reviews.length, reviews };
   }, [service?.id, service?.provider?.id]);
 
-  const share = async () => {
-    const url = window.location.href;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: service?.title, text: `${service?.title} no Hire.`, url });
-      } else {
-        await navigator.clipboard.writeText(url);
-        showToast("Link copiado. É só colar para compartilhar.", "success");
-      }
-    } catch {
-      /* compartilhamento cancelado */
-    }
-  };
+  // compartilhar: mesmo painel do perfil (celular, copiar link, WhatsApp)
+  const [shareOpen, setShareOpen] = useState(false);
+  const share = () => setShareOpen(true);
 
   if (error) {
     return (
@@ -169,6 +158,11 @@ export default function ServicePage() {
                 <button onClick={share} className="flex items-center justify-center gap-2 border border-[var(--border)] py-3 px-4 rounded-xl hover:border-[var(--primary)]">
                   <Share2 size={18} /> Compartilhar
                 </button>
+                <SharePanel
+                  open={shareOpen}
+                  onClose={() => setShareOpen(false)}
+                  target={{ url: `${window.location.origin}/service/${service.id}`, title: service.title, text: `${service.title} no Hire.`, serviceId: service.id }}
+                />
               </div>
             )}
           </div>
