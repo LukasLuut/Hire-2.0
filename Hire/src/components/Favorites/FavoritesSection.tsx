@@ -3,6 +3,7 @@ import { Heart, Loader2 } from "lucide-react";
 import { serviceAPI, serviceImages, type ServiceData } from "../../api/ServiceAPI";
 import ServiceDetail from "../ServiceGallery/ServiceDetail/ServiceDetail";
 import { displayServicePrice } from "../../utils/price";
+import FavoriteProviders from "./FavoriteProviders";
 
 /* --------------------------------------------------------------------------
  * FavoritesSection — serviços curtidos pelo cliente.
@@ -38,16 +39,21 @@ export default function FavoritesSection() {
 
   if (items.length === 0) {
     return (
+      <>
+      <FavoriteProviders />
       <div className="text-center py-8 text-[var(--text-muted)]">
         <Heart size={32} className="mx-auto mb-2 opacity-60" />
         <p className="font-medium text-[var(--text)]">Você ainda não tem favoritos</p>
-        <p className="text-sm mt-1">Toque no coração de um serviço para guardar aqui.</p>
+        <p className="text-sm mt-1">Toque no coração de um serviço (ou em Favoritar, no perfil de um prestador) para guardar aqui.</p>
       </div>
+      </>
     );
   }
 
   return (
     <>
+      <FavoriteProviders />
+      <h3 className="text-sm font-semibold mb-2">Serviços</h3>
       <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {items.map((s) => (
           <li key={s.id}>

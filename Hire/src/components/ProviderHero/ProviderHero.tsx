@@ -3,6 +3,7 @@
 // ------------------------------------------------------
 
 import React, { lazy, Suspense, useEffect, useState } from "react";
+import FavoriteProviderButton from "../Favorites/FavoriteProviderButton";
 import { providerApi } from "../../api/ProviderAPI";
 import { getErrorMessage } from "../../utils/errors";
 import { useToast } from "../Toast/ToastContext";
@@ -206,6 +207,7 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
         {/* Status */}
         <div className="flex flex-wrap gap-2 justify-start lg:justify-end">
           <OpenStatusChip provider={provider} editable={!readOnly} onChanged={refresh} />
+          {readOnly && <FavoriteProviderButton providerId={provider.id} />}
 
           <span
             className="px-3 py-1 rounded-full text-xs sm:text-sm border border-[var(--border)]"

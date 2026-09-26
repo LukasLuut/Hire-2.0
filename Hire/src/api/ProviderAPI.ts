@@ -12,7 +12,25 @@ export interface Verification {
 
 const auth = (token: string) => ({ Authorization: "Bearer " + token });
 
+/** Prestador favorito (dados públicos; available = false quando saiu do ar) */
+export interface FavoriteProvider {
+  id: number;
+  slug?: string | null;
+  companyName: string;
+  professionalName: string;
+  profileImageUrl?: string | null;
+  baseCity?: string | null;
+  category?: { id: number; name: string } | null;
+  rating: { average: number; count: number };
+  available: boolean;
+}
+
 export const providerApi = {
+  /** Favoritos: situação, alternar e lista */
+  isFavorite: (id: number, token: string) => apiRequest<{ favorite: boolean }>(`/providers/${id}/favorite`, { headers: auth(token) }),
+  toggleFavorite: (id: number, token: string) => apiRequest<{ favorite: boolean }>(`/providers/${id}/favorite`, { method: "POST", headers: auth(token) }),
+  favorites: async (token: string) => (await apiRequest<FavoriteProvider[]>("/providers/favorites/me", { headers: auth(token) })) ?? [],
+
 
   create: async (data: FormData, token: string) => {
     return await apiRequest("/providers", {

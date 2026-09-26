@@ -95,6 +95,16 @@ providerRouter.get('/:id/qr', async (req, res) => {
 })
 
 providerRouter.get('/all', controller.list.bind(controller));
+// Prestadores favoritos do usuário
+providerRouter.get('/favorites/me', authMiddleware, async (req, res) => {
+  try { res.json(await providerService.favorites(me(req))) } catch (e) { fail(res, e) }
+})
+providerRouter.get('/:id/favorite', authMiddleware, async (req, res) => {
+  try { res.json(await providerService.isFavorite(me(req), Number(req.params.id))) } catch (e) { fail(res, e) }
+})
+providerRouter.post('/:id/favorite', authMiddleware, async (req, res) => {
+  try { res.json(await providerService.toggleFavorite(me(req), Number(req.params.id))) } catch (e) { fail(res, e) }
+})
 providerRouter.get('/:id/public', controller.getPublic.bind(controller));
 
 export default providerRouter;

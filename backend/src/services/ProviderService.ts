@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { ProviderFavorite } from "../models/ProviderFavorite";
 import { formatCnpj } from "../utils/documents";
 import { providerOffline } from "../utils/availability";
 import { openState } from "../utils/openStatus";
@@ -261,6 +262,42 @@ export class ProviderService {
       const done = completed.get(p.id) ?? 0;
       return { ...p, rating: ratings.get(p.id) ?? StatsService.empty(), completedHires: done, level: StatsService.level(done), lateCancellations: late.get(p.id) ?? 0 };
     });
+  }
+
+  /** Marca/desmarca o prestador como favorito; devolve a situação nova. */
+  async toggleFavorite(userId: number, providerId: number) {
+    const repo = AppDataSource.getRepository(ProviderFavorite);
+    const provider = await this.providerRepository.findOne({ where: { id: providerId }, relations: { user: true } });
+    if (!provider || providerOffline(provider)) throw new HttpError(404, "Prestador não encontrado");
+    if (provider.user?.id === userId) throw new HttpError(400, "Você não pode favoritar o próprio perfil");
+    const existing = await repo.findOne({ where: { user: { id: userId }, provider: { id: providerId } } });
+    if (existing) {
+      await repo.remove(existing);
+      return { favorite: false };
+    }
+    await repo.save(repo.create({ user: { id: userId }, provider: { id: providerId } }));
+    return { favorite: true };
+  }
+
+  async isFavorite(userId: number, providerId: number) {
+    const n = await AppDataSource.getRepository(ProviderFavorite).count({ where: { user: { id: userId }, provider: { id: providerId } } });
+    return { favorite: n > 0 };
+  }
+
+  /** Prestadores favoritos (dados públicos); quem saiu do ar aparece como indisponível. */
+  async favorites(userId: number) {
+    const favs = await AppDataSource.getRepository(ProviderFavorite).find({
+      where: { user: { id: userId } },
+      relations: { provider: { user: true, category: true } },
+      order: { id: "DESC" },
+    });
+    const providers = favs.map((f) => f.provider).filter(Boolean);
+    const decorated = await this.decorate(providers);
+    return decorated.map((p) => ({
+      ...(toPublicProvider(p as any) as any),
+      category: p.category ? { id: p.category.id, name: p.category.name } : null,
+      available: !providerOffline(p),
+    }));
   }
 
   /** Perfil público de um prestador (página "Ver perfil"). */
