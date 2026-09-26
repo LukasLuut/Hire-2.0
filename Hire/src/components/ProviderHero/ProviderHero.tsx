@@ -131,6 +131,14 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
                   : "Categoria não informada"}
               </span>
             </div>
+            {/* experiência na plataforma (dados reais) */}
+            {readOnly && (provider.memberSince || (provider.completedHires ?? 0) > 0) && (
+              <p className="text-sm text-[var(--text-muted)]">
+                {provider.memberSince && <>No Hire desde {new Date(provider.memberSince).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}</>}
+                {provider.memberSince && (provider.completedHires ?? 0) > 0 && " · "}
+                {(provider.completedHires ?? 0) > 0 && <>{provider.completedHires} serviço(s) concluído(s) pelo Hire</>}
+              </p>
+            )}
             {/* área de atendimento */}
             <ServiceAreaLine full service={{ provider: { baseCity: provider.baseCity, baseState: provider.baseState, attendsOnline: provider.attendsOnline, serviceRadiusKm: provider.baseCity ? provider.serviceRadiusKm : undefined } }} />
 
@@ -197,6 +205,27 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
         </div>
       </div>
 
+      {/* contato direto: só quando o prestador escolheu mostrar */}
+      {readOnly && provider.showContact && (provider.professionalPhone || provider.professionalEmail) && (
+        <div className="mt-8 flex flex-wrap gap-2 text-sm">
+          {provider.professionalPhone && (
+            <a
+              href={`https://wa.me/55${provider.professionalPhone.replace(/\D/g, "")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-2 rounded-lg border border-[var(--border)] hover:border-[var(--primary)]"
+            >
+              WhatsApp {provider.professionalPhone}
+            </a>
+          )}
+          {provider.professionalEmail && (
+            <a href={`mailto:${provider.professionalEmail}`} className="px-3 py-2 rounded-lg border border-[var(--border)] hover:border-[var(--primary)]">
+              {provider.professionalEmail}
+            </a>
+          )}
+        </div>
+      )}
+
       {/* MODELO DE ATENDIMENTO */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-24">
         <InfoCard
@@ -253,7 +282,11 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
       </div>
        {isEditing&&(<div className=""><Suspense fallback={null}><ProviderRegistrationContainer isOpen={isEditing} existing={provider} onClose={()=>setIsEditing(false)}/></Suspense></div>)}
       {!isEditing && (readOnly
-        ? <ServiceGallery services={services ?? []} noEdit title="Serviços" />
+        ? <div id="servicos" className="scroll-mt-24">
+            {(services ?? []).length === 0
+              ? <p className="mt-8 text-sm text-[var(--text-muted)]">Este profissional ainda não publicou serviços. Você pode conversar com ele para pedir um orçamento.</p>
+              : <ServiceGallery services={services ?? []} noEdit title="Serviços" />}
+          </div>
         : <ServiceGallery />)}
     </motion.section>
   );

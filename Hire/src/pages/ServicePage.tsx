@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { providerPath } from "../utils/providerPath";
 import { Link, useParams } from "react-router-dom";
 import { Share2, Star, ChevronLeft, ChevronRight, Handshake, LogIn } from "lucide-react";
 import { serviceAPI, serviceImages, type ServiceData } from "../api/ServiceAPI";
@@ -141,7 +142,7 @@ export default function ServicePage() {
                 <div className="text-xs text-[var(--text-muted)] truncate">{service.provider?.description}</div>
               </div>
               {service.provider?.id && (
-                <Link to={`/provider/${service.provider.id}`} className="text-xs px-3 py-1.5 rounded-full border border-[var(--border)] hover:border-[var(--primary)] shrink-0">Ver perfil</Link>
+                <Link to={providerPath(service.provider)} className="text-xs px-3 py-1.5 rounded-full border border-[var(--border)] hover:border-[var(--primary)] shrink-0">Ver perfil</Link>
               )}
             </div>
 

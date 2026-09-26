@@ -82,6 +82,10 @@ export class ServiceProvider {
   @Column({ length: 400, nullable: true })
   onlineLink?: string
 
+  // Endereço público estável do perfil: /prestador/<slug> (gerado do nome; não muda ao renomear)
+  @Column({ type: "varchar", length: 64, nullable: true, unique: true })
+  slug?: string | null;
+
   // Mostrar e-mail e telefone profissionais no perfil público (padrão: não; contato pelo chat)
   @Column({ default: false })
   showContact: boolean;

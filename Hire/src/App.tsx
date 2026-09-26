@@ -92,7 +92,9 @@ export default function App() {
           <Route path="/client" element={<RequireAuth><div className="pt-20"><ServiceDashboardSophisticated /></div></RequireAuth>} />
           <Route path="/progress" element={<RequireAuth><ServiceProgressContainer viewFor="provider" /></RequireAuth>} />
           <Route path="/hires" element={<RequireAuth><ServiceProgressContainer viewFor="client" /></RequireAuth>} />
-          <Route path="/provider/:id" element={<RequireAuth><ProviderPublicPage /></RequireAuth>} />
+          {/* Perfil público do prestador: aberto sem login; /provider/:id (links antigos) leva ao endereço canônico */}
+          <Route path="/prestador/:slug" element={<ProviderPublicPage />} />
+          <Route path="/provider/:id" element={<ProviderPublicPage />} />
           {/* Página pública do serviço: pode ser compartilhada e aberta sem login */}
           <Route path="/service/:id" element={<ServicePage />} />
 

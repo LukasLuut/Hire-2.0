@@ -68,7 +68,8 @@ export class ProviderController {
 
   getPublic = async (req: Request, res: Response) => {
     try {
-      res.json(await providerService.getPublic(Number(req.params.id)));
+      // aceita id numérico (links antigos) ou slug (/prestador/<slug>)
+      res.json(await providerService.getPublic(await providerService.resolveId(String(req.params.id))));
     } catch (e: any) {
       res.status(404).json({ message: e.message });
     }

@@ -1,4 +1,6 @@
 import { AppDataSource } from "../config/data-source";
+import { IsNull } from "typeorm";
+import { isSlug, uniqueSlug } from "../utils/slug";
 import { toPublicProvider } from "../utils/publicProvider";
 import { ServiceProvider } from "../models/ServiceProvider";
 import { coord } from "../utils/geo";
@@ -56,6 +58,7 @@ export class ProviderService {
       category: data.categoryId ? { id: Number(data.categoryId) } : null,
     };
 
+    newData.slug = await this.newSlug(newData.companyName || newData.professionalName);
     const providerSaved = await this.providerRepository.save(
       this.providerRepository.create(newData)
     ) as unknown as ServiceProvider;
@@ -64,6 +67,33 @@ export class ProviderService {
     await this.syncEmailPreference(user.id, (data as any).emailNotification);
 
     return providerSaved;
+  }
+
+  /** Slug único para um nome (ver utils/slug.ts) */
+  private newSlug(name: unknown, ignoreId?: number) {
+    return uniqueSlug(name, async (candidate) => {
+      const found = await this.providerRepository.findOne({ where: { slug: candidate }, select: { id: true } });
+      return !!found && found.id !== ignoreId;
+    });
+  }
+
+  /** Prestadores antigos sem slug ganham um (roda ao subir o servidor) */
+  async ensureSlugs() {
+    const missing = await this.providerRepository.find({ where: { slug: IsNull() } });
+    for (const p of missing) {
+      p.slug = await this.newSlug(p.companyName || p.professionalName, p.id);
+      await this.providerRepository.update(p.id, { slug: p.slug });
+    }
+    return missing.length;
+  }
+
+  /** "12" → id; "souza-eletrica" → slug; qualquer outra coisa é inválida */
+  async resolveId(idOrSlug: string) {
+    if (/^\d+$/.test(idOrSlug)) return Number(idOrSlug);
+    if (!isSlug(idOrSlug)) throw new Error("Prestador não encontrado");
+    const found = await this.providerRepository.findOne({ where: { slug: idOrSlug }, select: { id: true } });
+    if (!found) throw new Error("Prestador não encontrado");
+    return found.id;
   }
 
   /** A opção "avisos por e-mail" do cadastro vale para a conta inteira. */
@@ -145,7 +175,10 @@ export class ProviderService {
     const [decorated] = await this.decorate([provider]);
     // perfil público mostra só os serviços ativos
     const services = await serviceService.withStats(provider.services.filter((s) => s.active !== false).map((s) => ({ ...s, provider } as any)));
-    const pub = toPublicProvider({ ...decorated, user: provider.user } as any) as any;
+    // "No Hire desde": a data mais antiga entre o cadastro da conta (aceite dos termos) e o da empresa
+    const dates = [provider.createdAt, provider.user?.acceptedAt].filter(Boolean).map((d) => new Date(d as any).getTime());
+    const memberSince = dates.length ? new Date(Math.min(...dates)) : null;
+    const pub = { ...(toPublicProvider({ ...decorated, user: provider.user, emailVerified: !!provider.user?.emailVerified } as any) as any), memberSince };
     return {
       ...pub,
       services: services.map((s: any) => ({ ...s, provider: { id: provider.id, slug: pub.slug, companyName: provider.companyName, professionalName: provider.professionalName, profileImageUrl: provider.profileImageUrl, description: provider.description, rating: decorated.rating, pricesOnPage: provider.pricesOnPage, verificationStatus: provider.verificationStatus } })),

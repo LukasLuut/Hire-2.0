@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { providerPath } from "../utils/providerPath";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import {
   Search,
@@ -443,8 +444,8 @@ export default function ServiceDashboardSophisticated() {
                           role="link"
                           tabIndex={0}
                           aria-label={`Ver perfil de ${srv.provider.professionalName}`}
-                          onClick={() => navigate(`/provider/${srv.provider!.id}`)}
-                          onKeyDown={(e) => e.key === "Enter" && navigate(`/provider/${srv.provider!.id}`)}
+                          onClick={() => navigate(providerPath(srv.provider))}
+                          onKeyDown={(e) => e.key === "Enter" && navigate(providerPath(srv.provider))}
                           className="flex items-center cursor-pointer gap-3 py-4 px-2 mb-2 border-b-1 border-t-1 rounded-lg bg-[var(--bg-dark)] border-[var(--highlight)]/50 transition"
                           whileHover={{ scale: 1.02 }}
                         >
@@ -566,7 +567,7 @@ export default function ServiceDashboardSophisticated() {
                       <div className="text-xs text-[var(--text-muted)] mt-1">
                         {p.specialty}
                       </div>
-                      <button onClick={() => navigate(`/provider/${p.id}`)} className="mt-2 text-xs px-3 py-1 rounded-full bg-[var(--bg)]/60 border border-[var(--border)]">
+                      <button onClick={() => navigate(providerPath(p))} className="mt-2 text-xs px-3 py-1 rounded-full bg-[var(--bg)]/60 border border-[var(--border)]">
                         Ver perfil
                       </button>
                     </div>
@@ -602,7 +603,7 @@ export default function ServiceDashboardSophisticated() {
                     <div className="flex items-center gap-1 text-yellow-400">
                       <Star fill={p.ratingCount > 0 ? "currentColor" : "none"} size={14} /> {p.ratingCount > 0 ? p.rating.toFixed(1) : "Novo"}
                     </div>
-                    <button onClick={() => navigate(`/provider/${p.id}`)} className="text-xs px-3 py-1 rounded-full bg-[var(--primary)] text-white">
+                    <button onClick={() => navigate(providerPath(p))} className="text-xs px-3 py-1 rounded-full bg-[var(--primary)] text-white">
                       Ver perfil
                     </button>
                   </div>

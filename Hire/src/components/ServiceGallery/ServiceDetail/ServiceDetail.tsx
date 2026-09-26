@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { providerPath } from "../../../utils/providerPath";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
@@ -378,7 +379,7 @@ export default function ServiceDetail({
                 </p>
                 {service.provider?.id && (
                   <button
-                    onClick={() => { onClose(); navigate(`/provider/${service.provider!.id}`); }}
+                    onClick={() => { onClose(); navigate(providerPath(service.provider)); }}
                     className="mt-2 text-sm text-[var(--primary)] hover:underline"
                   >
                     Prestador: {providerName}
@@ -438,7 +439,7 @@ export default function ServiceDetail({
               <p className="mt-4 p-4 rounded-xl bg-[var(--bg)] border border-[var(--border)] text-sm text-[var(--text-muted)]">
                 Este serviço está pausado pelo prestador e não recebe pedidos no momento.
                 {service.provider?.id && (
-                  <button onClick={() => { onClose(); navigate(`/provider/${service.provider!.id}`); }} className="ml-1 text-[var(--primary)] underline">
+                  <button onClick={() => { onClose(); navigate(providerPath(service.provider)); }} className="ml-1 text-[var(--primary)] underline">
                     Ver outros serviços de {providerName}
                   </button>
                 )}

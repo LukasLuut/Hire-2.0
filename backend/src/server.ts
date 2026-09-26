@@ -8,6 +8,7 @@ import { jwtSecret } from "./utils/jwt";
 import { HireService } from "./services/HireService";
 import { registerNotificationMailer } from "./services/NotificationMailer";
 import { loadBlockedUsers } from "./utils/access";
+import { ProviderService } from "./services/ProviderService";
 
 const app: Application = express();
 const PORTA: number = 8080;
@@ -41,6 +42,9 @@ AppDataSource.initialize()
 
     // Avisos também por e-mail (para quem confirmou o e-mail e quer receber)
     registerNotificationMailer();
+
+    // perfis antigos ganham endereço público (/prestador/<slug>)
+    new ProviderService().ensureSlugs().catch((err) => console.error("Falha ao gerar slugs:", err.message));
 
     // contas suspensas (consultadas pelo authMiddleware)
     loadBlockedUsers().catch((err) => console.error("Falha ao carregar contas suspensas:", err.message));

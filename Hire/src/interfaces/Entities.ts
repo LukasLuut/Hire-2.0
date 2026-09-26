@@ -29,6 +29,10 @@ export interface ProviderEntity {
   showContact?: boolean;
   slug?: string | null;
   createdAt?: string | null;
+  /** (perfil público) data de entrada no Hire */
+  memberSince?: string | null;
+  /** (perfil público) e-mail da conta confirmado */
+  emailVerified?: boolean;
   description?: string | null;
   cnpj?: string | null;
   profileImageUrl?: string | null;

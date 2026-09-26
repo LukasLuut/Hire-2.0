@@ -57,7 +57,8 @@ export const providerApi = {
   },
 
   /** Perfil público de um prestador (Ver perfil). */
-  getPublic: async (id: number) => {
+  /** Perfil público por id numérico ou slug */
+  getPublic: async (id: number | string) => {
     return await apiRequest<ProviderEntity & { services: ServiceEntity[] }>(`/providers/${id}/public`);
   },
 };
