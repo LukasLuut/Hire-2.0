@@ -1,7 +1,7 @@
 // Backup do Hire: banco (SQL compactado) + arquivos enviados (uploads e private_uploads).
 //   npm run backup                 → backups/AAAA-MM-DD_HHMMSS/
 //   BACKUP_KEEP=7 (padrão)         → mantém só os 7 backups mais recentes
-// Lê a conexão do backend/.env (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME); a senha não aparece em linha de comando nem em log.
+// Lê a conexão do backEnd/.env (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME); a senha não aparece em linha de comando nem em log.
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";

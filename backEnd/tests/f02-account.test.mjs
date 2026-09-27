@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { req, login } from "./helpers.mjs";
 
-// Sem SMTP configurado, os e-mails ficam em backend/outbox: o teste lê o link de lá
+// Sem SMTP configurado, os e-mails ficam em backEnd/outbox: o teste lê o link de lá
 const OUTBOX = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "outbox");
 function lastLink(to, kind) {
   const files = fs.existsSync(OUTBOX) ? fs.readdirSync(OUTBOX).filter((f) => f.includes(to.replace(/[^\w.@-]/g, "_"))).sort() : [];

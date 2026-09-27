@@ -58,7 +58,7 @@ export function nextWeekday(dow, hhmm) {
 }
 
 /**
- * Acesso direto ao banco de desenvolvimento (lê o backend/.env), só para
+ * Acesso direto ao banco de desenvolvimento (lê o backEnd/.env), só para
  * simular a passagem do tempo nos testes (ex.: pedido feito há 3 dias).
  */
 export async function db(sql, params = []) {

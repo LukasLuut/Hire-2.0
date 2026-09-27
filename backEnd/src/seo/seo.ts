@@ -17,7 +17,7 @@ import { cityPages, findCityPage } from "./cityPages";
  * Rotas privadas recebem noindex. robots.txt e sitemap.xml vêm daqui.
  */
 
-const DIST = process.env.FRONTEND_DIST || path.join(__dirname, "..", "..", "..", "Hire", "dist");
+const DIST = process.env.FRONTEND_DIST || path.join(__dirname, "..", "..", "..", "frontEnd", "dist");
 const SITE = "Hire.";
 const DEFAULT_DESCRIPTION = "Encontre profissionais de serviços perto de você, peça orçamento, converse e contrate com segurança no Hire.";
 

@@ -4,8 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { req, tokens, API } from "./helpers.mjs";
 
-// As meta tags só são servidas quando existe o build do frontend (Hire/dist)
-const hasBuild = fs.existsSync(path.join(import.meta.dirname, "..", "..", "Hire", "dist", "index.html"));
+// As meta tags só são servidas quando existe o build do frontend (frontEnd/dist)
+const hasBuild = fs.existsSync(path.join(import.meta.dirname, "..", "..", "frontEnd", "dist", "index.html"));
 const html = (p, ua = "WhatsApp/2.23") => fetch(API + p, { headers: { Accept: "text/html", "User-Agent": ua }, redirect: "manual" });
 const meta = (h, prop) => (h.match(new RegExp(`<meta (?:property|name)="${prop}" content="([^"]*)"`)) ?? [])[1];
 

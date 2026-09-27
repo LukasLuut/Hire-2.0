@@ -34,7 +34,7 @@ function render(mail: Mail) {
 
 /**
  * Envio de e-mail. Com SMTP_HOST no .env usa o servidor SMTP; sem ele (desenvolvimento),
- * grava cada e-mail em backend/outbox/*.html para abrir no navegador.
+ * grava cada e-mail em backEnd/outbox/*.html para abrir no navegador.
  */
 export class MailService {
   private transporter: Transporter | null = null;

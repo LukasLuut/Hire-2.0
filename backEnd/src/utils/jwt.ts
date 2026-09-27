@@ -11,7 +11,7 @@ interface Payload {
 export function jwtSecret(): string {
   const secret = process.env.JWT_SECRET
   if (!secret || secret.length < 32) {
-    throw new Error("JWT_SECRET ausente ou curto demais (mínimo 32 caracteres) no backend/.env")
+    throw new Error("JWT_SECRET ausente ou curto demais (mínimo 32 caracteres) no backEnd/.env")
   }
   return secret
 }
