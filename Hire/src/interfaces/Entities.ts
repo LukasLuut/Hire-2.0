@@ -284,6 +284,7 @@ export interface ConversationSummary {
 export type ChatEvent =
   | "negotiation.opened"
   | "negotiation.proposal"
+  | "negotiation.topic"
   | "negotiation.accepted"
   | "negotiation.formalized"
   | "negotiation.rejected"

@@ -7,6 +7,7 @@ import { Negotiation } from "./Negotiation";
 export type MessageEvent =
   | "negotiation.opened"
   | "negotiation.proposal"
+  | "negotiation.topic"
   | "negotiation.accepted"
   | "negotiation.formalized"
   | "negotiation.rejected"

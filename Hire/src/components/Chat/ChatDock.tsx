@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, MotionConfig, motion } from "framer-motion";
-import { BadgeCheck, Handshake, Inbox, MessageSquare, Search, X } from "lucide-react";
+import { BadgeCheck, CircleX, Handshake, Inbox, MessageSquare, Search, X } from "lucide-react";
 import { ChatDockContext } from "./chatDockContext";
 import ChatRoom from "./ChatRoom";
 import { conversationAPI, type ConversationFilter } from "../../api/ConversationAPI";
@@ -207,7 +207,9 @@ export function ChatDockProvider({ children }: { children: ReactNode }) {
       if (!token) return null;
       const c = await conversationAPI.summary(id, token).catch(() => null);
       if (!c) return null;
-      setConversations((prev) => (prev ? [c, ...prev.filter((p) => p.id !== id)] : prev));
+      // mantém a ordem da lista: última mensagem mais recente primeiro
+      const at = (x: ConversationSummary) => +new Date(x.lastMessageAt ?? x.lastMessage?.createdAt ?? 0);
+      setConversations((prev) => (prev ? [c, ...prev.filter((p) => p.id !== id)].sort((a, b) => at(b) - at(a)) : prev));
       return c;
     },
     [token]
@@ -425,10 +427,10 @@ export function ChatDockProvider({ children }: { children: ReactNode }) {
                       </p>
                     </div>
                   ) : (
-                    <ul className="grid gap-0.5">
+                    <ul className="flex flex-col gap-0.5 min-w-0">
                       <AnimatePresence initial={false}>
                         {conversations.map((c) => (
-                          <motion.li key={c.id} layout="position" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: DUR.small, ease: EASE_OUT }}>
+                          <motion.li key={c.id} className="min-w-0" layout="position" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: DUR.small, ease: EASE_OUT }}>
                             <ConversationRow c={c} active={active?.id === c.id} unread={unreadIds.has(c.id) ? Math.max(c.unread, 1) : 0} onOpen={() => openChat(c.id)} />
                           </motion.li>
                         ))}
@@ -496,7 +498,8 @@ function ConversationRow({ c, active, unread, onOpen }: { c: ConversationSummary
         </span>
         <span className={`flex items-center gap-1 text-sm truncate ${unread ? "text-[var(--text)]" : "text-[var(--text-muted)]"}`}>
           {isEvent && last?.event === "negotiation.formalized" && <BadgeCheck size={14} className="shrink-0 text-[var(--deal-ok)]" aria-hidden />}
-          {isEvent && last?.event && last.event !== "negotiation.formalized" && <Handshake size={14} className="shrink-0 text-[var(--primary)]" aria-hidden />}
+          {isEvent && (last?.event === "negotiation.rejected" || last?.event === "negotiation.closed") && <CircleX size={14} className="shrink-0 text-[var(--deal-no)]" aria-hidden />}
+          {isEvent && (last?.event === "negotiation.opened" || last?.event === "negotiation.proposal" || last?.event === "negotiation.accepted") && <Handshake size={14} className="shrink-0 text-[var(--primary)]" aria-hidden />}
           <span className="truncate">
             {mine ? "Você: " : ""}
             {last?.text ?? "Sem mensagens ainda"}

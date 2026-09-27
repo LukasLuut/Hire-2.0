@@ -51,7 +51,8 @@ test("46. anexo da negociação: link assinado, expira e fica fora de /uploads",
   assert.equal(q.s, 201, JSON.stringify(q.j));
   try {
     const conv = (await req("GET", `/conversations/${q.j.id}`, t.ele)).j;
-    const url = conv.messages.find((m) => m.attachmentUrl)?.attachmentUrl;
+    // a conversa do par tem histórico: o anexo é o desta negociação
+    const url = conv.messages.find((m) => m.attachmentUrl && m.negotiationId === q.j.negotiationId)?.attachmentUrl;
     assert.match(url, /^\/files\/c\/[^/?]+\?exp=\d+&sig=/);
     const file = await fetch(API + url);
     assert.equal(file.status, 200);

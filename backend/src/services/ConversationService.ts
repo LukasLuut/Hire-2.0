@@ -109,7 +109,9 @@ export class ConversationService {
   }
 
   /** Negociação em destaque: a aberta mexida por último; sem aberta, a mais recente */
-  private current(negotiations: Negotiation[]) {
+  private current(negotiations: Negotiation[], focusId?: number) {
+    const focused = focusId ? negotiations.find((n) => n.id === focusId) : undefined;
+    if (focused) return focused;
     const byUpdate = [...negotiations].sort((a, b) => +new Date(b.updatedAt) - +new Date(a.updatedAt) || b.id - a.id);
     return byUpdate.find((n) => n.status === NegotiationStatus.OPEN) ?? byUpdate[0] ?? null;
   }
@@ -117,11 +119,11 @@ export class ConversationService {
   private present(
     conv: Conversation,
     userId: number,
-    extra: { negotiations?: Negotiation[]; last?: Message | null; unread?: number } = {}
+    extra: { negotiations?: Negotiation[]; last?: Message | null; unread?: number; focusId?: number } = {}
   ) {
     const role = this.roleOf(conv, userId);
     const negotiations = extra.negotiations ?? [];
-    const cur = this.current(negotiations);
+    const cur = this.current(negotiations, extra.focusId);
     const curView = cur ? this.presentNegotiation(cur) : null;
     const open = negotiations.filter((n) => n.status === NegotiationStatus.OPEN);
     return {
@@ -180,13 +182,14 @@ export class ConversationService {
     });
   }
 
-  private async summary(conv: Conversation, userId: number) {
+  /** Resumo da conversa; com `focusId`, os campos da v1 mostram aquela negociação */
+  private async summary(conv: Conversation, userId: number, focusId?: number) {
     const [negotiations, last, unread] = await Promise.all([
       this.negotiationsOf([conv.id]),
       this.messageRepository.findOne({ where: { conversation: { id: conv.id } }, order: { id: "DESC" } }),
       this.unreadCounts([conv], userId).then((m) => m.get(conv.id) ?? 0),
     ]);
-    return this.present(conv, userId, { negotiations, last, unread });
+    return this.present(conv, userId, { negotiations, last, unread, focusId });
   }
 
   /**
@@ -273,8 +276,8 @@ export class ConversationService {
     if (provider.user?.id === userId) throw new HttpError(400, "Você não pode negociar com o seu próprio perfil");
 
     const conv = await this.pair(userId, provider.id);
-    if (service) await this.ensureServiceNegotiation(conv, "cliente", service);
-    return this.summary(conv, userId);
+    const n = service ? await this.ensureServiceNegotiation(conv, "cliente", service) : null;
+    return this.summary(conv, userId, n?.id);
   }
 
   /** Negociação aberta de um serviço listado; reaproveita a que existir (e a põe em destaque) */
@@ -390,7 +393,7 @@ export class ConversationService {
       .orderBy("m.id", "ASC");
     if (afterId) qb.andWhere("m.id > :afterId", { afterId });
     const [messages, negotiations, unread] = await Promise.all([qb.getMany(), this.negotiationsOf([conv.id]), this.unreadCounts([conv], userId)]);
-    const last = messages[messages.length - 1] ?? null;
+    const last = messages[messages.length - 1] ?? (await this.messageRepository.findOne({ where: { conversation: { id: conv.id } }, order: { id: "DESC" } }));
     return {
       ...this.present(conv, userId, { negotiations, last, unread: unread.get(conv.id) ?? 0 }),
       negotiations: negotiations.map((n) => this.presentNegotiation(n)).reverse(),
@@ -469,7 +472,7 @@ export class ConversationService {
       if (!service) throw new HttpError(404, "Serviço não encontrado entre os serviços deste prestador");
       const n = await this.ensureServiceNegotiation(conv, role, service);
       await this.notifyOther(conv, userId, "negotiation.opened", `Nova negociação: ${service.title}`, `${this.nameOf(conv, userId)} quer negociar este serviço.`);
-      return { ...(await this.summary(conv, userId)), negotiationId: n.id };
+      return await this.summary(conv, userId, n.id);
     }
 
     if (data.custom) {
@@ -514,13 +517,13 @@ export class ConversationService {
       await this.system(conv, `${this.providerName(conv)} criou uma proposta sob medida: ${title} (${price}).`, undefined, n, "negotiation.proposal");
       await this.attach(conv, userId, role, files, n);
       await this.notifyOther(conv, userId, "quote.responded", `Proposta sob medida: ${title}`, `${this.nameOf(conv, userId)} montou uma proposta para você: ${price}.`);
-      return { ...(await this.summary(conv, userId)), negotiationId: n.id };
+      return await this.summary(conv, userId, n.id);
     }
 
     if (data.proposal) {
       if (role !== "cliente") throw new HttpError(403, "Só o cliente faz um pedido");
       const n = await this.openRequest(conv, userId, null, data.proposal, files);
-      return { ...(await this.summary(conv, userId)), negotiationId: n.id };
+      return await this.summary(conv, userId, n.id);
     }
 
     throw new HttpError(400, "Escolha um serviço, uma proposta sob medida ou descreva o pedido");
@@ -570,7 +573,7 @@ export class ConversationService {
     await this.negotiationRepository.save(n);
     if (note) {
       await this.messageRepository.save(
-        this.messageRepository.create({ conversation: { id: conv.id }, sender: { id: userId }, role: role as MessageRole, text: note.slice(0, 1000), negotiation: { id: n.id } })
+        this.messageRepository.create({ conversation: { id: conv.id }, sender: { id: userId }, role: role as MessageRole, text: note.slice(0, 1000), negotiation: { id: n.id }, event: "negotiation.topic" })
       );
       await this.touch(conv.id, undefined, role);
       await notificationService.notify(
@@ -581,7 +584,7 @@ export class ConversationService {
     } else {
       await this.publishChange(conv);
     }
-    return { ...(await this.summary(conv, userId)), negotiationId: n.id };
+    return await this.summary(conv, userId, n.id);
   }
 
   /** Sem mensagem nova (o LiveSubscriber só avisa em mensagem): avisa as partes direto */
@@ -702,7 +705,7 @@ export class ConversationService {
     n.hire = hire;
     n.contract = contract;
     await m.getRepository(Negotiation).update(n.id, { status: NegotiationStatus.FORMALIZED, hire: { id: hire.id }, contract: { id: contract.id } });
-    await this.system(conv, `Acordo fechado ✔️ Contrato ${contract.code} gerado para "${n.title}".`, m, n, "negotiation.formalized");
+    await this.system(conv, `Acordo fechado: contrato ${contract.code} gerado para "${n.title}".`, m, n, "negotiation.formalized");
     await this.system(
       conv,
       n.service?.requiresScheduling
@@ -805,7 +808,7 @@ export class ConversationService {
 
     const conv = await this.pair(userId, provider.id);
     const n = await this.openRequest(conv, userId, target, data, files);
-    return { ...(await this.summary(conv, userId)), negotiationId: n.id };
+    return await this.summary(conv, userId, n.id);
   }
 
   /** Resposta do prestador ao pedido: a proposta dele substitui os tópicos correspondentes. */
@@ -844,7 +847,7 @@ export class ConversationService {
       body: `${this.nameOf(conv, userId)} respondeu: ${price}${deadline ? ` · ${deadline}` : ""}`,
       link: `/negotiation/${conv.id}`,
     });
-    return { ...(await this.summary(conv, userId)), negotiationId: n.id };
+    return await this.summary(conv, userId, n.id);
   }
 
   /** Recusa do pedido pelo prestador, com motivo opcional. Encerra só a negociação. */
@@ -865,7 +868,7 @@ export class ConversationService {
       body: clean ? `Motivo: ${clean}` : `${this.nameOf(conv, userId)} não pode atender este pedido.`,
       link: `/negotiation/${conv.id}`,
     });
-    return { ...(await this.summary(conv, userId)), negotiationId: n.id };
+    return await this.summary(conv, userId, n.id);
   }
 
   /**
@@ -875,7 +878,7 @@ export class ConversationService {
   async close(id: number, userId: number, reason?: unknown, negotiationId?: number) {
     const conv = await this.load(id, userId);
     const n = await this.negotiationFor(conv, negotiationId, false);
-    if (n.status !== NegotiationStatus.OPEN) return { ...(await this.summary(conv, userId)), negotiationId: n.id };
+    if (n.status !== NegotiationStatus.OPEN) return await this.summary(conv, userId, n.id);
     const role = this.roleOf(conv, userId) as Party;
     const clean = String(reason ?? "").trim().slice(0, 500);
     const proposalRejected = role === "cliente" && n.requestStatus === RequestStatus.RESPONDIDA;
@@ -883,13 +886,13 @@ export class ConversationService {
     n.closedBy = role;
     n.closeReason = clean || null;
     await this.negotiationRepository.save(n);
-    await this.system(conv, `${proposalRejected ? "Proposta recusada pelo cliente" : "Negociação encerrada"}: "${n.title}" ✖️${clean ? ` Motivo: ${clean}` : ""}`, undefined, n, "negotiation.closed");
+    await this.system(conv, `${proposalRejected ? "Proposta recusada pelo cliente" : "Negociação encerrada"}: "${n.title}".${clean ? ` Motivo: ${clean}` : ""}`, undefined, n, "negotiation.closed");
     await notificationService.notify(this.otherUserId(conv, userId), {
       type: proposalRejected ? "quote.declined" : "negotiation.closed",
       title: `${proposalRejected ? "Proposta recusada" : "Negociação encerrada"}: ${n.title || "serviço"}`,
       body: `${this.nameOf(conv, userId)} ${proposalRejected ? "recusou sua proposta" : "encerrou a negociação"}.${clean ? ` Motivo: ${clean}` : ""}`,
       link: `/negotiation/${conv.id}`,
     });
-    return { ...(await this.summary(conv, userId)), negotiationId: n.id };
+    return await this.summary(conv, userId, n.id);
   }
 }

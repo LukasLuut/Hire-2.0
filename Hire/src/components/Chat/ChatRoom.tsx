@@ -499,7 +499,7 @@ function MessageList({ messages, conv, onOpenNegotiation }: { messages: ChatMess
         const prev = messages[i - 1];
         const newDay = !prev || new Date(prev.createdAt).toDateString() !== new Date(m.createdAt).toDateString();
         // mensagens seguidas da mesma pessoa ficam agrupadas (menos espaço, cantos contínuos)
-        const grouped = !!prev && !newDay && prev.role === m.role && m.role !== "system" && !prev.event && !m.event;
+        const grouped = !!prev && !newDay && ((prev.role === m.role && m.role !== "system" && !prev.event && !m.event) || (!!prev.event && !!m.event && ["negotiation.topic", "negotiation.accepted"].includes(prev.event) && ["negotiation.topic", "negotiation.accepted"].includes(m.event)));
         const n = m.negotiationId ? byId.get(m.negotiationId) : undefined;
         return (
           <Fragment key={m.id}>
@@ -514,7 +514,19 @@ function MessageList({ messages, conv, onOpenNegotiation }: { messages: ChatMess
               transition={{ duration: DUR.small, ease: EASE_OUT }}
               className={grouped ? "" : "mt-1.5"}
             >
-              {m.event && n ? (
+              {m.event === "negotiation.topic" ? (
+                <p className="flex items-center justify-center gap-1.5 text-center text-xs text-[var(--text-muted)] px-6 py-0.5">
+                  <Handshake size={13} className="shrink-0 text-[var(--primary)]" aria-hidden />
+                  <span>
+                    <strong className="font-medium text-[var(--text)]">{m.role === me ? "Você" : firstName(other.name)}</strong>: {m.text}
+                  </span>
+                </p>
+              ) : m.event === "negotiation.accepted" ? (
+                <p className="flex items-center justify-center gap-1.5 text-center text-xs text-[var(--text-muted)] px-6 py-0.5">
+                  <CircleCheck size={13} className="shrink-0 text-[var(--deal-ok)]" aria-hidden />
+                  <span>{m.text}</span>
+                </p>
+              ) : m.event && n ? (
                 <EventCard m={m} n={n} conv={conv} otherName={other.name} onOpen={() => onOpenNegotiation(n.id)} />
               ) : m.role === "system" ? (
                 <p className="text-center text-xs text-[var(--text-muted)] px-6 py-1">{m.text}</p>
@@ -555,36 +567,33 @@ function Bubble({ m, mine }: { m: ChatMessage; mine: boolean }) {
   );
 }
 
-/** Marco de negociação: card clicável que leva ao painel daquela negociação */
+/** Marco de negociação: linha compacta; clicar leva ao painel daquela negociação */
 function EventCard({ m, n, conv, otherName, onOpen }: { m: ChatMessage; n: Negotiation; conv: ConversationDetail; otherName: string; onOpen: () => void }) {
   const meta = EVENT_META[m.event ?? ""] ?? EVENT_META["negotiation.opened"];
   const status = negotiationStatus(n, conv.myRole, otherName);
   const formalized = m.event === "negotiation.formalized";
   return (
     <div className="flex justify-center">
-      <div className={`w-full max-w-[420px] rounded-2xl border p-3 bg-[var(--bg)] ${formalized ? "border-[color-mix(in_oklch,var(--deal-ok)_45%,transparent)]" : "border-[var(--border-muted)]"}`}>
-        <div className="flex items-start gap-3">
-          <span className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${TONE_CLASS[meta.tone]}`}>
-            <meta.icon size={18} />
+      <div
+        className={`group w-full max-w-[440px] flex items-center gap-2 rounded-2xl border bg-[var(--bg)] transition-colors hover:border-[var(--primary)] ${formalized ? "border-[color-mix(in_oklch,var(--deal-ok)_45%,transparent)]" : "border-[var(--border-muted)]"}`}
+      >
+        <button type="button" onClick={onOpen} className="flex-1 min-w-0 flex items-start gap-3 px-3 py-2.5 text-left" aria-label={`${m.text} — ver negociação`}>
+          <span className={`w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 ${TONE_CLASS[meta.tone]}`}>
+            <meta.icon size={16} />
           </span>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm whitespace-pre-line break-words">{m.text}</p>
-            <div className="mt-2 flex items-center gap-2 flex-wrap">
-              <span className={`px-2 py-0.5 rounded-full border text-[11px] font-medium ${TONE_CLASS[status.tone]}`}>{status.text}</span>
-              <span className="text-[11px] text-[var(--text-muted)]">{timeLabel(m.createdAt)}</span>
-            </div>
-          </div>
-        </div>
-        <div className="mt-3 flex gap-2">
-          <button type="button" onClick={onOpen} className="h-8 px-3 rounded-lg text-xs font-medium border border-[var(--border-muted)] hover:border-[var(--primary)] transition">
-            {n.status === "OPEN" ? "Ver negociação" : "Detalhes"}
-          </button>
-          {formalized && n.contractId && (
-            <Link to={`/contract/${n.contractId}`} className="h-8 px-3 rounded-lg text-xs font-medium flex items-center gap-1.5 bg-[var(--primary)] text-white hover:brightness-110 transition">
-              <ScrollText size={14} /> Ver contrato
-            </Link>
-          )}
-        </div>
+          <span className="flex-1 min-w-0">
+            <span className="block text-[13px] leading-snug whitespace-pre-line break-words line-clamp-3">{m.text}</span>
+            <span className="mt-1 flex items-center gap-2">
+              <span className={`px-2 py-px rounded-full border text-[10.5px] font-medium ${TONE_CLASS[status.tone]}`}>{status.text}</span>
+              <span className="text-[10.5px] text-[var(--text-muted)]">{timeLabel(m.createdAt)}</span>
+            </span>
+          </span>
+        </button>
+        {formalized && n.contractId && (
+          <Link to={`/contract/${n.contractId}`} title="Ver contrato" className="mr-2.5 h-8 px-2.5 rounded-lg text-xs font-medium flex items-center gap-1.5 bg-[var(--primary)] text-white hover:brightness-110 transition shrink-0">
+            <ScrollText size={14} /> Contrato
+          </Link>
+        )}
       </div>
     </div>
   );

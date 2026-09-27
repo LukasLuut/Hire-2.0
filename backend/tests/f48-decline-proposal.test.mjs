@@ -14,12 +14,15 @@ test("48. cliente recusa a proposta respondida, com motivo", async () => {
   assert.equal(r.j.closedBy, "cliente");
   assert.equal(r.j.closeReason, "Valor acima do meu orçamento");
   const seen = (await req("GET", `/conversations/${q.j.id}`, t.ele)).j;
-  assert.equal(seen.status, "CLOSED");
+  // a conversa do par pode ter outras negociações: confere a deste pedido
+  const neg = seen.negotiations.find((x) => x.id === q.j.negotiationId);
+  assert.equal(neg.status, "CLOSED");
   assert.ok(seen.messages.some((m) => /Proposta recusada pelo cliente.*Valor acima/.test(m.text)));
   const [n] = await db("SELECT body FROM notifications WHERE type = 'quote.declined' ORDER BY id DESC LIMIT 1");
   assert.match(n.body, /Motivo: Valor acima/);
-  // encerrada: não recebe mais mensagens
-  assert.equal((await req("POST", `/conversations/${q.j.id}/messages`, t.ele, form({ text: "E se eu baixar?" }))).s, 400);
+  // chat v2: a negociação encerra, a conversa continua
+  assert.equal((await req("POST", `/conversations/${q.j.id}/messages`, t.ele, form({ text: "E se eu baixar?" }))).s, 201);
+  assert.equal((await req("PUT", `/conversations/${q.j.id}/negotiations/${q.j.negotiationId}/topics`, t.ele, { topics: neg.topics })).s, 400, "negociação encerrada não muda");
 });
 
 test("48. encerrar sem motivo continua funcionando", async () => {
