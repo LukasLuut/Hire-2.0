@@ -124,7 +124,7 @@ export default function Acessibility() {
             setOpen((v) => !v);
           }
         }}
-        className="fixed left-4 top-25 z-50 flex items-center justify-center w-14 h-14 rounded-full border border-[var(--border)] bg-[var(--bg-light)] text-[var(--primary)] hover:border-[var(--primary)] hover:scale-105 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--primary)]/50"
+        className="fixed left-4 top-25 z-50 flex items-center justify-center w-14 h-14 rounded-full shadow-lg border border-[var(--border)] bg-[var(--bg-light)] text-[var(--primary)] hover:border-[var(--primary)] hover:scale-105 transition focus:outline-none focus-visible:ring-4 focus-visible:ring-[var(--primary)]/50"
       >
         {/* ícone nas cores do tema vigente (claro/escuro) */}
        <Accessibility className="w-8 h-8" aria-hidden="true" />

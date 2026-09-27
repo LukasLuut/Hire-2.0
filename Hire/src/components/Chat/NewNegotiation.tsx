@@ -84,7 +84,7 @@ export default function NewNegotiation({ conv, token, onClose, onCreated }: { co
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-negotiation-title"
-        className="w-full sm:w-[440px] max-h-[88%] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-[var(--bg-light)] border border-[var(--border)]"
+        className="w-full sm:w-[440px] max-h-[88%] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-[var(--bg-light)] border border-[var(--border)] shadow-2xl"
         initial={{ y: 32, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 24, opacity: 0 }}

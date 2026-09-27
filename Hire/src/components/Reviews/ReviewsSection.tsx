@@ -76,7 +76,7 @@ export default function ReviewsSection({ title = "Avaliações", load, emptyText
             return (
               <motion.div
                 key={review.id}
-                className="bg-[var(--bg-light)]/20 backdrop-blur-lg rounded-2xl p-6 border border-[var(--border)] flex flex-col gap-2"
+                className="bg-[var(--bg-light)]/20 backdrop-blur-lg rounded-2xl p-6 shadow-lg border border-[var(--border)] flex flex-col gap-2"
                 whileHover={{ scale: 1.02 }}
                 transition={{ duration: 0.3 }}
               >

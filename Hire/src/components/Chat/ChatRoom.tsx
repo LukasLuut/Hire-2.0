@@ -327,7 +327,7 @@ export default function ChatRoom({ conversationId, initialDraft, beside = false,
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
                 transition={{ duration: DUR.small, ease: EASE_OUT }}
-                className="absolute left-1/2 -translate-x-1/2 bottom-24 z-10 h-8 px-3 rounded-full bg-[var(--primary)] text-white text-xs font-medium flex items-center gap-1.5"
+                className="absolute left-1/2 -translate-x-1/2 bottom-24 z-10 h-8 px-3 rounded-full bg-[var(--primary)] text-white text-xs font-medium shadow-lg flex items-center gap-1.5"
               >
                 <ArrowDown size={14} /> {unseenBelow} {unseenBelow === 1 ? "mensagem nova" : "mensagens novas"}
               </motion.button>
@@ -461,7 +461,7 @@ function Shell({ children, beside, isMobile, wide }: { children: React.ReactNode
       className={
         isMobile
           ? "fixed inset-0 z-[60] flex flex-col bg-[var(--bg-light)] text-[var(--text)]"
-          : "fixed z-[60] right-6 bottom-6 top-24 flex flex-col overflow-hidden rounded-3xl bg-[var(--bg-light)] text-[var(--text)] border border-[var(--border)]"
+          : "fixed z-[60] right-6 bottom-6 top-24 flex flex-col overflow-hidden rounded-3xl bg-[var(--bg-light)] text-[var(--text)] border border-[var(--border)] shadow-[0_24px_60px_-12px_rgba(0,0,0,0.6)]"
       }
     >
       {children}

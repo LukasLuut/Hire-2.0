@@ -78,14 +78,14 @@ function Circle({ item, onOpen, onDismiss }: { item: DockItem; onOpen: () => voi
         type="button"
         onClick={onOpen}
         aria-label={`Abrir conversa com ${item.name}${item.unread ? " (mensagem nova)" : ""}`}
-        className="block w-14 h-14 rounded-full border-4 border-[var(--primary)] bg-[var(--bg)] overflow-hidden hover:scale-105 transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        className="block w-14 h-14 rounded-full border-4 border-[var(--primary)] bg-[var(--bg)] shadow-[0_6px_20px_rgba(0,0,0,0.45)] overflow-hidden hover:scale-105 transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
       >
         <img src={item.avatar} alt="" className="w-full h-full object-cover" />
       </button>
       {item.unread && <span className="absolute top-0 right-0 w-4 h-4 rounded-full bg-red-500 ring-2 ring-[var(--bg-dark)]" aria-hidden />}
       <span
         role="tooltip"
-        className="pointer-events-none absolute bottom-full right-0 mb-2 z-10 whitespace-nowrap px-3 py-1.5 rounded-lg bg-[var(--primary)] text-white text-sm font-medium
+        className="pointer-events-none absolute bottom-full right-0 mb-2 z-10 whitespace-nowrap px-3 py-1.5 rounded-lg bg-[var(--primary)] text-white text-sm font-medium shadow-lg
                    opacity-0 translate-y-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0"
       >
         {item.name}
@@ -304,7 +304,7 @@ export function ChatDockProvider({ children }: { children: ReactNode }) {
                     onClick={() => setOverflowOpen((v) => !v)}
                     aria-expanded={overflowOpen}
                     aria-label={`Mais ${hidden.length} conversas minimizadas`}
-                    className="w-14 h-14 rounded-full border-4 border-[var(--primary)] bg-[var(--bg-light)] text-[var(--text)] font-bold hover:scale-105 transition-transform"
+                    className="w-14 h-14 rounded-full border-4 border-[var(--primary)] bg-[var(--bg-light)] text-[var(--text)] font-bold shadow-[0_6px_20px_rgba(0,0,0,0.45)] hover:scale-105 transition-transform"
                   >
                     +{hidden.length}
                   </button>
@@ -315,7 +315,7 @@ export function ChatDockProvider({ children }: { children: ReactNode }) {
                         initial={{ opacity: 0, x: 10 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 10 }}
-                        className="absolute right-full top-0 mr-3 w-72 max-h-[60vh] overflow-y-auto rounded-2xl bg-[var(--bg)] border border-[var(--border)] p-2"
+                        className="absolute right-full top-0 mr-3 w-72 max-h-[60vh] overflow-y-auto rounded-2xl bg-[var(--bg)] border border-[var(--border)] shadow-xl p-2"
                       >
                         <p className="px-2 py-1 text-xs text-[var(--text-muted)]">Mais conversas minimizadas</p>
                         {hidden.map((i) => (
@@ -362,7 +362,7 @@ export function ChatDockProvider({ children }: { children: ReactNode }) {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: DUR.panel, ease: EASE_OUT }}
-                className="fixed z-[55] left-0 right-0 top-0 bottom-0 md:left-6 md:right-auto md:top-24 md:bottom-6 md:w-[360px] flex flex-col bg-[var(--bg-light)] md:rounded-3xl border border-[var(--border)] text-[var(--text)] overflow-hidden"
+                className="fixed z-[55] left-0 right-0 top-0 bottom-0 md:left-6 md:right-auto md:top-24 md:bottom-6 md:w-[360px] flex flex-col bg-[var(--bg-light)] md:rounded-3xl shadow-2xl border border-[var(--border)] text-[var(--text)] overflow-hidden"
               >
                 <div className="px-4 pt-4 pb-3 border-b border-[var(--border-muted)]">
                   <div className="flex items-center justify-between">

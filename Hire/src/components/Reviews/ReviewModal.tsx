@@ -106,7 +106,7 @@ export default function ReviewModal({ open, onClose, hireId, targetName, service
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.8, opacity: 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 20 }}
-            className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto bg-[var(--bg-light)] rounded-3xl border border-[var(--border)] p-6 text-[var(--text)]"
+            className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto bg-[var(--bg-light)] rounded-3xl shadow-2xl border border-[var(--border)] p-6 text-[var(--text)]"
           >
             <button
               onClick={onClose}
@@ -186,7 +186,7 @@ export default function ReviewModal({ open, onClose, hireId, targetName, service
               <button
                 onClick={submit}
                 disabled={sending}
-                className="px-5 py-2 rounded-xl bg-[var(--primary)] text-white font-semibold hover:scale-[1.02] transition-all flex items-center gap-2 disabled:opacity-70"
+                className="px-5 py-2 rounded-xl bg-[var(--primary)] text-white font-semibold shadow-md hover:scale-[1.02] hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-70"
               >
                 {sending && <Loader2 size={16} className="animate-spin" />}
                 Enviar avaliação
