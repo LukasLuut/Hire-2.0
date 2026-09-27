@@ -150,7 +150,7 @@ export default function ServiceGalleryZoom({
         {/* ------------------------------------------------------------------
          * BARRA DE PESQUISA + TAGS + FILTROS
          * ------------------------------------------------------------------ */}
-        <div className="w-full max-w-3xl mx-auto mb-10">
+        <div className="w-full max-w-[1000px] mx-auto mb-10">
           {/* no Business (serviços do próprio prestador) só a busca; para quem visita, busca + filtros */}
           <SearchWithFilters
             value={searchTerm}

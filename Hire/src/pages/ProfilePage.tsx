@@ -8,6 +8,7 @@
  *  - Busca de serviços e avaliações recebidas como cliente
  * -------------------------------------------------------------------------- */
 import { useState, useEffect, useCallback, lazy, Suspense } from "react";
+import { requestChat } from "../utils/chatEvents";
 import EditableAvatar from "../components/Common/EditableAvatar";
 import { providerApi } from "../api/ProviderAPI";
 import { Heart, X } from "lucide-react";
@@ -22,7 +23,6 @@ import ServiceDashboardSophisticated from "./DashboardClient";
 import ProfileCardSkeleton from "../skeletons/ProfileCardSkeleton";
 import { useToast } from "../components/Toast/ToastContext"
 import { useSession } from "../context/SessionContext";
-import ChatInbox from "../components/Chat/ChatInbox";
 import ConfirmModal from "../components/Common/ConfirmModal";
 import ReviewsSection from "../components/Reviews/ReviewsSection";
 import FavoritesSection from "../components/Favorites/FavoritesSection";
@@ -74,7 +74,6 @@ export default function ProfilePage() {
   };
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [isOpenChat, setIsOpenChat]=useState(false)
   const [registration, setRegistration]=useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -279,7 +278,7 @@ export default function ProfilePage() {
               </button>
             )}
              <button
-                onClick={()=>{setIsOpenChat(true)}}
+                onClick={() => requestChat(null)}
                 className="px-2 md:px-4 py-2 border min-h-14 bottom-0 flex gap-2 items-center border-[var(--border)] rounded-lg hover:bg-[var(--bg-light)] transition">
               <MessageSquare size={20} /> Chat
             </button>
@@ -296,7 +295,6 @@ export default function ProfilePage() {
       {/* ===============================================================
        * SEÇÃO DO CHAT (conversas e negociações)
        * =============================================================== */}
-      <ChatInbox isOpen={isOpenChat} onClose={() => setIsOpenChat(false)} />
 
       {/* painel de favoritos */}
       <AnimatePresence>

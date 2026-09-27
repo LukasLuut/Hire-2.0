@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { requestChat } from "../utils/chatEvents";
 import { useToast } from "../components/Toast/ToastContext";
 import { getErrorMessage } from "../utils/errors";
 import ConfirmModal from "../components/Common/ConfirmModal";
@@ -24,7 +25,6 @@ import {
 import ServiceEditor from "../components/ServiceEditor/ServiceEditor";
 import ServiceResponseModal from "../components/Negotiation/ServiceResponseModal";
 import { Navigate, useNavigate } from "react-router-dom";
-import ChatInbox from "../components/Chat/ChatInbox";
 import { ProviderProfileSkeleton } from "../skeletons/ProviderProfileSkeleton/ProviderProfileSkeleton";
 import { useSession } from "../context/SessionContext";
 import { hireAPI } from "../api/HireAPI";
@@ -55,7 +55,6 @@ export default function DashboardPrestador() {
   const [bookings, setBookings] = useState<HireEntity[] | null>(null);
   const [reviews, setReviews] = useState<ReviewEntity[] | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
-  const [isOpenChat, setIsOpenChat]=useState(false);
   const [galleryKey, setGalleryKey] = useState(0);
   const [responding, setResponding] = useState<number | null>(null);
   const [myServices, setMyServices] = useState<ServiceEntity[]>([]);
@@ -197,7 +196,7 @@ export default function DashboardPrestador() {
                 <button onClick={()=>setOpenCreateService(true)} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--primary)]/90 border border-[var(--border-muted)] hover:border-[var(--highlight)]">
                   <Plus /> <span className="text-sm">Novo serviço</span>
                 </button>
-                <button onClick={()=>{setIsOpenChat(true)}} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)] hover:border-[var(--highlight)]">
+                <button onClick={() => requestChat(null)} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)] hover:border-[var(--highlight)]">
                   <MessageSquare /> <span className="text-sm">Mensagens</span>
                 </button>
                 <button onClick={() => navigate("/carteira")} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)] hover:border-[var(--highlight)]">
@@ -277,7 +276,7 @@ export default function DashboardPrestador() {
                         <button onClick={()=>setOpenCreateService(true)} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--primary)] border border-[var(--border-muted)] hover:border-[var(--highlight)]">
                           <Plus /> <span  className="text-sm">Novo serviço</span>
                         </button>
-                        <button onClick={()=>{setIsOpenChat(true)}} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)] hover:border-[var(--highlight)]">
+                        <button onClick={() => requestChat(null)} className="flex items-center gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)] hover:border-[var(--highlight)]">
                           <MessageSquare /> <span className="text-sm">Mensagens</span>
                         </button>
                         <button
@@ -445,7 +444,6 @@ export default function DashboardPrestador() {
         </ConfirmModal>
 
         {/* CHAT */}
-        <ChatInbox isOpen={isOpenChat} onClose={() => { setIsOpenChat(false); load(); }} />
         <ServiceResponseModal isOpen={responding !== null} conversationId={responding} onClose={() => setResponding(null)} onDone={load} />
         {/* main content: services + bookings */}
 

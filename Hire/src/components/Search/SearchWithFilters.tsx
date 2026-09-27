@@ -58,16 +58,16 @@ export default function SearchWithFilters({
   return (
     <div className="relative" ref={ref}>
       <div
-        className="flex items-center gap-3 h-[52px] pl-4 pr-2 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)] focus-within:border-[var(--primary)] transition"
+        className="flex items-center gap-3 h-[68px] pl-5 pr-3 rounded-2xl bg-[var(--bg-light)]/30 border border-[var(--border-muted)] transition"
         role="search"
       >
-        <Search className="shrink-0 text-[var(--text-muted)]" size={20} aria-hidden />
+        <Search className="shrink-0 text-[var(--text-muted)]" size={24} aria-hidden />
         <input
           aria-label={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="bg-transparent outline-none text-[var(--text)] placeholder:text-[var(--text-muted)] flex-1 min-w-0"
+          className="no-focus-ring bg-transparent outline-none text-lg text-[var(--text)] placeholder:text-[var(--text-muted)] flex-1 min-w-0"
         />
         {value && (
           <button type="button" onClick={() => onChange("")} aria-label="Limpar busca" className="p-1 text-[var(--text-muted)] hover:text-[var(--text)]">
@@ -80,10 +80,10 @@ export default function SearchWithFilters({
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             aria-label={activeCount ? `Filtros (${activeCount} ativos)` : "Filtros"}
-            className={`relative shrink-0 flex items-center gap-2 h-9 px-3 rounded-xl border transition ${open || activeCount ? "border-[var(--primary)] text-[var(--text)]" : "border-transparent text-[var(--text-muted)] hover:text-[var(--text)]"}`}
+            className={`relative shrink-0 flex items-center gap-2 h-11 px-4 rounded-xl border transition ${open || activeCount ? "border-[var(--primary)] text-[var(--text)]" : "border-transparent text-[var(--text-muted)] hover:text-[var(--text)]"}`}
           >
-            <SlidersHorizontal size={18} aria-hidden />
-            <span className="hidden sm:inline text-sm">Filtros</span>
+            <SlidersHorizontal size={20} aria-hidden />
+            <span className="hidden sm:inline">Filtros</span>
             {activeCount > 0 && (
               <span className="min-w-5 h-5 px-1 rounded-full bg-[var(--primary)] text-white text-xs flex items-center justify-center">{activeCount}</span>
             )}

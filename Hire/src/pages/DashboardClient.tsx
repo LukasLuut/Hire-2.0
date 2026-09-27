@@ -310,7 +310,7 @@ export default function ServiceDashboardSophisticated() {
               aria-hidden
             />
             {/* busca centralizada; localização num círculo ao lado (abre as opções em cascata) */}
-            <div className="max-w-4xl mx-auto mb-10">
+            <div className="max-w-[1160px] mx-auto mb-10">
               <div className="flex items-start gap-3">
               <div className="flex-1 min-w-0">
                 <SearchWithFilters

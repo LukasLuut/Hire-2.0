@@ -217,6 +217,8 @@ body.light {
 
    /* Foco visível para navegação por teclado (fora de @layer para vencer outline-none) */
    :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+   /* barras de busca: sem contorno ao digitar (o cursor já mostra o foco; a barra inteira é o campo) */
+   .no-focus-ring:focus, .no-focus-ring:focus-visible, .a11y-focus-outline .no-focus-ring:focus { outline: none; }
    @media (prefers-reduced-motion: reduce) {
      *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
    }

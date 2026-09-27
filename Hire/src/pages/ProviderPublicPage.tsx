@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { requestChat } from "../utils/chatEvents";
 import ProfileUnavailable from "../components/ProfileUnavailable";
 import { providerUrl } from "../utils/providerPath";
 import SharePanel from "../components/Share/SharePanel";
@@ -12,7 +13,6 @@ import { displayServicePrice } from "../utils/price";
 import ReportModal from "../components/Reports/ReportModal";
 import ProviderHero from "../components/ProviderHero/ProviderHero";
 import ReviewsSection from "../components/Reviews/ReviewsSection";
-import ChatInbox from "../components/Chat/ChatInbox";
 import { ProviderProfileSkeleton } from "../skeletons/ProviderProfileSkeleton/ProviderProfileSkeleton";
 import { providerApi } from "../api/ProviderAPI";
 import { reviewAPI } from "../api/ReviewAPI";
@@ -46,7 +46,6 @@ export default function ProviderPublicPage() {
   const [error, setError] = useState<string | null>(null);
   // perfil desativado (410) ou inexistente (404): página própria para o visitante
   const [unavailable, setUnavailable] = useState<"deactivated" | "not_found" | null>(null);
-  const [chatId, setChatId] = useState<number | null>(null);
   // Orçamento: escolhe o serviço (quando há mais de um) e abre o pedido de negociação
   const [pickOpen, setPickOpen] = useState(false);
   // picked = null → "Outros" (serviço que o prestador não listou)
@@ -103,7 +102,7 @@ export default function ProviderPublicPage() {
     }
     try {
       const conv = await conversationAPI.open({ providerId }, token);
-      setChatId(conv.id);
+      requestChat(conv.id);
     } catch (err) {
       showToast(getErrorMessage(err, "Não foi possível abrir a conversa."), "error");
     }
@@ -223,7 +222,6 @@ export default function ProviderPublicPage() {
       )}
       {!isMe && <div className="sm:hidden h-20" aria-hidden />}
 
-      <ChatInbox isOpen={!!chatId} initialConversationId={chatId} onClose={() => setChatId(null)} />
 
       {/* Orçamento: qual serviço? */}
       <ConfirmModal

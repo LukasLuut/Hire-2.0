@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { requestChat } from "../../../utils/chatEvents";
 import { openInfo } from "../../../utils/openStatus";
 import { cameFromProfile, track } from "../../../utils/analytics";
 import { providerPath } from "../../../utils/providerPath";
@@ -21,7 +22,6 @@ import { reviewAPI } from "../../../api/ReviewAPI";
 import { conversationAPI } from "../../../api/ConversationAPI";
 import { useToast } from "../../../components/Toast/ToastContext";
 import { useSession } from "../../../context/SessionContext";
-import ChatInbox from "../../Chat/ChatInbox";
 import ReviewModal from "../../Reviews/ReviewModal";
 import ServiceNegotiationModal from "../../Negotiation/ServiceNegotiationModal";
 import { SlotPicker, type Agenda } from "../../Schedule";
@@ -65,8 +65,6 @@ export default function ServiceDetail({
   const [confirming, setConfirming] = useState<null | "hire" | "conclude">(null)
   const [busy, setBusy] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
-  const [chatId, setChatId] = useState<number | null>(null)
-  const [chatDraft, setChatDraft] = useState("")
   const [quoteOpen, setQuoteOpen] = useState(false)
   const [slot, setSlot] = useState<string | null>(null)
   const [agenda, setAgenda] = useState<Agenda | null>(null)
@@ -111,11 +109,12 @@ export default function ServiceDetail({
 
   // Esc fecha o modal
   useEffect(() => {
-    if (!isOpen || imageModalOpen || reviewOpen || chatId || quoteOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    if (!isOpen || imageModalOpen || reviewOpen || quoteOpen) return;
+    // com uma conversa aberta por cima, o Esc é dela
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !document.querySelector("[data-chat-room]") && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, imageModalOpen, reviewOpen, chatId, quoteOpen, onClose]);
+  }, [isOpen, imageModalOpen, reviewOpen, quoteOpen, onClose]);
 
   const slideNext = () => {
     setDirection(1);
@@ -233,8 +232,7 @@ export default function ServiceDetail({
     if (!token) return;
     try {
       const conv = await conversationAPI.open({ serviceId: service.id }, token);
-      setChatDraft(draft ?? "");
-      setChatId(conv.id);
+      requestChat(conv.id, draft);
     } catch (err) {
       showToast(getErrorMessage(err, "Não foi possível abrir a conversa."), "error");
     }
@@ -621,7 +619,6 @@ export default function ServiceDetail({
             startIndex={currentIndex}
           />
 
-          <ChatInbox isOpen={!!chatId} initialConversationId={chatId} initialDraft={chatDraft} onClose={() => setChatId(null)} />
 
           <ServiceNegotiationModal
             isOpen={quoteOpen}

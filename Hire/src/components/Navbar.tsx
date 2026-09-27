@@ -73,6 +73,7 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
 
   // itens da cascata, do mais perto do botão de menu para o mais longe
   const cascade = [
+    { label: unreadCount ? `Conversas (${unreadCount} novas)` : "Conversas", to: "", icon: MessageCircle, kind: "chat" as const },
     ...links.map((l) => ({ ...l, kind: "link" as const })),
     { label: theme === "dark" ? "Modo claro" : "Modo escuro", to: "", icon: theme === "dark" ? Sun : Moon, kind: "theme" as const },
     { label: "Sair", to: "", icon: LogOut, kind: "logout" as const },
@@ -117,8 +118,16 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
                                   <Icon size={20} />
                                 </NavLink>
                               ) : (
-                                <button type="button" aria-label={item.label} onClick={item.kind === "theme" ? toggleTheme : handleLogout} className={`${iconBtn} flex`}>
+                                <button
+                                  type="button"
+                                  aria-label={item.label}
+                                  onClick={item.kind === "chat" ? () => { setOpen(false); openInbox(); } : item.kind === "theme" ? toggleTheme : handleLogout}
+                                  className={`${iconBtn} flex relative`}
+                                >
                                   <Icon size={20} />
+                                  {item.kind === "chat" && unreadCount > 0 && (
+                                    <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-600 text-white text-xs flex items-center justify-center">{unreadCount}</span>
+                                  )}
                                 </button>
                               )}
                             </IconTip>
@@ -130,18 +139,10 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
                 </AnimatePresence>
               </div>
 
-              {/* conversas: abre a lista (também depois de sair e entrar de novo) */}
-              <IconTip label="Conversas">
-                <button type="button" onClick={() => { setOpen(false); openInbox(); }} aria-label={unreadCount ? `Conversas (${unreadCount} novas)` : "Conversas"} className={`${iconBtn} relative flex`}>
-                  <MessageCircle size={20} />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-600 text-white text-xs flex items-center justify-center">{unreadCount}</span>
-                  )}
-                </button>
-              </IconTip>
               <NotificationBell onNavigate={() => setOpen(false)} />
-              <button onClick={() => setOpen(!open)} aria-label={open ? "Fechar menu" : "Abrir menu"} aria-expanded={open} className={iconBtn}>
+              <button onClick={() => setOpen(!open)} aria-label={open ? "Fechar menu" : unreadCount ? `Abrir menu (${unreadCount} conversas novas)` : "Abrir menu"} aria-expanded={open} className={`${iconBtn} relative`}>
                 {open ? <X size={20} /> : <Menu size={20} />}
+                {!open && unreadCount > 0 && <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-red-600 ring-2 ring-[var(--bg-dark)]" aria-hidden />}
               </button>
             </>
           ) : (
@@ -162,6 +163,9 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3 }}
           >
+            <button onClick={() => { setOpen(false); openInbox(); }} className="flex items-center gap-3 text-[var(--text)]">
+              <MessageCircle size={18} /> Conversas{unreadCount ? <span className="ml-1 px-1.5 rounded-full bg-red-600 text-white text-xs">{unreadCount}</span> : null}
+            </button>
             {links.map((link) => (
               <NavLink key={link.to} to={link.to} className={linkClass}>
                 <span className="flex items-center gap-3"><link.icon size={18} /> {link.label}</span>

@@ -7,13 +7,13 @@
 // - Usa variáveis CSS do projeto: --bg, --bg-light, --border, --text, --primary, --highlight
 
 import { CheckCircle, MessageSquare, Star, RotateCcw, CalendarClock, Flag, ShieldAlert, Wallet } from "lucide-react";
+import { requestChat } from "../utils/chatEvents";
 import ReportModal from "./Reports/ReportModal";
 import { SlotPicker, noticeHours, localDateTimeKey, type Agenda } from "./Schedule";
 import { useEffect, useRef, useState } from "react";
 import PostCard from "./ServiceGallery/Service/Service";
 import ConfirmModal from "./Common/ConfirmModal";
 import ReviewModal from "./Reviews/ReviewModal";
-import ChatInbox from "./Chat/ChatInbox";
 import { hireAPI } from "../api/HireAPI";
 import { reviewAPI } from "../api/ReviewAPI";
 import { conversationAPI } from "../api/ConversationAPI";
@@ -77,7 +77,6 @@ export function ServiceProgress({
   const [reviewOpen, setReviewOpen] = useState(false);
   const [rehireOpen, setRehireOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
-  const [chatId, setChatId] = useState<number | null>(null);
   // novo horário proposto (agenda do serviço sem contar este pedido)
   const [newSlot, setNewSlot] = useState<string | null>(null);
   const [agenda, setAgenda] = useState<Agenda | null>(null);
@@ -193,7 +192,7 @@ export function ServiceProgress({
     if (!data.service?.id) return;
     try {
       const conv = await conversationAPI.open({ serviceId: data.service.id }, token);
-      setChatId(conv.id);
+      requestChat(conv.id);
     } catch (err) {
       showToast(getErrorMessage(err, "Não foi possível abrir a conversa."), "error");
     }
@@ -590,7 +589,6 @@ export function ServiceProgress({
         onDone={() => setReviewed(true)}
       />
 
-      <ChatInbox isOpen={!!chatId} initialConversationId={chatId} onClose={() => setChatId(null)} />
     </div>
   );
 }
