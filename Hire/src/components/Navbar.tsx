@@ -67,6 +67,21 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
     navigate("/auth");
   };
   const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
+  // visitante: na página inicial o cartão de entrar já está lá (rola até ele); nas outras, vai para /auth
+  const goAuth = (signup: boolean) => {
+    const card = document.getElementById("entrar");
+    if (card) {
+      card.scrollIntoView({ behavior: "smooth", block: "center" });
+      const tab = [...card.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find((b) => b.textContent === (signup ? "Sign Up" : "Log In"));
+      tab?.click();
+      return;
+    }
+    const params = new URLSearchParams();
+    if (signup) params.set("cadastro", "1");
+    if (location.pathname !== "/") params.set("next", location.pathname + location.search);
+    const qs = params.toString();
+    navigate(`/auth${qs ? `?${qs}` : ""}`);
+  };
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `transition hover:text-[var(--text-highlight)] ${isActive ? "text-[var(--primary)]" : "text-[var(--text)]"}`;
@@ -147,7 +162,19 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
                 {!open && unreadCount > 0 && <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-red-600 ring-2 ring-[var(--bg-dark)]" aria-hidden />}
               </button>
             </>
-          ) : null /* sem login o tema é fixo (escuro): a troca só aparece depois de entrar */}
+          ) : (
+            /* sem login: tema fixo (escuro) e atalhos para entrar; na página inicial rolam até o cartão */
+            location.pathname !== "/auth" && (
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => goAuth(false)} className="h-10 px-4 rounded-xl text-sm font-medium text-[var(--text)] border border-[var(--border)] hover:border-[var(--primary)] transition">
+                  Entrar
+                </button>
+                <button type="button" onClick={() => goAuth(true)} className="hidden sm:inline-flex items-center h-10 px-4 rounded-xl text-sm font-semibold text-white bg-[var(--primary)] hover:brightness-110 transition">
+                  Criar conta
+                </button>
+              </div>
+            )
+          )}
         </div>
       </div>
 

@@ -13,8 +13,24 @@ import { getErrorMessage } from "../utils/errors";
 
 
 
-/** embedded: dentro da página de apresentação (não redireciona quem já está logado) */
-export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
+/** Página /auth: arte do Hire ao lado do cartão de entrar/cadastrar */
+export default function AuthPage() {
+  return (
+    <div className="min-h-screen flex items-center bg-[linear-gradient(135deg,_#000_0%,_#000_50%,_#000_75%,_var(--primary)_100%)] justify-center lg:justify-around gap-10 px-4 sm:px-8 lg:px-20 xl:px-40 pt-24 pb-10">
+      <img src={hirePng} width={480} height={679} className="hidden lg:block max-w-120 h-auto" alt="logo hire" />
+      <AuthCard />
+    </div>
+  );
+}
+
+/** Pedido externo para o cartão (ex.: "Cadastrar como profissional" na página inicial) */
+export type AuthCardRequest = { signup: boolean; tipo?: AccountType; nonce: number };
+
+/**
+ * Cartão de entrar/cadastrar (usado em /auth e no topo da página inicial).
+ * embedded: dentro de outra página (não redireciona quem já está logado).
+ */
+export function AuthCard({ embedded = false, request, id }: { embedded?: boolean; request?: AuthCardRequest | null; id?: string }) {
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isLogin, setIsLogin] = useState(() => new URLSearchParams(window.location.search).get("cadastro") !== "1");
   const [formData, setFormData] = useState({
@@ -37,6 +53,12 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
   });
   const navigate = useNavigate()
   const { showToast } = useToast();
+  // pedido de fora (botões da página inicial): abre a aba e o tipo de conta certos
+  useEffect(() => {
+    if (!request) return;
+    setIsLogin(!request.signup);
+    if (request.tipo) setAccountType(request.tipo);
+  }, [request]);
   const { token, login } = useSession();
   // Para onde voltar depois de entrar (só caminhos internos, ex.: /service/12)
   const [params] = useSearchParams();
@@ -165,13 +187,11 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
   const toSignup = !isLogin;
 
   return (
-    <div
-      className="min-h-screen flex items-center bg-[linear-gradient(135deg,_#000_0%,_#000_50%,_#000_75%,_var(--primary)_100%)] justify-center lg:justify-around gap-10 px-4 sm:px-8 lg:px-20 xl:px-40 pt-24 pb-10"
-    >
-      <img src={hirePng} width={480} height={679} className="hidden lg:block max-w-120 h-auto" alt="logo hire" />
+    <>
       <MotionConfig reducedMotion="user">
         {/* o cartão acompanha a altura do formulário (anima ao crescer/encolher), sem rolagem interna */}
         <motion.div
+          id={id}
           layout
           transition={{ layout: { duration: 0.32, ease } }}
           className="relative w-full max-w-[460px] sm:max-w-[540px] rounded-3xl overflow-hidden shadow-[0_0_40px_10px_var(--primary)]"
@@ -365,6 +385,6 @@ export default function AuthPage({ embedded = false }: { embedded?: boolean }) {
         </motion.div>
       </MotionConfig>
       {isPrivacyOpen && <UseTerms setIsPrivacyOpen={setIsPrivacyOpen} />}
-    </div>
+    </>
   );
 }
