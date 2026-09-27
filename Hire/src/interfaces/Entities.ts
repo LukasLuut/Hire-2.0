@@ -27,7 +27,6 @@ export interface ProviderEntity {
   professionalEmail: string;
   professionalPhone: string;
   /** contato visível no perfil público (a API pública só manda e-mail/telefone quando true) */
-  showContact?: boolean;
   slug?: string | null;
   createdAt?: string | null;
   /** (perfil público) página da categoria na cidade, quando existe */

@@ -104,7 +104,6 @@ function buildInitialForm(existing: ProviderEntity | null | undefined, user: Reg
   showApproxLocation: existing ? !!existing.approximateLocation : true,
   allowReviews: existing ? !!existing.publicReviews : true,
   showPrices: existing ? !!existing.pricesOnPage : true,
-  showContact: existing ? !!existing.showContact : false,
   status: existing?.status === "paused" ? "paused" : "available",
   };
 }
@@ -238,7 +237,6 @@ export default function ProviderRegistrationContainer({ isOpen, onClose, existin
     formData.append("approximateLocation", JSON.stringify(form.showApproxLocation));
     formData.append("publicReviews", JSON.stringify(form.allowReviews));
     formData.append("pricesOnPage", JSON.stringify(form.showPrices));
-    formData.append("showContact", JSON.stringify(form.showContact));
     formData.append("whatsNotification", JSON.stringify(form.notifications.whatsapp));
     formData.append("emailNotification", JSON.stringify(form.notifications.email));
     formData.append("status", form.status);

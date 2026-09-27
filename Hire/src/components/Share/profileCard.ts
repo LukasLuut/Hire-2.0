@@ -140,7 +140,7 @@ export async function renderProfileCard(data: ProfileCardData, theme: CardTheme)
   ctx.font = `400 21px ${font}`;
   const about = data.description ? wrap(ctx, data.description, infoW, 3) : [];
   const infoH = 60 + 42 + 36 + (data.experience ? 32 : 0) + (data.area ? 34 : 0) + (about.length ? 18 + about.length * 30 : 0) + 30 + 62;
-  const H = Math.max(PAD * 2 + AVATAR + 8, PAD * 2 + infoH, PAD * 2 + QR + 70);
+  const H = Math.max(PAD * 2 + AVATAR + 8, PAD * 2 + infoH, PAD * 2 + QR + 96);
 
   canvas.width = W * scale;
   canvas.height = H * scale;
@@ -262,7 +262,7 @@ export async function renderProfileCard(data: ProfileCardData, theme: CardTheme)
 
   // QR Code ao lado das informações (fundo branco para qualquer câmera ler)
   const qx = W - PAD - QR;
-  const qy = (H - QR - 52) / 2;
+  const qy = (H - QR - 90) / 2;
   ctx.beginPath();
   ctx.roundRect(qx, qy, QR, QR, 20);
   ctx.fillStyle = "#ffffff";
@@ -273,13 +273,13 @@ export async function renderProfileCard(data: ProfileCardData, theme: CardTheme)
     ctx.stroke();
   }
   if (qr) ctx.drawImage(qr, qx + 12, qy + 12, QR - 24, QR - 24);
+  // marca e slogan abaixo do QR Code
   ctx.textAlign = "center";
-  ctx.font = `600 18px ${font}`;
+  ctx.font = `800 44px ${font}`;
   ctx.fillStyle = c.text;
-  ctx.fillText("Aponte a câmera", qx + QR / 2, qy + QR + 30);
-  ctx.font = `400 15px ${font}`;
-  ctx.fillStyle = c.muted;
-  ctx.fillText(fit(ctx, `hire · /prestador/${data.slug}`, QR + 40), qx + QR / 2, qy + QR + 52);
+  ctx.fillText("Hire.", qx + QR / 2, qy + QR + 56);
+  ctx.font = `700 16px ${font}`;
+  ctx.fillText(fit(ctx, "Quem precisa encontra quem faz.", QR + 40), qx + QR / 2, qy + QR + 82);
   ctx.textAlign = "left";
 
   return await new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("canvas"))), "image/png"));

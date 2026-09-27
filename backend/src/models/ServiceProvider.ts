@@ -94,9 +94,6 @@ export class ServiceProvider {
   @Column({ type: "datetime", nullable: true })
   deactivatedAt?: Date | null;
 
-  // Mostrar e-mail e telefone profissionais no perfil público (padrão: não; contato pelo chat)
-  @Column({ default: false })
-  showContact: boolean;
 
   @CreateDateColumn({ nullable: true })
   createdAt?: Date;

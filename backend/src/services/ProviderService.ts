@@ -417,7 +417,7 @@ export class ProviderService {
 
 /** Campos que o próprio prestador pode editar (lista fechada: evita atribuição em massa) */
 const TEXT_FIELDS = ["companyName", "professionalName", "professionalEmail", "professionalPhone", "description", "cnpj", "onlineLink", "status"] as const;
-const BOOL_FIELDS = ["attendsPresent", "attendsOnline", "personalizedProposals", "approximateLocation", "publicReviews", "pricesOnPage", "whatsNotification", "emailNotification", "showContact"] as const;
+const BOOL_FIELDS = ["attendsPresent", "attendsOnline", "personalizedProposals", "approximateLocation", "publicReviews", "pricesOnPage", "whatsNotification", "emailNotification"] as const;
 
 function editableFields(data: any) {
   const out: Record<string, unknown> = {};

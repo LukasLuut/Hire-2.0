@@ -18,7 +18,7 @@ test("52. favoritar prestador", async () => {
   assert.ok(souza, "aparece na lista");
   assert.equal(souza.available, true);
   assert.ok(souza.slug && souza.rating, "dados públicos");
-  assert.equal(souza.professionalEmail === undefined || souza.showContact, true, "sem contato privado");
+  assert.equal(souza.professionalEmail, undefined, "sem contato privado");
   const off = await req("POST", "/providers/1/favorite", t.cli);
   assert.equal(off.j.favorite, false);
   assert.ok(!(await req("GET", "/providers/favorites/me", t.cli)).j.some((p) => p.id === 1));

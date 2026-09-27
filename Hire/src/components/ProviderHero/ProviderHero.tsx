@@ -224,27 +224,6 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
 
       </div>
 
-      {/* contato direto: só quando o prestador escolheu mostrar */}
-      {readOnly && provider.showContact && (provider.professionalPhone || provider.professionalEmail) && (
-        <div className="mt-8 flex flex-wrap gap-2 text-sm">
-          {provider.professionalPhone && (
-            <a
-              href={`https://wa.me/55${provider.professionalPhone.replace(/\D/g, "")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-2 rounded-lg border border-[var(--border)] hover:border-[var(--primary)]"
-            >
-              WhatsApp {provider.professionalPhone}
-            </a>
-          )}
-          {provider.professionalEmail && (
-            <a href={`mailto:${provider.professionalEmail}`} className="px-3 py-2 rounded-lg border border-[var(--border)] hover:border-[var(--primary)]">
-              {provider.professionalEmail}
-            </a>
-          )}
-        </div>
-      )}
-
       {/* MODELO DE ATENDIMENTO */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-24">
         <InfoCard

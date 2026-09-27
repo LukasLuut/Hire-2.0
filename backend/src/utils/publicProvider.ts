@@ -8,8 +8,8 @@ import { accountVerified } from "./accountVerified";
  *
  * Ficam de fora: coordenadas exatas (a distância é calculada no servidor),
  * CNPJ, link privado de atendimento online, preferências internas
- * (avisos por WhatsApp/e-mail) e o contato profissional — este só aparece
- * quando o prestador liga "mostrar contato no perfil" (showContact).
+ * (avisos por WhatsApp/e-mail) e o contato profissional (e-mail e telefone):
+ * cliente e prestador conversam pelo chat do Hire.
  */
 export function toPublicProvider(p: (ServiceProvider & Record<string, any>) | null | undefined) {
   if (!p) return p ?? null;
@@ -41,12 +41,7 @@ export function toPublicProvider(p: (ServiceProvider & Record<string, any>) | nu
     // selo único do perfil: cadastro completo + todas as validações
     verified: accountVerified(p),
     createdAt: p.createdAt ?? null,
-    showContact: !!p.showContact,
   };
-  if (p.showContact) {
-    out.professionalEmail = p.professionalEmail;
-    out.professionalPhone = p.professionalPhone;
-  }
   // campos calculados ou relações, quando vierem carregados
   for (const key of ["rating", "completedHires", "level", "lateCancellations", "category", "subcategories", "links", "availabilities", "emailVerified"]) {
     if (p[key] !== undefined) out[key] = p[key];

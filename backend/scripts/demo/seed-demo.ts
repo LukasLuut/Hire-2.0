@@ -247,7 +247,7 @@ async function seedAll() {
       professionalName: p.name, companyName: tradeName, user, professionalEmail: user.email, professionalPhone: `(${pick(["51", "51", "54", "53", "48", "41", "11"])}) 9${int(8000, 9999)}-${int(1000, 9999)}`,
       attendsPresent: !onlineHeavy || chance(0.5), attendsOnline: onlineHeavy || chance(0.15), personalizedProposals: chance(0.6), approximateLocation: chance(0.5), publicReviews: true,
       pricesOnPage: chance(0.92), whatsNotification: false, emailNotification: true, status: closed ? "paused" : "available", closedUntil: closed && chance(0.6) ? new Date(Date.now() + int(3, 20) * DAY) : null,
-      slug, showContact: chance(0.3), baseCity: c.city, baseState: c.state, latitude: c.lat + (rand() - 0.5) * 0.08, longitude: c.lng + (rand() - 0.5) * 0.08, serviceRadiusKm: pick([10, 15, 20, 25, 30, 40]),
+      slug, baseCity: c.city, baseState: c.state, latitude: c.lat + (rand() - 0.5) * 0.08, longitude: c.lng + (rand() - 0.5) * 0.08, serviceRadiusKm: pick([10, 15, 20, 25, 30, 40]),
       description: `${pick(cat.bios)} ${pick(["Atendo " + c.city + " e região.", "Agende pelo Hire e pague com segurança.", "Garantia em todos os serviços.", "Orçamento sem compromisso."])}`.slice(0, 250),
       cnpj: company ? cnpj() : undefined, businessType: company ? "empresa" : "autonomo", legalName: company ? `${tradeName} Ltda` : null, companySize: size,
       profileImageUrl: company && chance(0.4) ? null : p.avatar, verificationStatus: verified ? "verified" : "none", verifiedAt: verified ? daysAgo(int(5, 30)) : null,

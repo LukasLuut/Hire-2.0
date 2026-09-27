@@ -8,15 +8,13 @@ const t = await tokens();
 
 const assertClean = (p, where) => {
   for (const k of PRIVATE) assert.equal(p[k], undefined, `${where}: ${k} exposto`);
-  if (!p.showContact) {
-    assert.equal(p.professionalEmail, undefined, `${where}: e-mail exposto`);
-    assert.equal(p.professionalPhone, undefined, `${where}: telefone exposto`);
-  }
+  // contato profissional nunca é público: a conversa acontece pelo chat
+  assert.equal(p.professionalEmail, undefined, `${where}: e-mail exposto`);
+  assert.equal(p.professionalPhone, undefined, `${where}: telefone exposto`);
   if (p.user) assert.deepEqual(Object.keys(p.user).sort(), ["id", "name"], `${where}: dados da conta`);
 };
 
 test("20. perfil, vitrine, serviço e lista não expõem dados privados", async () => {
-  await db("UPDATE service_providers SET showContact = 0 WHERE id IN (1,2)");
   const pub = (await req("GET", "/providers/1/public")).j;
   assertClean(pub, "perfil");
   for (const s of pub.services) assertClean(s.provider, "serviço do perfil");
@@ -29,14 +27,14 @@ test("20. perfil, vitrine, serviço e lista não expõem dados privados", async 
   for (const p of (await req("GET", "/providers/all")).j) assertClean(p, "lista de prestadores");
 });
 
-test("20. contato só aparece quando o prestador escolhe mostrar", async () => {
+test("20. contato profissional nunca aparece no perfil público", async () => {
+  // a antiga opção "mostrar contato" não existe mais: o campo é ignorado
   assert.equal((await req("PUT", "/providers", t.ele, { showContact: true })).s, 200);
   const pub = (await req("GET", "/providers/1/public")).j;
-  assert.equal(pub.showContact, true);
-  assert.ok(pub.professionalPhone, "telefone visível com a opção ligada");
+  assert.equal(pub.showContact, undefined);
+  assert.equal(pub.professionalPhone, undefined);
+  assert.equal(pub.professionalEmail, undefined);
   assert.equal(pub.latitude, undefined);
-  await req("PUT", "/providers", t.ele, { showContact: false });
-  assert.equal((await req("GET", "/providers/1/public")).j.professionalPhone, undefined);
   // o dono continua vendo tudo no próprio painel
   assert.ok((await req("GET", "/providers", t.ele)).j.professionalPhone);
 });
