@@ -96,7 +96,7 @@ export default function NotificationBell({ onNavigate }: { onNavigate?: () => vo
         aria-label={unread ? `Avisos: ${unread} ${unread === 1 ? "não lido" : "não lidos"}` : "Avisos"}
         aria-expanded={open}
         aria-haspopup="true"
-        className="relative p-2 rounded-full border border-[var(--border)] bg-[var(--bg-light)] text-[var(--text)] transition hover:border-[var(--highlight)] shadow-lg"
+        className="relative p-2 rounded-full border border-[var(--border)] bg-[var(--bg-light)] text-[var(--text)] transition hover:border-[var(--highlight)]"
       >
         <Bell size={20} />
         {unread > 0 && (

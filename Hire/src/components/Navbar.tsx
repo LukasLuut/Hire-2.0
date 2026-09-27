@@ -27,7 +27,7 @@ function IconTip({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-const iconBtn = "p-2 rounded-full border border-[var(--border)] bg-[var(--bg-light)] text-[var(--text)] transition hover:border-[var(--highlight)] shadow-lg";
+const iconBtn = "p-2 rounded-full border border-[var(--border)] bg-[var(--bg-light)] text-[var(--text)] transition hover:border-[var(--highlight)]";
 
 export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (t: "dark" | "light") => void }) {
   const [open, setOpen] = useState(false);

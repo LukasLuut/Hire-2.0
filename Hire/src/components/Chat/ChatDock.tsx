@@ -78,7 +78,7 @@ function Circle({ item, onOpen, onDismiss }: { item: DockItem; onOpen: () => voi
         type="button"
         onClick={onOpen}
         aria-label={`Abrir conversa com ${item.name}${item.unread ? " (mensagem nova)" : ""}`}
-        className="block w-14 h-14 rounded-full border-4 border-[var(--primary)] bg-[var(--bg)] shadow-[0_6px_20px_rgba(0,0,0,0.45)] overflow-hidden hover:scale-105 transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+        className="block w-14 h-14 rounded-full border-4 border-[var(--primary)] bg-[var(--bg)] overflow-hidden hover:scale-105 transition-transform focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
       >
         <img src={item.avatar} alt="" className="w-full h-full object-cover" />
       </button>
@@ -304,7 +304,7 @@ export function ChatDockProvider({ children }: { children: ReactNode }) {
                     onClick={() => setOverflowOpen((v) => !v)}
                     aria-expanded={overflowOpen}
                     aria-label={`Mais ${hidden.length} conversas minimizadas`}
-                    className="w-14 h-14 rounded-full border-4 border-[var(--primary)] bg-[var(--bg-light)] text-[var(--text)] font-bold shadow-[0_6px_20px_rgba(0,0,0,0.45)] hover:scale-105 transition-transform"
+                    className="w-14 h-14 rounded-full border-4 border-[var(--primary)] bg-[var(--bg-light)] text-[var(--text)] font-bold hover:scale-105 transition-transform"
                   >
                     +{hidden.length}
                   </button>
