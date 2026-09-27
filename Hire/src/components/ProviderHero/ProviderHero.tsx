@@ -114,10 +114,11 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
       className="mt-4 md:mt-2 mb-8 md:mb-10 bg-[var(--bg-dark)] md:px-4 py-6 text-[var(--text)] "
     >
       {/* HEADER */}
-      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-        <div className="flex flex-col sm:flex-row gap-5 min-w-0">
-          {/* foto e, logo abaixo, a situação de atendimento */}
-          <div className="flex flex-col items-center gap-3 shrink-0 md:ml-10 xl:ml-40">
+      {/* hero centralizado na página */}
+      <div className="flex justify-center">
+        <div className="flex flex-col sm:flex-row gap-5 lg:gap-10 min-w-0">
+          {/* foto e a situação de atendimento: no desktop a ficha desce até a base dos botões */}
+          <div className="flex flex-col items-center gap-3 shrink-0 sm:self-stretch sm:justify-between">
           <div className="relative">
             {/* Avatar / Logo */}
             <div className="w-72 h-72 sm:w-40 sm:h-40 lg:w-72 lg:h-72 rounded-full bg-[var(--bg)] border-4 border-[var(--primary)] flex items-center justify-center shrink-0 mx-auto sm:mx-0">
