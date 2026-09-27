@@ -36,10 +36,10 @@ export default function LocationButton(props: {
         aria-expanded={open}
         aria-label={active ? `Localização: ${props.location!.label}` : "Veja quem atende perto de você"}
         title={active ? `Perto de ${props.location!.label}` : "Veja quem atende perto de você"}
-        className={`w-[68px] h-[68px] rounded-full border flex items-center justify-center transition
+        className={`w-[52px] h-[52px] rounded-full border flex items-center justify-center transition
           ${active ? "bg-[var(--primary)] border-[var(--primary)] text-white" : "bg-[var(--bg-light)]/30 border-[var(--border-muted)] text-[var(--text)] hover:border-[var(--primary)]"}`}
       >
-        <LocateFixed size={24} />
+        <LocateFixed size={20} />
       </button>
       <AnimatePresence>
         {open && (

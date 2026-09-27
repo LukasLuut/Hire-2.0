@@ -21,7 +21,7 @@ import { conversationAPI } from "../../api/ConversationAPI";
 import type { ChatMessage, ConversationSummary } from "../../interfaces/Entities";
 import { useToast } from "../Toast/ToastContext";
 import { getErrorMessage } from "../../utils/errors";
-import { uploadUrl } from "../../utils/avatar";
+import { avatarFor, uploadUrl } from "../../utils/avatar";
 
 /* ==========================================================================
    SECTION: Types (o Service que você especificou + tipos internos)
@@ -158,6 +158,11 @@ export default function ServiceNegotiationModal({
     myRole === "cliente"
       ? conversation?.provider?.companyName || conversation?.provider?.professionalName
       : conversation?.client?.name;
+  // foto da outra parte (prestador para o cliente; cliente para o prestador)
+  const counterpartPhoto = avatarFor(
+    myRole === "cliente" ? conversation?.provider?.profileImageUrl ?? null : conversation?.client?.avatarUrl ?? null,
+    counterpart ?? "Contato"
+  );
 
   /* ---------------------------- effects ---------------------------------- */
 
@@ -427,11 +432,14 @@ export default function ServiceNegotiationModal({
           >
             {/* ------------------------- LEFT / TOP: Tópicos (ícones) ------------------------- */}
             <div className={`flex ${isMobile ? "flex-row items-center px-4 py-2  overflow-x-auto" : "flex-col w-24 p-2 gap-4"} bg-[var(--bg)] border-r border-[var(--border)]`}>
-              {/* Close button (mobile) */}
-              <div className="flex justify-between items-center w-full mb-1">
-                <button onClick={onClose} aria-label="Fechar negociação" className={`${isMobile ? "fixed" : ""} text-[var(--text-muted)] hover:text-[var(--primary)] p-1`}>
-                  <X size={20} />
-                </button>
+              {/* foto da outra parte, acima dos tópicos */}
+              <div className={`flex justify-center ${isMobile ? "shrink-0 mr-2" : "w-full pt-2"}`}>
+                <img
+                  src={counterpartPhoto}
+                  alt={counterpart ?? "Contato"}
+                  title={counterpart ?? undefined}
+                  className={`${isMobile ? "w-11 h-11" : "w-15 h-15"} rounded-full object-cover border-4 border-[var(--primary)]`}
+                />
               </div>
 
                {/* icons */}
@@ -478,7 +486,11 @@ export default function ServiceNegotiationModal({
             </div>
 
             {/* ------------------------- MIDDLE: Expanded topic content ------------------------- */}
-            <div className="flex-1 p-4 flex flex-col gap-3">
+            <div className="flex-1 p-4 flex flex-col gap-3 relative">
+              {/* fechar no canto superior direito */}
+              <button onClick={onClose} aria-label="Fechar negociação" className="absolute top-3 right-3 z-10 p-1.5 rounded-full text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--bg)] transition">
+                <X size={20} />
+              </button>
               {/* Header area (service summary) */}
               <div className="flex items-center justify-between gap-4">
                 <div>
@@ -508,7 +520,7 @@ export default function ServiceNegotiationModal({
                 </div>
 
                 {/* quick actions: attachments preview */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 mr-8">
                   <label className={`flex items-center gap-2 text-sm text-[var(--text-muted)] ${isOpenNegotiation ? "cursor-pointer" : "opacity-50 pointer-events-none"}`}>
                     <Paperclip size={16} />
                     <input

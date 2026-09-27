@@ -73,8 +73,9 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
 
   // itens da cascata, do mais perto do botão de menu para o mais longe
   const cascade = [
+    ...links.slice(0, 1).map((l) => ({ ...l, kind: "link" as const })),
     { label: unreadCount ? `Conversas (${unreadCount} novas)` : "Conversas", to: "", icon: MessageCircle, kind: "chat" as const },
-    ...links.map((l) => ({ ...l, kind: "link" as const })),
+    ...links.slice(1).map((l) => ({ ...l, kind: "link" as const })),
     { label: theme === "dark" ? "Modo claro" : "Modo escuro", to: "", icon: theme === "dark" ? Sun : Moon, kind: "theme" as const },
     { label: "Sair", to: "", icon: LogOut, kind: "logout" as const },
   ];
