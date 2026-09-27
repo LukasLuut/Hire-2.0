@@ -18,6 +18,8 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 
 /** Está recebendo eventos agora? (as telas usam para espaçar o polling) */
 export const liveConnected = () => source?.readyState === EventSource.OPEN;
+// desenvolvimento: testes de navegador e gravações esperam a conexão abrir
+if (import.meta.env.DEV) (window as unknown as { __hireLive?: () => boolean }).__hireLive = liveConnected;
 
 async function connect() {
   const token = localStorage.getItem("token");

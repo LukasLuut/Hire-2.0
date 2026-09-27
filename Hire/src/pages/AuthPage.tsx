@@ -30,7 +30,7 @@ export type AuthCardRequest = { signup: boolean; tipo?: AccountType; nonce: numb
  * Cartão de entrar/cadastrar (usado em /auth e no topo da página inicial).
  * embedded: dentro de outra página (não redireciona quem já está logado).
  */
-export function AuthCard({ embedded = false, request, id }: { embedded?: boolean; request?: AuthCardRequest | null; id?: string }) {
+export function AuthCard({ embedded = false, request, id, plain = false }: { embedded?: boolean; request?: AuthCardRequest | null; id?: string; /** superfície neutra, como os painéis do app (sem foto nem brilho) */ plain?: boolean }) {
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isLogin, setIsLogin] = useState(() => new URLSearchParams(window.location.search).get("cadastro") !== "1");
   const [formData, setFormData] = useState({
@@ -194,10 +194,10 @@ export function AuthCard({ embedded = false, request, id }: { embedded?: boolean
           id={id}
           layout
           transition={{ layout: { duration: 0.32, ease } }}
-          className="relative w-full max-w-[460px] sm:max-w-[540px] rounded-3xl overflow-hidden shadow-[0_0_40px_10px_var(--primary)]"
-          style={{ backgroundImage: `url(${bgImage})`, backgroundSize: "cover", backgroundPosition: "center" }}
+          className={`relative w-full max-w-[460px] sm:max-w-[540px] rounded-3xl overflow-hidden ${plain ? "bg-[var(--bg-light)] border border-[var(--border-muted)]" : "shadow-[0_0_40px_10px_var(--primary)]"}`}
+          style={plain ? undefined : { backgroundImage: `url(${bgImage})`, backgroundSize: "cover", backgroundPosition: "center" }}
         >
-          <div className="absolute inset-0 z-0" style={{ backgroundColor: "color-mix(in oklch, var(--bg-dark), transparent 90%)" }} />
+          {!plain && <div className="absolute inset-0 z-0" style={{ backgroundColor: "color-mix(in oklch, var(--bg-dark), transparent 90%)" }} />}
 
           <div className="relative z-10 p-5 sm:p-7">
             {/* seletor Log In / Sign Up: a bolha desliza entre as abas */}

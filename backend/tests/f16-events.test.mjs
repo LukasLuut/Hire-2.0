@@ -54,3 +54,26 @@ test("16. mensagem nova chega na hora para a outra parte", async () => {
   assert.ok(provider.events.some((e) => e.type === "conversation" && e.id === conv.id), JSON.stringify(provider.events));
   assert.ok(provider.events.some((e) => e.type === "notification"), "aviso de mensagem também chega: " + JSON.stringify(provider.events));
 });
+
+test("16. aviso só sai depois do commit: quem recebe já enxerga a mensagem", async () => {
+  const conv = (await req("POST", "/conversations", t.cli, { serviceId: 1 })).j;
+  await req("POST", `/conversations/${conv.id}/read`, t.ele);
+  const provider = await listen(t.ele);
+  await wait(200);
+  // no instante do aviso, a outra parte consulta a conversa (como o chat faz)
+  let seenAtEvent = null;
+  const check = (async () => {
+    for (let i = 0; i < 60 && seenAtEvent === null; i++) {
+      if (provider.events.some((e) => e.type === "conversation" && e.id === conv.id)) {
+        seenAtEvent = (await req("GET", `/conversations/${conv.id}?after=2147483647`, t.ele)).j;
+      } else await wait(25);
+    }
+  })();
+  const text = `Mensagem ${Date.now()} (teste do commit)`;
+  await req("POST", `/conversations/${conv.id}/messages`, t.cli, { text });
+  await check;
+  provider.close();
+  assert.ok(seenAtEvent, "aviso chegou");
+  assert.equal(seenAtEvent.lastMessage?.text, text, "a mensagem já existe quando o aviso chega");
+  assert.ok(seenAtEvent.unread >= 1, "e já conta como não lida");
+});

@@ -6,7 +6,7 @@ import ChatRoom from "./ChatRoom";
 import { conversationAPI, type ConversationFilter } from "../../api/ConversationAPI";
 import type { ConversationSummary } from "../../interfaces/Entities";
 import { useSession } from "../../context/SessionContext";
-import { useLiveEvent } from "../../utils/liveEvents";
+import { liveConnected, useLiveEvent } from "../../utils/liveEvents";
 import type { ChatClosed, ChatOpened, ChatOpenRequest } from "../../utils/chatEvents";
 import { DUR, EASE_OUT, TONE_CLASS, counterpartOf, listTime } from "./chatUi";
 
@@ -118,6 +118,8 @@ export function ChatDockProvider({ children }: { children: ReactNode }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ConversationFilter>("");
   const [unreadIds, setUnreadIds] = useState<Set<number>>(new Set());
+  const unreadIdsRef = useRef(unreadIds);
+  unreadIdsRef.current = unreadIds;
   const [active, setActive] = useState<{ id: number; draft?: string } | null>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const openIds = useRef(new Set<number>());
@@ -277,6 +279,21 @@ export function ChatDockProvider({ children }: { children: ReactNode }) {
     setUnread(c.id, true);
     upsert(toItem(c, true));
   });
+
+  // sem conexão ao vivo (rede instável, proxy): confere as não lidas no servidor de tempos em tempos
+  useEffect(() => {
+    if (!token) return;
+    const timer = setInterval(async () => {
+      if (liveConnected()) return;
+      const list = await conversationAPI.list(token, { filter: "unread", limit: 20 }).catch(() => [] as ConversationSummary[]);
+      for (const c of list) {
+        if (c.unread <= 0 || openIds.current.has(c.id) || unreadIdsRef.current.has(c.id)) continue;
+        setUnread(c.id, true);
+        upsert(toItem(c, true));
+      }
+    }, 20_000);
+    return () => clearInterval(timer);
+  }, [token, setUnread, upsert]);
 
   const unreadCount = unreadIds.size;
   const openInbox = useCallback(() => setPanelOpen(true), []);
