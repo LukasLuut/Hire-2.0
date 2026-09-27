@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { requestChat } from "../utils/chatEvents";
 import ProfileUnavailable from "../components/ProfileUnavailable";
 import { providerUrl } from "../utils/providerPath";
 import SharePanel from "../components/Share/SharePanel";
+import FavoriteProviderButton from "../components/Favorites/FavoriteProviderButton";
+import { cardFromProvider } from "../components/Share/profileCard";
+import { avatarFor } from "../utils/avatar";
 import { rememberProfileOrigin, track, trackView } from "../utils/analytics";
 import PortfolioGallery from "../components/Portfolio/PortfolioGallery";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -118,6 +121,12 @@ export default function ProviderPublicPage() {
     setPickOpen(true);
   };
 
+  // imagem de compartilhamento (recorte do hero + QR Code); memorizada para não redesenhar à toa
+  const shareCard = useMemo(
+    () => (provider ? cardFromProvider(provider, avatarFor(provider.profileImageUrl, provider.companyName || provider.professionalName)) : null),
+    [provider]
+  );
+
   if (unavailable) return <ProfileUnavailable reason={unavailable} loggedIn={!!token} />;
 
   if (error) {
@@ -160,6 +169,7 @@ export default function ProviderPublicPage() {
               <button onClick={() => setShareOpen(true)} className={`${actionBtn} !border-[var(--primary)] bg-[var(--primary)] text-white hover:!bg-[var(--primary)] hover:brightness-110`}>
                 <Share2 size={20} /> Compartilhar
               </button>
+              <FavoriteProviderButton providerId={provider.id} />
             </>
           }
         />
@@ -178,6 +188,7 @@ export default function ProviderPublicPage() {
           open={shareOpen}
           onClose={() => setShareOpen(false)}
           qrFor={provider.slug ?? provider.id}
+          card={shareCard ?? undefined}
           target={{
             url: providerUrl(provider),
             title: provider.companyName || provider.professionalName,

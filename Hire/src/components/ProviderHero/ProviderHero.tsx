@@ -1,16 +1,15 @@
 // ProviderHero.tsx — Hero institucional refatorado (responsivo)
-// Dados reais do prestador: nota, avaliações, nível, status e disponibilidade.
+// Dados reais do prestador: nota, avaliações, selo de conta verificada, status e disponibilidade.
 // ------------------------------------------------------
 
 import React, { lazy, Suspense, useEffect, useState } from "react";
-import FavoriteProviderButton from "../Favorites/FavoriteProviderButton";
 import { providerApi } from "../../api/ProviderAPI";
 import { getErrorMessage } from "../../utils/errors";
 import { useToast } from "../Toast/ToastContext";
 import OpenStatusChip from "./OpenStatusChip";
 import EditableAvatar from "../Common/EditableAvatar";
 import { useSession } from "../../context/SessionContext";
-import VerificationBadges from "./VerificationBadges";
+import VerifiedSeal from "./VerifiedSeal";
 import { motion } from "framer-motion";
 import type {
   DayKey,
@@ -46,7 +45,7 @@ interface ProviderHeroProps {
 }
 
 export default function ProviderHero({ provider, readOnly = false, services, editRequest, onDeactivate, actions }: ProviderHeroProps) {
-  const { user: sessionUser, refresh } = useSession();
+  const { refresh } = useSession();
   const { showToast } = useToast();
 
   // foto do perfil profissional: trocada direto pela foto, no modo edição
@@ -117,9 +116,11 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
       {/* HEADER */}
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
         <div className="flex flex-col sm:flex-row gap-5 min-w-0">
+          {/* foto e, logo abaixo, a situação de atendimento */}
+          <div className="flex flex-col items-center gap-3 shrink-0 md:ml-10 xl:ml-40">
           <div className="relative">
             {/* Avatar / Logo */}
-            <div className="w-72 h-72 sm:w-40 sm:h-40   md:ml-10 xl:ml-40 lg:w-72 lg:h-72 rounded-full bg-[var(--bg)] border-4 border-[var(--primary)] flex items-center justify-center shrink-0 mx-auto sm:mx-0">
+            <div className="w-72 h-72 sm:w-40 sm:h-40 lg:w-72 lg:h-72 rounded-full bg-[var(--bg)] border-4 border-[var(--primary)] flex items-center justify-center shrink-0 mx-auto sm:mx-0">
               <EditableAvatar
                 src={imageLink}
                 alt={`Foto de ${name}`}
@@ -139,12 +140,25 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
             </button>
             )}
           </div>
+            <div className="flex flex-col items-center gap-2 max-w-72">
+              <OpenStatusChip provider={provider} editable={!readOnly} onChanged={refresh} />
+              {!!provider.lateCancellations && (
+                <span
+                  className="px-3 py-1 rounded-full text-xs sm:text-sm border border-amber-500/40 bg-amber-500/10 text-amber-500 text-center"
+                  title="Cancelamentos de pedidos aceitos depois do prazo, nos últimos 12 meses"
+                >
+                  {provider.lateCancellations} cancelamento(s) em cima da hora
+                </span>
+              )}
+            </div>
+          </div>
           {/* Info principal */}
           <div className="flex items-center md:items-start  flex-col gap-2">
             <div className="flex flex-col md:flex-row sm:items-center gap-2 sm:gap-3">
               {/* no perfil público o nome é o título principal da página (h1) */}
-              <NameHeading className="text-4xl sm:text-4xl font-semibold leading-tight">
+              <NameHeading className="text-4xl sm:text-4xl font-semibold leading-tight inline-flex items-center gap-2">
                 {name}
+                {provider.verified && <VerifiedSeal />}
               </NameHeading>
               {/* mesmo lugar do "Excluir Usuário" da Home: só no modo edição */}
               {!readOnly && isEditing && onDeactivate && (
@@ -207,38 +221,6 @@ export default function ProviderHero({ provider, readOnly = false, services, edi
           </div>
         </div>
 
-        {/* Status */}
-        <div className="flex flex-wrap gap-2 justify-start lg:justify-end lg:max-w-[18rem] shrink-0">
-          <OpenStatusChip provider={provider} editable={!readOnly} onChanged={refresh} />
-          {readOnly && <FavoriteProviderButton providerId={provider.id} />}
-
-          <span
-            className="px-3 py-1 rounded-full text-xs sm:text-sm border border-[var(--border)]"
-            title={`${provider.completedHires ?? 0} serviço(s) concluído(s)`}
-          >
-            Nível {provider.level ?? "Iniciante"}
-          </span>
-          {provider.businessType === "empresa" && (
-            <span className="px-3 py-1 rounded-full text-xs sm:text-sm border border-[var(--border)]" title="Cadastrado como empresa (CNPJ)">
-              Empresa
-            </span>
-          )}
-          {/* só verificações concluídas; no painel do dono, o e-mail vem da sessão */}
-          <VerificationBadges
-            identity={provider.verificationStatus === "verified"}
-            email={readOnly ? provider.emailVerified : sessionUser?.emailVerified}
-            company={provider.companyVerified ?? !!provider.companyVerifiedAt}
-            credentials={provider.credentialsVerified ?? !!provider.credentialsVerifiedAt}
-          />
-          {!!provider.lateCancellations && (
-            <span
-              className="px-3 py-1 rounded-full text-xs sm:text-sm border border-amber-500/40 bg-amber-500/10 text-amber-500"
-              title="Cancelamentos de pedidos aceitos depois do prazo, nos últimos 12 meses"
-            >
-              {provider.lateCancellations} cancelamento(s) em cima da hora
-            </span>
-          )}
-        </div>
       </div>
 
       {/* contato direto: só quando o prestador escolheu mostrar */}

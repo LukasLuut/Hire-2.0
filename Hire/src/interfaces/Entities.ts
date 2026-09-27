@@ -73,6 +73,8 @@ export interface ProviderEntity {
   lateCancellations?: number;
   /** verificação de documentos pela administração */
   verificationStatus?: "none" | "pending" | "verified" | "rejected";
+  /** selo "Conta verificada": cadastro completo + todas as validações (calculado no servidor) */
+  verified?: boolean;
   /** (perfil público) comprovante do CNPJ conferido */
   companyVerified?: boolean;
   /** autônomo ou empresa (MEI/ME/EPP) */

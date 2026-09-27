@@ -12,6 +12,7 @@ import { portfolioService } from "./PortfolioService";
 import { In, IsNull } from "typeorm";
 import { isSlug, uniqueSlug } from "../utils/slug";
 import { toPublicProvider } from "../utils/publicProvider";
+import { accountVerified } from "../utils/accountVerified";
 import { ServiceProvider } from "../models/ServiceProvider";
 import { coord } from "../utils/geo";
 import { User } from "../models/User";
@@ -251,7 +252,8 @@ export class ProviderService {
 
     if (!provider) throw new Error("Prestador não encontrado");
 
-    return (await this.decorate([provider]))[0];
+    const [decorated] = await this.decorate([provider]);
+    return { ...decorated, verified: accountVerified(provider) };
   }
 
   /** Nota média, total de avaliações, serviços concluídos e nível. */

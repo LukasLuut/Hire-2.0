@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { requestChat } from "../utils/chatEvents";
 import { useToast } from "../components/Toast/ToastContext";
 import { getErrorMessage } from "../utils/errors";
@@ -6,6 +6,8 @@ import ConfirmModal from "../components/Common/ConfirmModal";
 import { Share2, Wallet } from "lucide-react";
 import { providerUrl } from "../utils/providerPath";
 import SharePanel from "../components/Share/SharePanel";
+import { cardFromProvider } from "../components/Share/profileCard";
+import { avatarFor } from "../utils/avatar";
 import ProfileStats from "../components/ProfileStats";
 import EarningsSummary from "../components/Payment/EarningsSummary";
 import ProviderAgenda from "../components/ProviderAgenda";
@@ -48,6 +50,11 @@ type Notification = { id: string; text: string; date: number };
    --------------------------- */
 export default function DashboardPrestador() {
   const { provider, loading: sessionLoading, refresh } = useSession();
+  // imagem de divulgação do perfil (a mesma do botão Compartilhar do perfil público)
+  const shareCard = useMemo(
+    () => (provider ? cardFromProvider(provider, avatarFor(provider.profileImageUrl, provider.companyName || provider.professionalName)) : null),
+    [provider]
+  );
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -180,6 +187,7 @@ export default function DashboardPrestador() {
                   open={shareOpen}
                   onClose={() => setShareOpen(false)}
                   qrFor={provider.slug ?? provider.id}
+                  card={shareCard ?? undefined}
                   target={{
                     url: providerUrl(provider),
                     title: provider.companyName || provider.professionalName,

@@ -1,5 +1,6 @@
 import type { ServiceProvider } from "../models/ServiceProvider";
 import { openState } from "./openStatus";
+import { accountVerified } from "./accountVerified";
 
 /**
  * Dados de um prestador que podem sair em respostas públicas (sem login):
@@ -37,6 +38,8 @@ export function toPublicProvider(p: (ServiceProvider & Record<string, any>) | nu
     verifiedAt: p.verifiedAt ?? null,
     companyVerified: !!p.companyVerifiedAt,
     credentialsVerified: !!p.credentialsVerifiedAt,
+    // selo único do perfil: cadastro completo + todas as validações
+    verified: accountVerified(p),
     createdAt: p.createdAt ?? null,
     showContact: !!p.showContact,
   };
