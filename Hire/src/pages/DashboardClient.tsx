@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { serviceAPI, serviceImages, type ServiceData } from "../api/ServiceAPI";
-import LocationBar from "../components/LocationBar";
+import LocationButton from "../components/LocationButton";
 import SearchWithFilters, { FilterToggle, filterField } from "../components/Search/SearchWithFilters";
 import { displayServicePrice } from "../utils/price";
 import ServiceAreaLine from "../components/ServiceAreaLine";
@@ -309,8 +309,9 @@ export default function ServiceDashboardSophisticated() {
               className="absolute top-6 left-1/2 -translate-x-1/2 w-full md:w-[90%] lg:w-full"
               aria-hidden
             />
-            <div className="flex flex-col lg:flex-row items-stretch lg:items-start gap-4 mb-10">
-              {/* busca: ocupa todo o espaço até a localização; filtros no ícone do fim da barra */}
+            {/* busca centralizada; localização num círculo ao lado (abre as opções em cascata) */}
+            <div className="max-w-4xl mx-auto mb-10">
+              <div className="flex items-start gap-3">
               <div className="flex-1 min-w-0">
                 <SearchWithFilters
                   value={query}
@@ -355,9 +356,12 @@ export default function ServiceDashboardSophisticated() {
                     </div>
                   </div>
                 </SearchWithFilters>
+              </div>
+              <LocationButton location={location} onChange={setLocation} onlyNearby={onlyNearby} onOnlyNearbyChange={setOnlyNearby} />
+              </div>
 
                 {/* atalhos de categoria */}
-                <div className="mt-3 flex gap-2 flex-wrap">
+                <div className="mt-3 flex gap-2 flex-wrap justify-center">
                   {categories.filter((c) => c !== "Todos").slice(0, 6).map((chip) => (
                     <button
                       key={chip}
@@ -369,12 +373,9 @@ export default function ServiceDashboardSophisticated() {
                     </button>
                   ))}
                 </div>
-              </div>
-
-              {/* onde o cliente está: distância e "atende minha região" */}
-              <div className="lg:w-[420px] shrink-0">
-                <LocationBar location={location} onChange={setLocation} onlyNearby={onlyNearby} onOnlyNearbyChange={setOnlyNearby} />
-              </div>
+                {location && (
+                  <p className="mt-2 text-center text-xs text-[var(--text-muted)]">Perto de <strong className="text-[var(--text)]">{location.label}</strong>{onlyNearby ? " · só quem atende sua região" : ""}</p>
+                )}
             </div>
           </div>
         </motion.div>

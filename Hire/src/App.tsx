@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
+import { ChatDockProvider } from "./components/Chat/ChatDock";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
@@ -84,6 +85,8 @@ export default function App() {
 
   return (
     <Router>
+      {/* conversas minimizadas acompanham todas as páginas */}
+      <ChatDockProvider>
       <Accessibility/>
       <ScrollToTop />
       <Navbar theme={theme} setTheme={setTheme} />
@@ -133,6 +136,7 @@ export default function App() {
         </Routes>
         </Suspense>
       </main>
+      </ChatDockProvider>
     </Router>
   );
 }

@@ -1,4 +1,5 @@
 import { AppDataSource } from "../config/data-source";
+import { IsNull } from "typeorm";
 import type { EntityManager } from "typeorm";
 import { profileAddress } from "./HireService";
 import { fileUrl, privateRef } from "../utils/signedFile";
@@ -60,7 +61,7 @@ export class ConversationService {
       status: conv.status,
       topics: conv.topics ?? defaultTopics(conv.service),
       myRole: role,
-      client: conv.client ? { id: conv.client.id, name: conv.client.name } : null,
+      client: conv.client ? { id: conv.client.id, name: conv.client.name, avatarUrl: conv.client.avatarUrl ?? null } : null,
       provider: conv.provider
         ? {
             id: conv.provider.id,
@@ -107,7 +108,7 @@ export class ConversationService {
   }
 
   /** Abre (ou reaproveita) a conversa aberta entre o cliente e o prestador sobre um serviço. */
-  async open(userId: number, data: { providerId?: number | string; serviceId?: number | string }) {
+  async open(userId: number, data: { providerId?: number | string; serviceId?: number | string; general?: boolean }) {
     let service: Service | null = null;
     if (data.serviceId) {
       service = await this.serviceRepository.findOne({ where: { id: Number(data.serviceId) }, relations: { provider: true } });
@@ -124,7 +125,8 @@ export class ConversationService {
         client: { id: userId },
         provider: { id: provider.id },
         status: ConversationStatus.OPEN,
-        ...(service ? { service: { id: service.id } } : {}),
+        // "outro serviço" (orçamento fora dos serviços publicados): conversa própria, sem serviço
+        ...(service ? { service: { id: service.id } } : data.general ? { service: IsNull() } : {}),
       },
       relations: this.relations,
       order: { updatedAt: "DESC" },
@@ -392,18 +394,22 @@ export class ConversationService {
   }
 
   /** Pedido de orçamento do cliente: abre a negociação já com a proposta dele nos tópicos. */
-  async request(userId: number, data: { serviceId?: number | string } & Partial<QuoteRequest>, files: Express.Multer.File[] = []) {
+  async request(userId: number, data: { serviceId?: number | string; providerId?: number | string } & Partial<QuoteRequest>, files: Express.Multer.File[] = []) {
     const description = String(data.description ?? "").trim();
     const budget = String(data.budget ?? "").trim();
     if (!description) throw new HttpError(400, "Descreva o serviço desejado");
     if (!budget) throw new HttpError(400, "Informe o orçamento");
-    if (!data.serviceId) throw new HttpError(400, "Serviço não informado");
-    const target = await this.serviceRepository.findOne({ where: { id: Number(data.serviceId) } });
+    // pedido para um serviço publicado ou, em "Outros", direto ao prestador (serviço que ele não listou)
+    if (!data.serviceId && !data.providerId) throw new HttpError(400, "Serviço não informado");
+    const target = data.serviceId ? await this.serviceRepository.findOne({ where: { id: Number(data.serviceId) } }) : null;
     if (target && target.active === false) throw new HttpError(400, "Este serviço está pausado pelo prestador e não recebe pedidos no momento");
-    const targetProvider = target ? await this.providerRepository.findOne({ where: { services: { id: target.id } } }) : null;
+    const targetProvider = target
+      ? await this.providerRepository.findOne({ where: { services: { id: target.id } } })
+      : await this.providerRepository.findOne({ where: { id: Number(data.providerId) } });
+    if (!target && !targetProvider) throw new HttpError(404, "Prestador não encontrado");
     if (targetProvider && !openState(targetProvider).open) throw new HttpError(400, closedMessage(openState(targetProvider)));
 
-    const summary = await this.open(userId, { serviceId: data.serviceId });
+    const summary = await this.open(userId, data.serviceId ? { serviceId: data.serviceId } : { providerId: data.providerId, general: true });
     const conv = await this.load(summary.id, userId);
     const request: QuoteRequest = {
       description: description.slice(0, 500),
@@ -430,7 +436,7 @@ export class ConversationService {
     await inviteService.markConverted(userId, "client").catch(() => null);
     await notificationService.notify(conv.provider?.user?.id, {
       type: "quote.requested",
-      title: `Pedido de orçamento: ${conv.service?.title ?? "serviço"}`,
+      title: `Pedido de orçamento: ${conv.service?.title ?? "outro serviço"}`,
       body: `${conv.client?.name ?? "Um cliente"}: ${request.description.slice(0, 120)} (orçamento ${request.budget})`,
       link: "/business",
     });

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Menu, X, Sun, Moon, LogOut, LifeBuoy, Home, ClipboardList, Handshake, ListTodo, Briefcase, Shield, Wallet,
+  Menu, X, Sun, Moon, LogOut, LifeBuoy, Home, ClipboardList, Handshake, ListTodo, Briefcase, Shield, Wallet, MessageCircle,
 } from "lucide-react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useSession } from "../context/SessionContext";
 import NotificationBell from "./NotificationBell";
+import { useChatDock } from "./Chat/chatDockContext";
 
 type Item = { label: string; to: string; icon: ComponentType<{ size?: number }> };
 
@@ -34,6 +35,7 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
   const navigate = useNavigate();
   const location = useLocation();
   const menuRef = useRef<HTMLDivElement>(null);
+  const { unreadCount, openInbox } = useChatDock();
 
   // "Business" e "Carteira" só aparecem para quem já é prestador
   const links: Item[] = token
@@ -128,6 +130,15 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
                 </AnimatePresence>
               </div>
 
+              {/* conversas: abre a lista (também depois de sair e entrar de novo) */}
+              <IconTip label="Conversas">
+                <button type="button" onClick={() => { setOpen(false); openInbox(); }} aria-label={unreadCount ? `Conversas (${unreadCount} novas)` : "Conversas"} className={`${iconBtn} relative flex`}>
+                  <MessageCircle size={20} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-600 text-white text-xs flex items-center justify-center">{unreadCount}</span>
+                  )}
+                </button>
+              </IconTip>
               <NotificationBell onNavigate={() => setOpen(false)} />
               <button onClick={() => setOpen(!open)} aria-label={open ? "Fechar menu" : "Abrir menu"} aria-expanded={open} className={iconBtn}>
                 {open ? <X size={20} /> : <Menu size={20} />}

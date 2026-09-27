@@ -41,7 +41,8 @@ import {
  */
 
 export interface NegotiationTarget {
-  id: number;
+  /** sem id: "Outros" — pedido direto ao prestador, fora dos serviços publicados (usa providerId) */
+  id?: number;
   title: string;
   providerName: string;
   /** para atribuir o pedido ao perfil público visto nesta sessão */
@@ -207,6 +208,7 @@ export default function ServiceNegotiationModal({
       const conv = await conversationAPI.request(
         {
           serviceId: service.id,
+          providerId: service.id ? undefined : service.providerId,
           description: formData.serviceDescription,
           budget: formData.budget,
           date: formData.date,

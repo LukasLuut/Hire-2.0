@@ -1,5 +1,6 @@
 // ServiceNegotiationModal.tsx
 import { useEffect, useRef, useState } from "react";
+import { emitChatClosed, emitChatOpened } from "../../utils/chatEvents";
 import { subscribe, liveConnected } from "../../utils/liveEvents";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -160,6 +161,15 @@ export default function ServiceNegotiationModal({
 
   /* ---------------------------- effects ---------------------------------- */
 
+  // avisa a pilha de conversas (ChatDock): abriu; ao fechar, se a pessoa escreveu, a conversa fica minimizada
+  const sentRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen || !conversationId) return;
+    sentRef.current = false;
+    emitChatOpened(conversationId);
+    return () => { emitChatClosed(conversationId, sentRef.current); };
+  }, [isOpen, conversationId]);
+
   // carrega a conversa e busca novas mensagens periodicamente
   useEffect(() => {
     if (!isOpen || !conversationId) return;
@@ -274,6 +284,7 @@ export default function ServiceNegotiationModal({
     setSending(true);
     try {
       await conversationAPI.send(conversationId, text, token, attachment);
+      sentRef.current = true;
       await refreshMessages();
     } catch (err) {
       showToast(getErrorMessage(err, "Não foi possível enviar a mensagem."), "error");

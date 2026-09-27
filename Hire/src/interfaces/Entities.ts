@@ -223,7 +223,7 @@ export interface ConversationSummary {
   status: "OPEN" | "FORMALIZED" | "CLOSED";
   topics: NegotiationTopic[];
   myRole: "cliente" | "prestador" | null;
-  client: { id: number; name: string } | null;
+  client: { id: number; name: string; avatarUrl?: string | null } | null;
   provider: { id: number; companyName: string; professionalName: string; profileImageUrl?: string | null; userId?: number } | null;
   service: { id: number; title: string; price: number; duration: string; description: string } | null;
   request: QuoteRequest | null;

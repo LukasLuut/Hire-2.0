@@ -49,8 +49,9 @@ export default function ProviderPublicPage() {
   const [chatId, setChatId] = useState<number | null>(null);
   // Orçamento: escolhe o serviço (quando há mais de um) e abre o pedido de negociação
   const [pickOpen, setPickOpen] = useState(false);
+  // picked = null → "Outros" (serviço que o prestador não listou)
   const [picked, setPicked] = useState<ServiceData | null>(null);
-  const [quoteService, setQuoteService] = useState<ServiceData | null>(null);
+  const [quoteService, setQuoteService] = useState<{ id?: number; title: string } | null>(null);
 
   const providerId = provider?.id ?? 0;
   const isMe = !!me && me.id === providerId;
@@ -114,11 +115,8 @@ export default function ProviderPublicPage() {
       return;
     }
     if (providerId) track("quote_click", { providerId });
-    if (services.length === 1) setQuoteService(services[0]);
-    else {
-      setPicked(services.find((s) => s.negotiable) ?? services[0] ?? null);
-      setPickOpen(true);
-    }
+    setPicked(services.find((s) => s.negotiable) ?? services[0] ?? null);
+    setPickOpen(true);
   };
 
   if (unavailable) return <ProfileUnavailable reason={unavailable} loggedIn={!!token} />;
@@ -155,11 +153,9 @@ export default function ProviderPublicPage() {
                   <button onClick={openChat} className={actionBtn}>
                     <MessageSquare size={20} /> {token ? "Chat" : "Entrar para conversar"}
                   </button>
-                  {services.length > 0 && (
-                    <button onClick={openQuote} className={actionBtn}>
-                      <Handshake size={20} className="text-[var(--primary)]" /> Orçamento
-                    </button>
-                  )}
+                  <button onClick={openQuote} className={actionBtn}>
+                    <Handshake size={20} className="text-[var(--primary)]" /> Orçamento
+                  </button>
                 </>
               )}
               <button onClick={() => setShareOpen(true)} className={`${actionBtn} !border-[var(--primary)] bg-[var(--primary)] text-white hover:!bg-[var(--primary)] hover:brightness-110`}>
@@ -236,10 +232,10 @@ export default function ProviderPublicPage() {
         description="Escolha o serviço. Depois você descreve o que precisa e o prestador responde com uma proposta."
         confirmLabel="Continuar"
         cancelLabel="Voltar"
-        onConfirm={() => { if (picked) { setPickOpen(false); setQuoteService(picked); } }}
+        onConfirm={() => { setPickOpen(false); setQuoteService(picked ? { id: picked.id, title: picked.title } : { title: "Outro serviço" }); }}
         onClose={() => setPickOpen(false)}
       >
-        <ul className="grid gap-2 max-h-72 overflow-y-auto pr-1" role="radiogroup" aria-label="Serviço">
+        <ul className="grid gap-2 max-h-[55vh] overflow-y-auto pr-1" role="radiogroup" aria-label="Serviço">
           {services.map((s) => (
             <li key={s.id}>
               <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${picked?.id === s.id ? "border-[var(--primary)] bg-[var(--bg)]" : "border-[var(--border)] hover:border-[var(--primary)]"}`}>
@@ -251,6 +247,16 @@ export default function ProviderPublicPage() {
               </label>
             </li>
           ))}
+          {/* serviço que não está na lista: o pedido vai direto ao prestador */}
+          <li>
+            <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${!picked ? "border-[var(--primary)] bg-[var(--bg)]" : "border-[var(--border)] hover:border-[var(--primary)]"}`}>
+              <input type="radio" name="quote-service" checked={!picked} onChange={() => setPicked(null)} className="accent-[var(--primary)]" />
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-medium">Outros</span>
+                <span className="block text-xs text-[var(--text-muted)]">O que você precisa não está na lista? Descreva e peça um orçamento.</span>
+              </span>
+            </label>
+          </li>
         </ul>
       </ConfirmModal>
 

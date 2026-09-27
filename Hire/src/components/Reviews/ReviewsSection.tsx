@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { Plus } from "lucide-react";
 import ImageLightbox, { type LightboxState } from "../Common/ImageLightbox";
 import { Stars } from "./StarRating";
 import { ReviewsSkeleton } from "../../skeletons/ProviderProfileSkeleton/ReviewsSkeleton";
@@ -25,6 +26,9 @@ export default function ReviewsSection({ title = "Avaliações", load, emptyText
   const [data, setData] = useState<ReviewList | null>(null);
   const [error, setError] = useState(false);
   const [lightbox, setLightbox] = useState<LightboxState | null>(null);
+  // 9 por vez (3 fileiras de 3), como a lista de serviços da Home
+  const PAGE = 9;
+  const [shown, setShown] = useState(PAGE);
 
   const fetchReviews = useCallback(async () => {
     setError(false);
@@ -67,7 +71,7 @@ export default function ReviewsSection({ title = "Avaliações", load, emptyText
         <div className="text-[var(--text-muted)]">{emptyText}</div>
       ) : (
         <div className={compact ? "flex flex-col gap-3" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"}>
-          {data.reviews.map((review) => {
+          {(compact ? data.reviews : data.reviews.slice(0, shown)).map((review) => {
             const photos = review.photos.map((p) => uploadUrl(p.url)!);
             return (
               <motion.div
@@ -106,6 +110,14 @@ export default function ReviewsSection({ title = "Avaliações", load, emptyText
               </motion.div>
             );
           })}
+        </div>
+      )}
+      {!compact && data && data.reviews.length > shown && (
+        <div className="flex flex-col items-center gap-2 mt-8">
+          <p className="text-xs text-[var(--text-muted)]">Mostrando {shown} de {data.reviews.length}</p>
+          <button onClick={() => setShown((n) => n + PAGE)} className="flex items-center gap-2 px-6 py-3 rounded-full bg-[var(--primary)] text-white font-medium hover:brightness-110 transition">
+            <Plus size={18} /> Carregar mais avaliações
+          </button>
         </div>
       )}
 

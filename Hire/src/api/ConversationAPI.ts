@@ -46,7 +46,7 @@ export const conversationAPI = {
   },
 
   /** Pedido de orçamento do cliente (abre a negociação com a proposta dele). */
-  request: async (data: { serviceId: number; description: string; budget: string; date?: string; notes?: string }, files: File[], token: string) => {
+  request: async (data: { serviceId?: number; providerId?: number; description: string; budget: string; date?: string; notes?: string }, files: File[], token: string) => {
     const form = new FormData();
     Object.entries(data).forEach(([k, v]) => v !== undefined && form.append(k, String(v)));
     files.forEach((f) => form.append("attachments", f));
