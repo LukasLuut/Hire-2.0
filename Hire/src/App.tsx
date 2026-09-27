@@ -26,7 +26,7 @@ const ResetPasswordPage = lazy(() => import("./pages/AccountPages").then((m) => 
 const VerifyEmailPage = lazy(() => import("./pages/AccountPages").then((m) => ({ default: m.VerifyEmailPage })));
 const ProviderPublicPage = lazy(() => import("./pages/ProviderPublicPage"));
 const ContractPreview = lazy(() => import("./components/ContractPreview").then((m) => ({ default: m.ContractPreview })));
-const NegotiationRoom = lazy(() => import("./components/Negotiation/NegotiationRoom"));
+const OpenChatRoute = lazy(() => import("./components/Chat/OpenChatRoute"));
 const ServiceDashboardSophisticated = lazy(() => import("./pages/DashboardClient"));
 const ServiceProgressContainer = lazy(() => import("./components/ServiceProgressContainer").then((m) => ({ default: m.ServiceProgressContainer })));
 
@@ -129,7 +129,8 @@ export default function App() {
           {/* Negociação e agendamento */}
           <Route path="/negotiations" element={<RequireAuth><NegotiationsPage /></RequireAuth>} />
           <Route path="/pendencias" element={<RequireAuth><PendingPage /></RequireAuth>} />
-          <Route path="/negotiation/:id" element={<RequireAuth><NegotiationRoom /></RequireAuth>} />
+          {/* conversa: abre a sala única do chat por cima da página anterior */}
+          <Route path="/negotiation/:id" element={<RequireAuth><OpenChatRoute /></RequireAuth>} />
 
           {/* Rota fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />

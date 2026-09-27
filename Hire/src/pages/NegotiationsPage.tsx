@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Handshake } from "lucide-react";
 import { conversationAPI } from "../api/ConversationAPI";
@@ -7,11 +6,12 @@ import type { ConversationSummary } from "../interfaces/Entities";
 import { avatarFor } from "../utils/avatar";
 import { getFirstAndLastName } from "../utils/nameUtils";
 import { formatDate } from "../utils/format";
+import { requestChat } from "../utils/chatEvents";
 
 /* --------------------------------------------------------------------------
  * Negociações — aba do navbar com todas as negociações do usuário
- * (como cliente ou prestador), separadas por situação. Cada item abre a
- * sala de negociação (/negotiation/:id).
+ * (como cliente ou prestador), separadas por situação. Uma linha por negociação;
+ * cada item abre a conversa do par no chat, com a negociação dentro.
  *
  * Versão inicial: lista simples, para evoluir depois (filtros, busca,
  * pedidos de orçamento em destaque etc.).
@@ -38,7 +38,6 @@ function situation(c: ConversationSummary) {
 }
 
 export default function NegotiationsPage() {
-  const navigate = useNavigate();
   const [items, setItems] = useState<ConversationSummary[] | null>(null);
   const [error, setError] = useState(false);
   const [tab, setTab] = useState<Tab>("open");
@@ -48,7 +47,7 @@ export default function NegotiationsPage() {
     if (!token) return;
     setError(false);
     try {
-      setItems(await conversationAPI.list(token));
+      setItems(await conversationAPI.negotiations(token));
     } catch {
       setError(true);
     }
@@ -106,15 +105,15 @@ export default function NegotiationsPage() {
               const name = isClient ? c.provider?.companyName || c.provider?.professionalName : getFirstAndLastName(c.client?.name ?? "");
               const photo = isClient ? avatarFor(c.provider?.profileImageUrl, c.provider?.companyName) : avatarFor(null, c.client?.name);
               return (
-                <motion.li key={c.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
+                <motion.li key={c.negotiationId ?? c.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
                   <button
-                    onClick={() => navigate(`/negotiation/${c.id}`)}
+                    onClick={() => requestChat(c.id)}
                     className="w-full flex items-center gap-4 p-4 rounded-2xl bg-[var(--bg-light)] border border-[var(--border)] hover:border-[var(--primary)] transition text-left"
                   >
                     <img src={photo} alt="" className="w-12 h-12 rounded-full object-cover border border-[var(--border)] shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-3">
-                        <span className="font-semibold truncate">{c.service?.title ?? "Negociação direta"}</span>
+                        <span className="font-semibold truncate">{c.negotiation?.title || c.service?.title || "Negociação direta"}</span>
                         <span className="text-xs text-[var(--text-muted)] shrink-0">{formatDate(c.updatedAt)}</span>
                       </div>
                       <div className="text-sm text-[var(--text-muted)] truncate">

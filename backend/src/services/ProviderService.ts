@@ -3,7 +3,7 @@ import { ProviderFavorite } from "../models/ProviderFavorite";
 import { formatCnpj } from "../utils/documents";
 import { providerOffline } from "../utils/availability";
 import { openState } from "../utils/openStatus";
-import { Conversation, ConversationStatus, RequestStatus } from "../models/Conversation";
+import { Negotiation, NegotiationStatus, RequestStatus } from "../models/Negotiation";
 import { Hire, StatusEnum } from "../models/Hire";
 import { HttpError } from "./HireService";
 import { inviteService } from "./InviteService";
@@ -122,8 +122,8 @@ export class ProviderService {
     });
     if (open) throw new HttpError(400, `Você tem ${open} pedido(s) em andamento como prestador. Conclua ou cancele antes de desativar.`);
     // negociações com pedido de orçamento ainda sem desfecho (aguardando resposta ou aceite)
-    const negotiating = await AppDataSource.getRepository(Conversation).count({
-      where: { provider: { id: provider.id }, status: ConversationStatus.OPEN, requestStatus: In([RequestStatus.PENDENTE, RequestStatus.RESPONDIDA]) },
+    const negotiating = await AppDataSource.getRepository(Negotiation).count({
+      where: { conversation: { provider: { id: provider.id } }, status: NegotiationStatus.OPEN, requestStatus: In([RequestStatus.PENDENTE, RequestStatus.RESPONDIDA]) },
     });
     if (negotiating) throw new HttpError(400, `Você tem ${negotiating} negociação(ões) em andamento com clientes. Responda, recuse ou encerre antes de desativar.`);
     provider.deactivatedAt = new Date();

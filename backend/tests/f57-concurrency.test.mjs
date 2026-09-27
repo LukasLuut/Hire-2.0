@@ -13,7 +13,7 @@ test("57. aceites ao mesmo tempo formalizam uma vez só", async () => {
   const [a, b] = await Promise.all([req("POST", `/conversations/${cid}/accept`, t.cli), req("POST", `/conversations/${cid}/accept`, t.ele)]);
   assert.equal(a.s, 200, JSON.stringify(a.j));
   assert.equal(b.s, 200, JSON.stringify(b.j));
-  const [{ n: contracts }] = await db("SELECT COUNT(*) AS n FROM contracts c JOIN conversations v ON v.contractId = c.id WHERE v.id = ?", [cid]);
+  const [{ n: contracts }] = await db("SELECT COUNT(*) AS n FROM contracts c JOIN negotiations v ON v.contractId = c.id WHERE v.conversationId = ? AND v.serviceId = ?", [cid, svc.id]);
   const [{ n: created }] = await db("SELECT COUNT(*) AS n FROM hires WHERE serviceId = ?", [svc.id]);
   assert.equal(Number(contracts), 1);
   assert.equal(Number(created), 1, "uma contratação");

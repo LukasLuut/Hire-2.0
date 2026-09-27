@@ -5,6 +5,7 @@ import { errorInfo, log, requestLogger } from "./utils/logger";
 import fileRouter from "./routes/fileRoutes";
 import express, { Application, NextFunction, Request, Response } from "express";
 import { AppDataSource } from "./config/data-source";
+import { prepareSchema } from "./config/prepareSchema";
 import router from "./routes/index";
 import cors from "cors";
 import path from "path";
@@ -27,7 +28,9 @@ app.use(express.json());
 /*
   .initialize() é um método do ORM que inicia a conexão com o banco (que nem fazíamos com o createPool() da bilioteca do mysql2) e preparar todos os recursos antes de usar. Abre a conexão com o banco usando as configurações (host, porta, usuário, senha, banco), carrega as entidades (models/tabelas), executa sincronização (se synchronize: true estiver definido), que é o que cria as tabelas. Initialize é assíncrono, portanto retorna uma Promise. O que fica dentro de .then() é o que acontece se der certo, e o que fica no .catch() é o que acontece se houver erro.
 */
-AppDataSource.initialize()
+// dados que o synchronize perderia são convertidos antes (ex.: chat v1 → v2)
+prepareSchema()
+  .then(() => AppDataSource.initialize())
   .then(() => {
     log.info("database.connected");
     // CORS só para os endereços do frontend (CORS_ORIGINS no .env, separados por vírgula).

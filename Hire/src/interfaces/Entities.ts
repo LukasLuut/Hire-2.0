@@ -218,32 +218,84 @@ export interface QuoteRequest {
   notes: string;
 }
 
-export interface ConversationSummary {
+export type Party = "cliente" | "prestador";
+export type NegotiationStatus = "OPEN" | "FORMALIZED" | "CLOSED";
+/** servico: serviço listado · pedido: o cliente descreveu o que precisa · sob_medida: proposta montada pelo prestador */
+export type NegotiationOrigin = "servico" | "pedido" | "sob_medida";
+
+/** Uma negociação dentro da conversa do par */
+export interface Negotiation {
   id: number;
-  status: "OPEN" | "FORMALIZED" | "CLOSED";
+  status: NegotiationStatus;
+  origin: NegotiationOrigin;
+  createdBy: Party;
+  title: string;
   topics: NegotiationTopic[];
-  myRole: "cliente" | "prestador" | null;
-  client: { id: number; name: string; avatarUrl?: string | null } | null;
-  provider: { id: number; companyName: string; professionalName: string; profileImageUrl?: string | null; userId?: number } | null;
   service: { id: number; title: string; price: number; duration: string; description: string } | null;
   request: QuoteRequest | null;
   requestStatus: "PENDENTE" | "RESPONDIDA" | "RECUSADA" | null;
   rejectReason: string | null;
-  /** quem encerrou sem acordo e o motivo */
-  closedBy?: "cliente" | "prestador" | null;
+  closedBy: Party | null;
+  closeReason: string | null;
+  clientAcceptedAt: string | null;
+  providerAcceptedAt: string | null;
+  hireId: number | null;
+  contractId: number | null;
+  contractCode: string | null;
+  /** de quem a negociação aberta espera o próximo passo */
+  waitingFor: Party | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Conversa do par cliente ↔ prestador (uma só, nunca fecha).
+ * Os campos status/topics/service/... repetem a negociação em destaque (formato da v1).
+ */
+export interface ConversationSummary {
+  id: number;
+  myRole: Party | null;
+  client: { id: number; name: string; avatarUrl?: string | null } | null;
+  provider: { id: number; companyName: string; professionalName: string; profileImageUrl?: string | null; slug?: string | null; userId?: number } | null;
+  lastMessage: { text: string; role: string; event?: string | null; createdAt: string } | null;
+  lastMessageAt: string | null;
+  /** mensagens não lidas por quem pediu (contadas no servidor) */
+  unread: number;
+  openNegotiations: number;
+  /** há negociação aberta esperando a resposta de quem pediu */
+  waitingForMe: boolean;
+  negotiation: Negotiation | null;
+  negotiationId: number | null;
+  status: NegotiationStatus;
+  topics: NegotiationTopic[];
+  service: Negotiation["service"];
+  request: QuoteRequest | null;
+  requestStatus: Negotiation["requestStatus"];
+  rejectReason: string | null;
+  closedBy?: Party | null;
   closeReason?: string | null;
   clientAcceptedAt: string | null;
   providerAcceptedAt: string | null;
   hireId: number | null;
   contractId: number | null;
   updatedAt: string;
-  lastMessage: { text: string; role: string; createdAt: string } | null;
 }
+
+export type ChatEvent =
+  | "negotiation.opened"
+  | "negotiation.proposal"
+  | "negotiation.accepted"
+  | "negotiation.formalized"
+  | "negotiation.rejected"
+  | "negotiation.closed";
 
 export interface ChatMessage {
   id: number;
   role: "cliente" | "prestador" | "system";
   text: string;
+  /** marco da negociação (vira card na conversa) */
+  event?: ChatEvent | null;
+  negotiationId?: number | null;
   attachmentUrl: string | null;
   attachmentName: string | null;
   createdAt: string;
@@ -252,6 +304,8 @@ export interface ChatMessage {
 
 export interface ConversationDetail extends ConversationSummary {
   messages: ChatMessage[];
+  /** todas as negociações da conversa, mais recentes primeiro */
+  negotiations: Negotiation[];
 }
 
 /** Trabalho do portfólio do prestador */

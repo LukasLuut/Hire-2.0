@@ -3,7 +3,7 @@ import { publish } from "../utils/events";
 import { AppDataSource } from "../config/data-source";
 import { Notification } from "../models/Notification";
 import { Hire, StatusEnum } from "../models/Hire";
-import { Conversation, ConversationStatus, RequestStatus } from "../models/Conversation";
+import { Negotiation, NegotiationStatus, RequestStatus } from "../models/Negotiation";
 import { Contract } from "../models/Contract";
 import { Review } from "../models/Review";
 import { ServiceProvider } from "../models/ServiceProvider";
@@ -97,7 +97,7 @@ export class NotificationService {
   async pending(userId: number): Promise<PendingItem[]> {
     const items: PendingItem[] = [];
     const hireRepo = AppDataSource.getRepository(Hire);
-    const convRepo = AppDataSource.getRepository(Conversation);
+    const negRepo = AppDataSource.getRepository(Negotiation);
     const contractRepo = AppDataSource.getRepository(Contract);
     const reviewRepo = AppDataSource.getRepository(Review);
     const provider = await AppDataSource.getRepository(ServiceProvider).findOne({ where: { user: { id: userId } } });
@@ -161,15 +161,15 @@ export class NotificationService {
     }
 
     // ---------- negociações abertas
-    const convWhere: any[] = [{ client: { id: userId }, status: ConversationStatus.OPEN }];
-    if (provider) convWhere.push({ provider: { id: provider.id }, status: ConversationStatus.OPEN });
-    const convs = await convRepo.find({ where: convWhere, relations: { client: true, provider: { user: true }, service: true } });
-    for (const c of convs) {
-      const role = c.client?.id === userId ? "cliente" : "prestador";
-      const serviceTitle = c.service?.title ?? "negociação";
-      const link = `/negotiation/${c.id}`;
+    const negWhere: any[] = [{ conversation: { client: { id: userId } }, status: NegotiationStatus.OPEN }];
+    if (provider) negWhere.push({ conversation: { provider: { id: provider.id } }, status: NegotiationStatus.OPEN });
+    const negs = await negRepo.find({ where: negWhere, relations: { conversation: { client: true, provider: { user: true } }, service: true } });
+    for (const c of negs) {
+      const role = c.conversation.client?.id === userId ? "cliente" : "prestador";
+      const serviceTitle = c.title || c.service?.title || "negociação";
+      const link = `/negotiation/${c.conversation.id}`;
       if (role === "prestador" && c.requestStatus === RequestStatus.PENDENTE) {
-        items.push({ kind: "quote.respond", title: "Responda ao pedido de orçamento", description: `${serviceTitle} — ${c.client?.name ?? "cliente"}`, link: "/business", at: c.updatedAt });
+        items.push({ kind: "quote.respond", title: "Responda ao pedido de orçamento", description: `${serviceTitle} — ${c.conversation.client?.name ?? "cliente"}`, link, at: c.updatedAt });
         continue;
       }
       const toAccept = (c.topics ?? []).filter((t) => t.state === "Pendente" && t.content?.trim() && t.proposedBy && t.proposedBy !== role);

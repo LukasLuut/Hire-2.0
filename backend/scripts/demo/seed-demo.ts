@@ -14,6 +14,7 @@ import path from "path";
 import bcrypt from "bcrypt";
 import { pathToFileURL } from "url";
 import { AppDataSource } from "../../src/config/data-source";
+import { prepareSchema } from "../../src/config/prepareSchema";
 import { User } from "../../src/models/User";
 import { Address } from "../../src/models/Address";
 import { Category } from "../../src/models/Category";
@@ -401,6 +402,7 @@ async function seedAll() {
 
 (async () => {
   const onlyReset = process.argv.includes("--reset");
+  await prepareSchema();
   await AppDataSource.initialize();
   try {
     await reset();

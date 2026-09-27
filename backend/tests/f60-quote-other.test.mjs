@@ -17,6 +17,7 @@ test("60. pedido de orçamento sem serviço (Outros)", async () => {
   // o pedido de orçamento de um serviço publicado continua separado
   const svc = (await req("GET", "/services")).j.find((s) => s.provider?.id === 1 && s.negotiable !== false);
   const s2 = await req("POST", "/conversations/request", t.cli, form({ serviceId: svc.id, description: "Outro pedido", budget: "R$ 100" }));
-  assert.notEqual(s2.j.id, r.j.id);
-  await db("UPDATE conversations SET status = 'CLOSED' WHERE id IN (?, ?)", [r.j.id, s2.j.id]);
+  assert.equal(s2.j.id, r.j.id, "mesma conversa do par");
+  assert.notEqual(s2.j.negotiationId, r.j.negotiationId, "negociação própria");
+  await db("UPDATE negotiations SET status = 'CLOSED' WHERE id IN (?, ?)", [r.j.negotiationId, s2.j.negotiationId]);
 });

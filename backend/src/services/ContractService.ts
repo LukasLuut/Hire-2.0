@@ -1,6 +1,6 @@
 import { AppDataSource } from "../config/data-source";
 import { Contract, ContractSignature } from "../models/Contract";
-import { Conversation } from "../models/Conversation";
+import { Negotiation } from "../models/Negotiation";
 import { HttpError } from "./HireService";
 import { notificationService } from "./NotificationService";
 
@@ -24,7 +24,7 @@ export class ContractService {
         const contract = await this.load(id, requesterId);
 
         // Termos combinados na negociação que gerou o contrato (pagamento, início, duração)
-        const conversation = await AppDataSource.getRepository(Conversation).findOne({ where: { contract: { id } } });
+        const negotiation = await AppDataSource.getRepository(Negotiation).findOne({ where: { contract: { id } } });
 
         const { provider, user, clientSignature, providerSignature, ...rest } = contract;
         // IP fica só no banco (auditoria); a tela mostra o restante
@@ -46,7 +46,7 @@ export class ContractService {
                     userId: provider.user?.id,
                 }
                 : null,
-            terms: conversation?.topics ?? [],
+            terms: negotiation?.topics ?? [],
         };
     }
 

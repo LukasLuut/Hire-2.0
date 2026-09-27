@@ -47,7 +47,7 @@ test("desativar bloqueia com negociação em andamento (aguardando resposta ou r
     // recusada: deixa de bloquear
     await req("POST", `/conversations/${q.j.id}/reject`, t.lim, { reason: "teste" });
   } finally {
-    await db("UPDATE conversations SET status='CLOSED' WHERE id = ?", [q.j.id]);
+    await db("UPDATE negotiations SET status = 'CLOSED' WHERE conversationId = ?", [q.j.id]);
   }
   // conversa simples (sem pedido de orçamento) não bloqueia
   const chat = await req("POST", "/conversations", t.cli, { providerId: 2 });

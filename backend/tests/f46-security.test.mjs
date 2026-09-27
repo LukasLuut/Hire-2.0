@@ -63,6 +63,6 @@ test("46. anexo da negociação: link assinado, expira e fica fora de /uploads",
     assert.notEqual((await fetch(`${API}/uploads/${name}`)).status, 200, "não está no diretório público");
     assert.equal((await req("GET", `/conversations/${q.j.id}`, t.lim)).s >= 400, true, "terceiro não recebe o link");
   } finally {
-    await db("UPDATE conversations SET status = 'CLOSED' WHERE id = ?", [q.j.id]);
+    await db("UPDATE negotiations SET status = 'CLOSED' WHERE conversationId = ?", [q.j.id]);
   }
 });

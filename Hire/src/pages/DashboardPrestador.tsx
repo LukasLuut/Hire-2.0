@@ -56,7 +56,8 @@ export default function DashboardPrestador() {
   const [reviews, setReviews] = useState<ReviewEntity[] | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [galleryKey, setGalleryKey] = useState(0);
-  const [responding, setResponding] = useState<number | null>(null);
+  const [responding, setResponding] = useState<{ conversationId: number; negotiationId: number | null } | null>(null);
+  const [negotiations, setNegotiations] = useState<ConversationSummary[]>([]);
   const [myServices, setMyServices] = useState<ServiceEntity[]>([]);
   const [editRequest, setEditRequest] = useState(0);
   const [portfolio, setPortfolio] = useState<PortfolioItem[] | null>(null);
@@ -89,10 +90,11 @@ export default function DashboardPrestador() {
   const load = useCallback(async () => {
     const token = localStorage.getItem("token");
     if (!token || !provider?.id) return;
-    const [hs, rv, cv, sv, pf] = await Promise.all([
+    const [hs, rv, cv, ng, sv, pf] = await Promise.all([
       hireAPI.getHireByProviderId(provider.id).catch(() => []),
       reviewAPI.forProvider(provider.id).catch(() => null),
       conversationAPI.list(token).catch(() => []),
+      conversationAPI.negotiations(token).catch(() => [] as ConversationSummary[]),
       providerApi.getServices(token).catch(() => []),
       providerApi.portfolio(token).catch(() => [] as PortfolioItem[]),
     ]);
@@ -101,6 +103,7 @@ export default function DashboardPrestador() {
     setBookings(hs);
     setReviews(rv?.reviews ?? []);
     setConversations(cv.filter((c) => c.myRole === "prestador"));
+    setNegotiations(ng.filter((c) => c.myRole === "prestador"));
   }, [provider?.id, galleryKey]);
 
   useEffect(() => {
@@ -114,10 +117,10 @@ export default function DashboardPrestador() {
 
   // Notificações recentes: novos pedidos, avaliações e mensagens de clientes
   // Pedidos de orçamento aguardando resposta
-  const pendingRequests = conversations.filter((c) => c.status === "OPEN" && c.requestStatus === "PENDENTE");
+  const pendingRequests = negotiations.filter((c) => c.status === "OPEN" && c.requestStatus === "PENDENTE");
 
   const notifications: Notification[] = [
-    ...pendingRequests.map((c) => ({ id: `q${c.id}`, text: `Pedido de orçamento — ${short(c.client?.name, "Cliente")} (${c.service?.title ?? "serviço"})`, date: new Date(c.updatedAt).getTime() })),
+    ...pendingRequests.map((c) => ({ id: `q${c.negotiationId ?? c.id}`, text: `Pedido de orçamento — ${short(c.client?.name, "Cliente")} (${c.negotiation?.title || c.service?.title || "serviço"})`, date: new Date(c.updatedAt).getTime() })),
     ...(bookings ?? [])
       .filter((b) => getHireStage(b) === "requested")
       .map((b) => ({ id: `h${b.id}`, text: `Novo pedido — ${short(b.user?.name, "Cliente")} (${b.service?.title ?? "serviço"})`, date: new Date(b.firstContact).getTime() })),
@@ -332,14 +335,14 @@ export default function DashboardPrestador() {
                   </div>
                   <div className="flex flex-col gap-3">
                     {pendingRequests.slice(0, 4).map((c) => (
-                      <div key={c.id} className="flex items-start gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)]">
+                      <div key={c.negotiationId ?? c.id} className="flex items-start gap-3 p-2 rounded-lg bg-[var(--bg)]/40 border border-[var(--border-muted)]">
                         <FileText size={18} className="text-[var(--primary)] mt-0.5 shrink-0" />
                         <div className="flex-1 text-sm min-w-0">
                           <div className="font-medium">{short(c.client?.name, "Cliente")}</div>
-                          <div className="text-xs text-[var(--text-muted)] truncate">{c.service?.title}</div>
+                          <div className="text-xs text-[var(--text-muted)] truncate">{c.negotiation?.title || c.service?.title}</div>
                           {c.request?.budget && <div className="text-xs mt-1">Orçamento: {c.request.budget}</div>}
                         </div>
-                        <button onClick={() => setResponding(c.id)} className="px-3 py-1.5 rounded-lg bg-[var(--primary)] text-white text-xs font-semibold">
+                        <button onClick={() => setResponding({ conversationId: c.id, negotiationId: c.negotiationId })} className="px-3 py-1.5 rounded-lg bg-[var(--primary)] text-white text-xs font-semibold">
                           Responder
                         </button>
                       </div>
@@ -444,7 +447,7 @@ export default function DashboardPrestador() {
         </ConfirmModal>
 
         {/* CHAT */}
-        <ServiceResponseModal isOpen={responding !== null} conversationId={responding} onClose={() => setResponding(null)} onDone={load} />
+        <ServiceResponseModal isOpen={responding !== null} conversationId={responding?.conversationId ?? null} negotiationId={responding?.negotiationId} onClose={() => setResponding(null)} onDone={load} />
         {/* main content: services + bookings */}
 
       </div>

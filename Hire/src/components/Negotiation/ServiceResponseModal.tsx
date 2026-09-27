@@ -58,11 +58,14 @@ export default function ServiceResponseModal({
   isOpen,
   onClose,
   conversationId,
+  negotiationId,
   onDone,
 }: {
   isOpen: boolean;
   onClose: () => void;
   conversationId: number | null;
+  /** negociação do pedido dentro da conversa (sem ela, vale a aberta em destaque) */
+  negotiationId?: number | null;
   /** chamado depois de responder ou recusar (para atualizar a lista do painel) */
   onDone?: () => void;
 }) {
@@ -93,8 +96,11 @@ export default function ServiceResponseModal({
     setClientProposal(null);
     conversationAPI
       .get(conversationId, token)
-      .then((c) => {
+      .then((conv) => {
         if (!active) return;
+        // a conversa pode ter várias negociações: usa a do pedido
+        const n = negotiationId ? conv.negotiations.find((x) => x.id === negotiationId) : null;
+        const c = n ? { ...conv, service: n.service, request: n.request, requestStatus: n.requestStatus, topics: n.topics } : conv;
         const proposal = toProposal(c);
         setClientProposal(proposal);
         setService({
@@ -109,7 +115,7 @@ export default function ServiceResponseModal({
     return () => {
       active = false;
     };
-  }, [isOpen, conversationId, token]);
+  }, [isOpen, conversationId, negotiationId, token]);
 
   // Esc fecha (quando a confirmação de recusa não está aberta)
   useEffect(() => {
@@ -135,7 +141,8 @@ export default function ServiceResponseModal({
         conversationId,
         { title: service.title, description: service.description, price: String(service.price ?? ""), deadline: service.deliveryTime ?? "" },
         service.attachments ?? [],
-        token
+        token,
+        negotiationId
       );
       setSent(true);
       onDone?.();
@@ -149,7 +156,7 @@ export default function ServiceResponseModal({
 
   const handleReject = async (reason: string) => {
     try {
-      await conversationAPI.reject(conversationId, reason, token);
+      await conversationAPI.reject(conversationId, reason, token, negotiationId);
       onDone?.();
       return true;
     } catch (err) {

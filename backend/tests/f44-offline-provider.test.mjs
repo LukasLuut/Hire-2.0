@@ -46,10 +46,10 @@ test("RN15: aceite reconfere o acordo (serviço pausado durante a negociação)"
     const r = await req("POST", `/conversations/${cid}/accept`, t.cli);
     assert.equal(r.s, 400);
     assert.match(r.j.message, /pausado/);
-    const [c] = await db("SELECT clientAcceptedAt FROM conversations WHERE id = ?", [cid]);
+    const [c] = await db("SELECT clientAcceptedAt FROM negotiations WHERE conversationId = ? ORDER BY updatedAt DESC, id DESC LIMIT 1", [cid]);
     assert.equal(c.clientAcceptedAt, null, "aceite não gravado");
   } finally {
     await req("PUT", `/services/${simple.id}`, t.lim, form({ active: true }));
-    await db("UPDATE conversations SET status = 'CLOSED' WHERE id = ?", [cid]);
+    await db("UPDATE negotiations SET status = 'CLOSED' WHERE conversationId = ?", [cid]);
   }
 });

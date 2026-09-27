@@ -33,7 +33,7 @@ export class PlatformReportService {
     );
     const [quotes] = await q(
       `SELECT COUNT(*) AS requests, SUM(status = 'FORMALIZED') AS formalized
-         FROM conversations WHERE createdAt >= ? AND request IS NOT NULL`,
+         FROM negotiations WHERE createdAt >= ? AND request IS NOT NULL`,
       [since]
     );
     const [rating] = await q(

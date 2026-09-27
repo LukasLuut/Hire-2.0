@@ -18,6 +18,7 @@ import { Review } from '../models/Review';
 import { ReviewPhoto } from '../models/ReviewPhoto';
 import { ServiceLike } from '../models/ServiceLike';
 import { Conversation } from '../models/Conversation';
+import { Negotiation } from '../models/Negotiation';
 import { Message } from '../models/Message';
 import { Notification } from '../models/Notification';
 import { AuthToken } from '../models/AuthToken';
@@ -58,6 +59,6 @@ export const AppDataSource = new DataSource({
 
     // Aqui registramos as entidades (as classes que representam tabelas).
     // O TypeORM precisa saber quais são para criar o mapeamento com o banco.
-    entities: [User, Address, Category, Service, ServiceProvider, Hire, Contract, Payment, Subcategory, Availability, Link, Review, ReviewPhoto, ServiceLike, Conversation, Message, Notification, AuthToken, Report, PortfolioItem, AnalyticsDaily, Invite, SupportTicket, ProviderFavorite, Withdrawal],
+    entities: [User, Address, Category, Service, ServiceProvider, Hire, Contract, Payment, Subcategory, Availability, Link, Review, ReviewPhoto, ServiceLike, Conversation, Negotiation, Message, Notification, AuthToken, Report, PortfolioItem, AnalyticsDaily, Invite, SupportTicket, ProviderFavorite, Withdrawal],
     subscribers: [LiveSubscriber],
 });

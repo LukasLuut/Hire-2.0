@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { cameFromProfile, track } from "../../utils/analytics";
-import { useNavigate } from "react-router-dom";
+import { requestChat } from "../../utils/chatEvents";
 import { conversationAPI } from "../../api/ConversationAPI";
 import { useToast } from "../Toast/ToastContext";
 import { getErrorMessage } from "../../utils/errors";
@@ -60,7 +60,6 @@ export default function ServiceNegotiationModal({
   service: NegotiationTarget | null;
   onSent?: (conversationId: number) => void;
 }) {
-  const navigate = useNavigate();
   const { showToast } = useToast();
   const providerName = service?.providerName || "o prestador";
   /* ---------------------------
@@ -635,7 +634,7 @@ export default function ServiceNegotiationModal({
 
                   <h3 className="text-xl font-semibold mt-3">Proposta enviada!</h3>
                   <p className="text-sm mt-2 opacity-90">
-                    Sua solicitação foi enviada para <strong>{providerName}</strong>. A resposta aparece na negociação e no seu chat.
+                    Sua solicitação foi enviada para <strong>{providerName}</strong>. A resposta chega na sua conversa com o prestador.
                   </p>
 
                   <div className="mt-6 flex justify-center gap-3">
@@ -643,11 +642,11 @@ export default function ServiceNegotiationModal({
                       <button
                         onClick={() => {
                           onClose();
-                          navigate(`/negotiation/${conversationId}`);
+                          requestChat(conversationId);
                         }}
                         className="px-5 py-2 rounded-lg font-medium border border-[var(--primary)] text-[var(--primary)]"
                       >
-                        Abrir negociação
+                        Abrir conversa
                       </button>
                     )}
                     <button
