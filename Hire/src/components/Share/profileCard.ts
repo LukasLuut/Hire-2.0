@@ -140,7 +140,9 @@ export async function renderProfileCard(data: ProfileCardData, theme: CardTheme)
   ctx.font = `400 21px ${font}`;
   const about = data.description ? wrap(ctx, data.description, infoW, 3) : [];
   const infoH = 60 + 42 + 36 + (data.experience ? 32 : 0) + (data.area ? 34 : 0) + (about.length ? 18 + about.length * 30 : 0) + 30 + 62;
-  const H = Math.max(PAD * 2 + AVATAR + 8, PAD * 2 + infoH, PAD * 2 + QR + 96);
+  // coluna da foto: foto + "Hire." + slogan logo abaixo
+  const BRAND = 96;
+  const H = Math.max(PAD * 2 + AVATAR + BRAND, PAD * 2 + infoH, PAD * 2 + QR);
 
   canvas.width = W * scale;
   canvas.height = H * scale;
@@ -152,7 +154,7 @@ export async function renderProfileCard(data: ProfileCardData, theme: CardTheme)
   ctx.fillRect(0, 0, W, H);
 
   // foto com o anel azul do perfil
-  const ay = PAD + (H - PAD * 2 - AVATAR) / 2;
+  const ay = PAD + (H - PAD * 2 - AVATAR - BRAND) / 2;
   const acx = PAD + AVATAR / 2;
   const acy = ay + AVATAR / 2;
   ctx.save();
@@ -262,7 +264,7 @@ export async function renderProfileCard(data: ProfileCardData, theme: CardTheme)
 
   // QR Code ao lado das informações (fundo branco para qualquer câmera ler)
   const qx = W - PAD - QR;
-  const qy = (H - QR - 90) / 2;
+  const qy = (H - QR) / 2;
   ctx.beginPath();
   ctx.roundRect(qx, qy, QR, QR, 20);
   ctx.fillStyle = "#ffffff";
@@ -273,13 +275,13 @@ export async function renderProfileCard(data: ProfileCardData, theme: CardTheme)
     ctx.stroke();
   }
   if (qr) ctx.drawImage(qr, qx + 12, qy + 12, QR - 24, QR - 24);
-  // marca e slogan abaixo do QR Code
+  // marca e slogan abaixo da foto
   ctx.textAlign = "center";
   ctx.font = `800 44px ${font}`;
   ctx.fillStyle = c.text;
-  ctx.fillText("Hire.", qx + QR / 2, qy + QR + 56);
+  ctx.fillText("Hire.", acx, ay + AVATAR + 58);
   ctx.font = `700 16px ${font}`;
-  ctx.fillText(fit(ctx, "Quem precisa encontra quem faz.", QR + 40), qx + QR / 2, qy + QR + 82);
+  ctx.fillText(fit(ctx, "Quem precisa encontra quem faz.", AVATAR + PAD * 2 - 16), acx, ay + AVATAR + 86);
   ctx.textAlign = "left";
 
   return await new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("canvas"))), "image/png"));

@@ -106,7 +106,8 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
                         const Icon = item.icon;
                         return (
                           <motion.li
-                            key={item.label}
+                            // chave estável: o rótulo do tema muda ao clicar e recriaria o item invisível
+                            key={item.kind === "link" ? item.to : item.kind}
                             variants={{ hidden: { opacity: 0, x: 16 }, shown: { opacity: 1, x: 0, transition: { delay: (cascade.length - 1 - i) * 0.03 } } }}
                           >
                             <IconTip label={item.label}>
@@ -146,11 +147,7 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
                 {!open && unreadCount > 0 && <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-red-600 ring-2 ring-[var(--bg-dark)]" aria-hidden />}
               </button>
             </>
-          ) : (
-            <button onClick={toggleTheme} aria-label={theme === "dark" ? "Usar modo claro" : "Usar modo escuro"} className={iconBtn}>
-              {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
-          )}
+          ) : null /* sem login o tema é fixo (escuro): a troca só aparece depois de entrar */}
         </div>
       </div>
 

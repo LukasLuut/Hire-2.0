@@ -72,15 +72,15 @@ export default function App() {
       : "light";
   });
 
+  // sem login (apresentação, entrar/cadastrar) o tema é sempre o escuro;
+  // depois de entrar vale a escolha da pessoa (guardada mesmo enquanto está deslogada)
+  const { token } = useSession();
+  const effectiveTheme = token ? theme : "dark";
   useEffect(() => {
-    const body = document.body;
-    if (theme === "light") {
-      body.classList.add("light");
-      localStorage.setItem("theme", "light");
-    } else {
-      body.classList.remove("light");
-      localStorage.setItem("theme", "dark");
-    }
+    document.body.classList.toggle("light", effectiveTheme === "light");
+  }, [effectiveTheme]);
+  useEffect(() => {
+    localStorage.setItem("theme", theme);
   }, [theme]);
 
   return (
