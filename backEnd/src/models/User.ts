@@ -56,7 +56,7 @@ export class User {
   @Column({ type: 'date', nullable: true })
   acceptedAt: Date;
 
-  @Column({ length: 400, nullable: true })
+  @Column({ length: 1500, nullable: true })
   about: string;
 
   // E-mail confirmado pelo link enviado no cadastro

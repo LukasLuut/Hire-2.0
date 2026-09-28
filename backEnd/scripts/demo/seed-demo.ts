@@ -31,6 +31,7 @@ import { Withdrawal, WithdrawalStatus } from "../../src/models/Withdrawal";
 import { ServiceLike } from "../../src/models/ServiceLike";
 import { ProviderFavorite } from "../../src/models/ProviderFavorite";
 import { CategoryService } from "../../src/services/CategoryService";
+import { resetDomain } from "./reset";
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const DOMAIN = "demo.hire.dev";
@@ -101,45 +102,6 @@ const REVIEWS: Record<number, string[]> = {
 const CLIENT_REVIEWS = ["Cliente super educada, casa organizada para o serviço. Recomendo!", "Ótimo cliente, pagamento rápido e comunicação clara.", "Muito atencioso, facilitou o acesso e explicou bem o que precisava.", "Cliente pontual e gentil. Foi um prazer atender.", "Tudo certo, cliente combinou direitinho e confirmou rápido."];
 const CANCEL_REASONS = ["Precisei viajar e não vou estar em casa na data.", "Consegui resolver de outra forma, obrigada!", "Imprevisto na agenda, vou remarcar em breve.", "O orçamento ficou acima do que eu esperava."];
 const ratingPick = () => { const r = rand(); return r < 0.62 ? 5 : r < 0.9 ? 4 : r < 0.97 ? 3 : r < 0.99 ? 2 : 1; };
-
-// ---------------------------------------------------------------- limpeza
-async function reset() {
-  const q = (sql: string, p: unknown[] = []) => AppDataSource.query(sql, p);
-  const users: { id: number; addressId: number | null }[] = await q("SELECT id, addressId FROM users WHERE email LIKE ?", [`%@${DOMAIN}`]);
-  if (!users.length) return console.log("nenhum dado de demonstração para apagar");
-  const uid = users.map((u) => u.id);
-  const provs: { id: number }[] = await q("SELECT id FROM service_providers WHERE userId IN (?)", [uid]);
-  const pid = provs.length ? provs.map((p) => p.id) : [0];
-  const hires: { id: number }[] = await q("SELECT id FROM hires WHERE userId IN (?) OR providerId IN (?)", [uid, pid]);
-  const hid = hires.length ? hires.map((h) => h.id) : [0];
-  const services: { id: number }[] = await q("SELECT id FROM services WHERE providerId IN (?)", [pid]);
-  const sid = services.length ? services.map((s) => s.id) : [0];
-  await q("SET FOREIGN_KEY_CHECKS = 0");
-  await q("DELETE FROM review_photos WHERE reviewId IN (SELECT id FROM reviews WHERE hireId IN (?) OR authorId IN (?) OR targetId IN (?))", [hid, uid, uid]);
-  await q("DELETE FROM reviews WHERE hireId IN (?) OR authorId IN (?) OR targetId IN (?)", [hid, uid, uid]);
-  await q("DELETE FROM payments WHERE hireId IN (?) OR providerId IN (?) OR userId IN (?)", [hid, pid, uid]);
-  await q("DELETE FROM contracts WHERE hireId IN (?) OR providerId IN (?) OR userId IN (?)", [hid, pid, uid]);
-  await q("DELETE FROM withdrawals WHERE providerId IN (?)", [pid]);
-  await q("DELETE FROM provider_favorites WHERE userId IN (?) OR providerId IN (?)", [uid, pid]);
-  await q("DELETE FROM service_likes WHERE userId IN (?) OR serviceId IN (?)", [uid, sid]);
-  await q("DELETE FROM notifications WHERE userId IN (?)", [uid]);
-  await q("DELETE FROM portfolio_items WHERE providerId IN (?)", [pid]);
-  await q("DELETE FROM analytics_daily WHERE providerId IN (?) OR serviceId IN (?)", [pid, sid]);
-  await q("DELETE FROM reports WHERE reporterId IN (?) OR hireId IN (?) OR providerId IN (?)", [uid, hid, pid]);
-  await q("DELETE FROM messages WHERE conversationId IN (SELECT id FROM conversations WHERE clientId IN (?) OR providerId IN (?))", [uid, pid]);
-  await q("DELETE FROM conversations WHERE clientId IN (?) OR providerId IN (?)", [uid, pid]);
-  await q("DELETE FROM hires WHERE id IN (?)", [hid]);
-  await q("DELETE FROM services WHERE id IN (?)", [sid]);
-  for (const t of ["availabilities", "subcategories", "links"]) await q(`DELETE FROM ${t} WHERE providerId IN (?)`, [pid]);
-  await q("DELETE FROM service_providers WHERE id IN (?)", [pid]);
-  await q("DELETE FROM support_tickets WHERE userId IN (?)", [uid]);
-  await q("DELETE FROM auth_tokens WHERE userId IN (?)", [uid]);
-  await q("DELETE FROM users WHERE id IN (?)", [uid]);
-  const addr = users.map((u) => u.addressId).filter(Boolean);
-  if (addr.length) await q("DELETE FROM address WHERE id IN (?)", [addr]);
-  await q("SET FOREIGN_KEY_CHECKS = 1");
-  console.log(`apagados: ${users.length} contas, ${provs.length} prestadores, ${services.length} serviços, ${hires.length} contratações`);
-}
 
 // ---------------------------------------------------------------- fotos baixadas
 function pool(query: string) {
@@ -405,7 +367,7 @@ async function seedAll() {
   await prepareSchema();
   await AppDataSource.initialize();
   try {
-    await reset();
+    await resetDomain(DOMAIN);
     if (!onlyReset) await seedAll();
     console.log(`pronto. Contas @${DOMAIN}, senha ${PASSWORD}`);
   } finally {

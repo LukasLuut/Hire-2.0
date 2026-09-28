@@ -7,7 +7,7 @@ import Accessibility from "./components/Accessibility";
 import EmailVerifyBanner from "./components/EmailVerifyBanner";
 
 // Cada página vira um arquivo JS separado, baixado só quando a rota é aberta
-// (o login não carrega mapa, gerador de PDF nem as partículas da apresentação)
+// (o login não carrega mapa, gerador de PDF nem as cenas da apresentação)
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const DashboardPrestador = lazy(() => import("./pages/DashboardPrestador"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));

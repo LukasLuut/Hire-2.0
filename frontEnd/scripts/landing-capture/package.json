@@ -1,0 +1,15 @@
+{
+  "name": "hire-landing-capture",
+  "private": true,
+  "type": "module",
+  "description": "Grava as tomadas reais do Hire usadas na landing (fora do bundle do app)",
+  "scripts": {
+    "setup": "playwright install chromium",
+    "capture": "node capture.mjs"
+  },
+  "devDependencies": {
+    "ffmpeg-static": "^5.2.0",
+    "playwright": "^1.55.0",
+    "sharp": "^0.34.3"
+  }
+}

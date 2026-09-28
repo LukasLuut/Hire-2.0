@@ -323,7 +323,9 @@ export class ProviderService {
     // página pública da categoria na cidade do prestador, quando existe (link interno)
     const page = (await cityPages()).find((c) => c.categoryId === provider.category?.id && c.city === provider.baseCity && c.state === (provider.baseState ?? "").toUpperCase());
     const cityPage = page ? { path: `/servicos/${page.categorySlug}/${page.citySlug}`, label: `${page.categoryName} em ${page.city}` } : null;
-    const pub = { ...(toPublicProvider({ ...decorated, user: provider.user, emailVerified: !!provider.user?.emailVerified } as any) as any), memberSince, portfolio, cityPage };
+    // "Sobre" completo do prestador: só na página do perfil (as listas usam a descrição curta)
+    const about = provider.user?.about?.trim() || null;
+    const pub = { ...(toPublicProvider({ ...decorated, user: provider.user, emailVerified: !!provider.user?.emailVerified } as any) as any), memberSince, portfolio, cityPage, about };
     return {
       ...pub,
       services: services.map((s: any) => ({ ...s, provider: { id: provider.id, slug: pub.slug, companyName: provider.companyName, professionalName: provider.professionalName, profileImageUrl: provider.profileImageUrl, description: provider.description, rating: decorated.rating, pricesOnPage: provider.pricesOnPage, verificationStatus: provider.verificationStatus } })),

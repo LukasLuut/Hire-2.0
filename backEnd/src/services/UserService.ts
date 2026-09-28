@@ -7,6 +7,9 @@ import { Hire, StatusEnum } from "../models/Hire";
 import { ServiceProvider } from "../models/ServiceProvider";
 import { User } from "../models/User";
 
+/** Tamanho máximo do "Sobre" (o perfil público do prestador mostra o texto completo) */
+export const ABOUT_MAX = 1500;
+
 export class UserService {
   private repo = AppDataSource.getRepository(User);
   private providerRepository = AppDataSource.getRepository(ServiceProvider);
@@ -51,7 +54,7 @@ export class UserService {
       cpf_cnpj: data.cpf_cnpj,
       acceptedTerms: data.acceptedTerms === true,
       acceptedAt: data.acceptedAt,
-      about: data.about ? String(data.about).slice(0, 400) : (undefined as any),
+      about: data.about ? String(data.about).slice(0, ABOUT_MAX) : (undefined as any),
       accountType,
       legalName: company ? String(data.legalName).trim().slice(0, 150) : null,
       tradeName: company ? String(data.tradeName).trim().slice(0, 100) : null,
@@ -114,7 +117,7 @@ export class UserService {
       user.name = name;
     }
     if (data.about !== undefined) {
-      user.about = data.about === null ? (null as any) : String(data.about).trim().slice(0, 400);
+      user.about = data.about === null ? (null as any) : String(data.about).trim().slice(0, ABOUT_MAX);
     }
 
     return this.repo.save(user);

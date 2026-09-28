@@ -174,6 +174,20 @@ export default function ProviderPublicPage() {
           }
         />
 
+        {/* "Sobre" completo: quem é, como trabalha, onde atende (a ficha do topo tem só a descrição curta) */}
+        {provider.about && (
+          <section aria-labelledby="sobre-titulo" className="mt-10 max-w-3xl">
+            <h2 id="sobre-titulo" className="text-xl font-semibold">
+              Conheça {(provider.professionalName || provider.companyName).split(" ")[0]}
+            </h2>
+            <div className="mt-3 space-y-3 text-[var(--text-muted)] leading-relaxed">
+              {provider.about.split(/\n{2,}/).map((paragraph, i) => (
+                <p key={i}>{paragraph}</p>
+              ))}
+            </div>
+          </section>
+        )}
+
         <PortfolioGallery items={provider.portfolio ?? []} />
 
         {provider.cityPage && (

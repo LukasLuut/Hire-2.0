@@ -67,7 +67,7 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
     navigate("/auth");
   };
   const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
-  // visitante: na página inicial o cartão de entrar já está lá (rola até ele); nas outras, vai para /auth
+  // visitante: se a página tiver o cartão de entrar embutido, rola até ele; senão, vai para /auth
   const goAuth = (signup: boolean) => {
     const card = document.getElementById("entrar");
     if (card) {
@@ -163,7 +163,7 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
               </button>
             </>
           ) : (
-            /* sem login: tema fixo (escuro) e atalhos para entrar; na página inicial rolam até o cartão */
+            /* sem login: tema fixo (escuro) e atalhos para entrar e criar conta */
             location.pathname !== "/auth" && (
               <div className="flex items-center gap-2">
                 <button type="button" onClick={() => goAuth(false)} className="h-10 px-4 rounded-xl text-sm font-medium text-[var(--text)] border border-[var(--border)] hover:border-[var(--primary)] transition">

@@ -245,12 +245,13 @@ export default function ProfilePage() {
               <textarea
                 value={user.about}
                 aria-label="Sobre você"
+                maxLength={1500}
                 placeholder="Fale um pouco sobre você..."
                 onChange={(e) => setUser((prev) => ({...prev, about: e.target.value}))}
                 className="md:w-2xl w-xs bg-[var(--bg-light)] border border-[var(--primary)] rounded-lg p-2 text-[var(--text)] resize-none h-32"
               />
             ) : (
-              <p className="text-[var(--text-muted)] max-w-2xl">{!user.about ? aboutPlaceholder : user.about}</p>
+              <p className="text-[var(--text-muted)] max-w-2xl whitespace-pre-line">{!user.about ? aboutPlaceholder : user.about}</p>
             )}
             {isEditing && (
               <input

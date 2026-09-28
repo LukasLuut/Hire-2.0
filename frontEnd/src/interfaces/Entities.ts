@@ -39,6 +39,8 @@ export interface ProviderEntity {
   deactivatedAt?: string | null;
   /** (perfil público) data de entrada no Hire */
   memberSince?: string | null;
+  /** (perfil público) "Sobre" completo do profissional: história, forma de trabalhar, região */
+  about?: string | null;
   /** (perfil público) e-mail da conta confirmado */
   emailVerified?: boolean;
   description?: string | null;

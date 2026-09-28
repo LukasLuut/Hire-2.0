@@ -17,6 +17,9 @@
     "demo:images": "node scripts/demo/fetch-images.mjs",
     "demo:seed": "ts-node --transpile-only scripts/demo/seed-demo.ts",
     "demo:reset": "ts-node --transpile-only scripts/demo/seed-demo.ts --reset",
+    "story:images": "node scripts/story/fetch-images.mjs",
+    "story:seed": "ts-node --transpile-only scripts/story/seed-story.ts",
+    "story:reset": "ts-node --transpile-only scripts/story/seed-story.ts --reset",
     "test:api": "node --test --test-concurrency=1 \"tests/*.test.mjs\""
   },
   "repository": {
