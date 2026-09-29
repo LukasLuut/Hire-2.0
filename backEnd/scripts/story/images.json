@@ -230,6 +230,48 @@
       "author": "Leroy Skalstad",
       "license": "CC0",
       "source": "https://commons.wikimedia.org/wiki/File:Black_bearded_man_smiling,_2442565.jpg"
+    },
+    {
+      "file": "marina-summit.jpg",
+      "commons": "File:2022 - Corporate Innovation Summit event HMZ 6697 (52469557641).jpg",
+      "author": "Web Summit",
+      "license": "CC BY 2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:2022_-_Corporate_Innovation_Summit_event_HMZ_6697_(52469557641).jpg"
+    },
+    {
+      "file": "marina-speaker.jpg",
+      "commons": "File:Jack McCullough at the 2022 CFO Leadership Conference.jpg",
+      "author": "Fact-writer-a",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Jack_McCullough_at_the_2022_CFO_Leadership_Conference.jpg"
+    },
+    {
+      "file": "marina-networking.jpg",
+      "commons": "File:Speaker D'Wayne Edwards with Doug Little from Wacom and audience member (22310926792).jpg",
+      "author": "Cre8con",
+      "license": "CC BY-SA 2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Speaker_D%27Wayne_Edwards_with_Doug_Little_from_Wacom_and_audience_member_(22310926792).jpg"
+    },
+    {
+      "file": "rafael-candles.jpg",
+      "commons": "File:DFC 2023 Friends gather around a glowing tray of candles smiling and taking photos as they celebrate together in the evening.jpg",
+      "author": "PattayaPatrol",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:DFC_2023_Friends_gather_around_a_glowing_tray_of_candles_smiling_and_taking_photos_as_they_celebrate_together_in_the_evening.jpg"
+    },
+    {
+      "file": "rafael-dance.jpg",
+      "commons": "File:A Hard Day's Night - Beatles-inspired Halloween Costume Party (2015-10-29 21.17.33 by LBJ Library).jpg",
+      "author": "LBJ Library from Austin",
+      "license": "Domínio público",
+      "source": "https://commons.wikimedia.org/wiki/File:A_Hard_Day%27s_Night_-_Beatles-inspired_Halloween_Costume_Party_(2015-10-29_21.17.33_by_LBJ_Library).jpg"
+    },
+    {
+      "file": "rafael-graduation.jpg",
+      "commons": "File:Indigenous graduate celebration-46 (27129457060).jpg",
+      "author": "University of the Fraser Valley",
+      "license": "CC BY 2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Indigenous_graduate_celebration-46_(27129457060).jpg"
     }
   ],
   "avatars": [
@@ -280,6 +322,14 @@
     {
       "file": "avatars/carolina.jpg",
       "randomuser": "women/4.jpg"
+    },
+    {
+      "file": "avatars/marina.jpg",
+      "randomuser": "women/65.jpg"
+    },
+    {
+      "file": "avatars/rafael.jpg",
+      "randomuser": "men/46.jpg"
     }
   ]
 }

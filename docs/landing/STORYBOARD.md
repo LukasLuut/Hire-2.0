@@ -202,3 +202,62 @@ servidor local, só para o link do perfil aparecer como apareceria em produção
 Para regravar as tomadas depois de mudar o app: `backEnd: npm run story:seed` e `frontEnd/scripts/landing-capture: npm run capture`
 (a tomada do contrato assina pelas duas partes, então precisa de uma apresentação recém-criada). Se o layout
 de uma tela mudar, ajuste os pontos em `SPOTS` (media.ts).
+
+## Revisão de roteiro e ritmo (setembro de 2026)
+
+Mudanças sobre o storyboard acima (o código é a fonte da verdade; o ritmo fica em `frontEnd/src/landing/timing.ts`):
+
+- **Reprodução por cena.** Rolar para baixo é o *play*: a página toca a cena atual até o fim e para, esperando o
+  próximo gesto (`playback.ts`); aparece "Role para continuar". Rolar para cima é navegação livre. Cada cena tem
+  estados completos com tempo de leitura (`hold`) e duração de movimento (`move`); as transições ganham duração
+  própria. Cenas de ~8–13 s (antes ~4 s, com os estados passando em 0–0,6 s).
+- **01 Encontre** termina mais cedo: resultados → destaque no card do Tomás → a câmera entra na **foto de capa do
+  card**, que vira o cenário → "Encontre quem faz.". O perfil e o portfólio ficam só na cena 04. No celular, a busca
+  digita "Fotógrafo" uma vez.
+- **03 Descubra** — "Busque, filtre e compare quem faz.": a janela fica parada e a câmera entra nela, um
+  enquadramento de perto por passo (barra, filtros, localização, resultados, recomendados).
+- **05 Confie** — "Veja o que diz quem já contratou.": ficha compacta (foto, nome, selos) e **uma avaliação por
+  vez**, grande o bastante para ler; sem o card de serviço.
+- **06 Converse** termina com o acordo aceso (sem escurecer no fim).
+- **07 Contrate**: a travessia vira montagem rápida; o fim troca o contrato inteiro (texto jurídico) pelo recorte
+  das **assinaturas + "as duas partes assinaram"** (`SPOTS.contract.sealed`).
+- **10 Ecossistema** fecha a página com os botões; o rodapé ficou só com "Já tenho conta" e os créditos
+  (o fechamento não se repete).
+- **Entradas sem palco vazio**: 03, 04, 06, 08, 09 e 10 já sobem compostas (a subida da página é a transição);
+  a 02 continua começando no escuro, de propósito.
+- Trilho de capítulos só com números (rótulo no hover); destaques escurecem menos; sombras das peças desligadas
+  por ora (`elevation`/`lift` em `primitives.tsx`).
+
+### Ajustes (setembro de 2026, 2ª rodada)
+
+- **Busca "Fotógrafo para eventos"** (tomadas regravadas com o app real: `ONLY=search`). A busca devolve os dois
+  serviços do Tomás (casamento e eventos); o card do casamento continua sendo o primeiro, e a capa dele abre o cenário.
+- **Cena 04** abre no visualizador a foto da Camila & Rafael e avança para a saída dos noivos (`ONLY=lightboxes`);
+  essa última (`photo-sparklers`, `ONLY=photos`) vira o cenário da cena 05 — a foto da estrada fica só na abertura.
+- **Destaque do roteiro**: o item que a tela está mostrando ganha um quadro na cor do Hire (`ActiveBox`), que desliza
+  de um item para o próximo (cenas 03, 04, 06, 08, 09).
+- **Cena 03** sem câmera dentro da tela (com dois resultados, qualquer zoom cortava os cards): a tela inteira, com destaques.
+- **Cena 05**: a ficha volta a ser o recorte do topo do perfil; as avaliações continuam uma de cada vez.
+- **Cena 07**: a travessia começa assim que a cena chega, com aceleração e desaceleração.
+- **Cena 09**: o zoom no QR Code é um movimento só (o estado de pausa ficava no meio do zoom e criava um degrau).
+- **Fluidez do play**: o relógio do play usa o início do quadro (`document.timeline`) e as cenas leem a posição exata
+  do play (`playhead`), sem esperar o evento de scroll arredondado — o movimento deixou de tremer. Ritmo geral 15%
+  mais rápido (`PACE` em `playback.ts`).
+
+### Ajustes (setembro de 2026, 3ª rodada — motion)
+
+- **Curva única**: toda faixa de movimento usa `SMOOTH` (`motion.ts`) — sai devagar, acelera e pousa; keyframes com
+  `useKeys`. Regra: nenhuma faixa atravessa uma pausa do play (ela congelaria no meio). Um detector automático
+  (tocar cada cena e procurar movimento que para e retoma) confirmou: só sobram paradas intencionais de leitura.
+- **Estado `arrive`** em `timing.ts`: movimentos longos têm tempo próprio (push-in da cena 01, traço da cena 10).
+- **Prestadores**: Marina Costa (eventos corporativos) e Rafael Duarte (festas e formaturas) entraram no elenco
+  (`cast.ts`, fotos CC em `images.json`); a busca mostra os três fotógrafos, com o Tomás primeiro.
+- **01**: a digitação é recortada na forma da barra; a página entra com bordas esfumadas e a lista abre com borda
+  suave; o push-in na capa, a foto e a frase são um movimento só; a aproximação da foto anda no tempo.
+- **03**: localização abre o menu real (`search-location`), zoom nele e de volta; resultados e profissionais com
+  zoom que enquadra a parte inteira (sem corte).
+- **04 → 05**: a saída dos noivos é uma camada única (`sharedPhoto.tsx`), parada na tela durante as duas cenas.
+- **06**: janela do chat dimensionada pela altura da tela; tópicos só com contraste (sem o quadro azul).
+- **09**: celular com faixa de rodapé do aparelho (a barra de botões do app não encosta na borda).
+- **10**: esquema redesenhado — uma curva contínua Cliente → Serviço → Profissional → Orçamento → Contratação,
+  com ponto de luz e cada etapa acendendo quando o traço chega.

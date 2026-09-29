@@ -38,9 +38,13 @@ export const SPOTS = {
     location: { x: 1776, y: 30, w: 78, h: 76 },
     chips: { x: 500, y: 122, w: 1000, h: 44 },
     tomasCard: { x: 60, y: 404, w: 434, h: 830 },
+    /** a foto de capa do card do Tomás (a mesma foto que vira o cenário) */
+    tomasCover: { x: 62, y: 406, w: 430, h: 280 },
     tomasService: { x: 60, y: 940, w: 434, h: 294 },
-    recommended: { x: 1472, y: 268, w: 468, h: 608 },
+    recommended: { x: 1472, y: 268, w: 468, h: 674 },
     grid: { x: 60, y: 404, w: 1375, h: 830 },
+    /** o menu "Veja quem atende perto de você", aberto pelo botão ao lado da busca (tomada search-location) */
+    locationMenu: { x: 1235, y: 110, w: 618, h: 214 },
   },
   filters: {
     panel: { x: 148, y: 100, w: 1610, h: 475 },
@@ -59,6 +63,8 @@ export const SPOTS = {
   },
   portfolio: {
     first: { x: 74, y: 117, w: 448, h: 334 },
+    /** Camila & Rafael — a foto que a cena 04 abre no visualizador */
+    second: { x: 541, y: 117, w: 448, h: 334 },
   },
   chatRoom: {
     header: { x: 0, y: 0, w: 1120, h: 130 },
@@ -72,6 +78,8 @@ export const SPOTS = {
   contract: {
     signatures: { x: 430, y: 780, w: 1140, h: 190 },
     confirmation: { x: 378, y: 1046, w: 1244, h: 160 },
+    /** assinaturas + "as duas partes assinaram": o payoff da cena 07 */
+    sealed: { x: 378, y: 780, w: 1244, h: 426 },
   },
   business: {
     complete: { x: 1405, y: 172, w: 446, h: 182 },

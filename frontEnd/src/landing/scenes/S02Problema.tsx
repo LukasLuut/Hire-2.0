@@ -3,10 +3,10 @@
  * Uma frase, a virada ("outra história"), as dúvidas que todo mundo tem, e a resposta.
  * Nenhuma imagem de propósito: o contraste com a cena anterior prepara a solução.
  */
-import { motion, useTransform, type MotionValue } from "framer-motion";
+import { motion, type MotionValue } from "framer-motion";
 import { Scene, Reveal, ChapterMark, headlineClass, sceneSize } from "../primitives";
 import { COPY } from "../story";
-import { useBand, useFade } from "../motion";
+import { useBand, useFade, useKeys } from "../motion";
 
 const T = COPY.problema;
 // posição de cada dúvida no espaço negativo (em % da tela)
@@ -19,7 +19,7 @@ const PLACES = [
 
 export default function S02Problema({ cinematic }: { cinematic: boolean }) {
   return (
-    <Scene id="o-problema" length={3.2} cinematic={cinematic} labelledBy="problema-title" still={<Still02 />}>
+    <Scene id="o-problema" cinematic={cinematic} labelledBy="problema-title" still={<Still02 />}>
       {(p) => <Film p={p} />}
     </Scene>
   );
@@ -27,13 +27,13 @@ export default function S02Problema({ cinematic }: { cinematic: boolean }) {
 
 function Film({ p }: { p: MotionValue<number> }) {
   const markOpacity = useFade(p, 0.02, 0.08, 0.7, 0.76);
-  const line1 = useTransform(p, [0.04, 0.12, 0.22, 0.3, 0.7, 0.76], [0, 1, 1, 0.28, 0.28, 0], { clamp: true });
-  const line1Y = useBand(p, [0.04, 0.14], 24, 0);
+  const line1 = useKeys(p, [0.04, 0.12, 0.22, 0.28, 0.7, 0.76], [0, 1, 1, 0.28, 0.28, 0]);
+  const line1Y = useBand(p, [0.04, 0.12], 24, 0);
   const line2 = useFade(p, 0.16, 0.26, 0.7, 0.76);
-  const line2Y = useBand(p, [0.16, 0.28], 24, 0);
+  const line2Y = useBand(p, [0.16, 0.26], 24, 0);
   const linesDim = useBand(p, [0.32, 0.4], 1, 0.22);
   const answer = useBand(p, [0.8, 0.88], 0, 1);
-  const answerY = useBand(p, [0.8, 0.9], 30, 0);
+  const answerY = useBand(p, [0.8, 0.88], 30, 0);
 
   return (
     <div className="absolute inset-0">
@@ -60,8 +60,9 @@ function Film({ p }: { p: MotionValue<number> }) {
 
 function Question({ p, text, index, place }: { p: MotionValue<number>; text: string; index: number; place: { left: string; top: string } }) {
   const start = 0.36 + index * 0.06;
+  // opacidade e subida terminam juntas, no ponto em que o play pausa (timing.ts): nada congela no meio
   const opacity = useFade(p, start, start + 0.05, 0.68, 0.74);
-  const y = useBand(p, [start, start + 0.07], 16, 0);
+  const y = useBand(p, [start, start + 0.05], 14, 0);
   return (
     <motion.p className="absolute text-[clamp(1.1rem,1.8vw,1.6rem)] font-medium text-[var(--text)]/85 tracking-[-0.01em]" style={{ ...place, opacity, y }}>
       {text}

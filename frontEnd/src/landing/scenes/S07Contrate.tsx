@@ -1,21 +1,27 @@
 /**
- * 07 — CONTRATE. O payoff: a jornada inteira numa travessia contínua (pan horizontal) —
+ * 07 — CONTRATE. O payoff: a jornada inteira numa travessia rápida (pan horizontal, uma montagem) —
  * busca, perfil, portfólio, conversa, negociação e contrato — sempre com a Júlia e o Tomás.
- * No fim a câmera se aproxima das duas assinaturas.
+ * No fim o contrato dá lugar ao que importa nele: as duas assinaturas, de perto.
  */
 import { useEffect, useRef, useState } from "react";
 import { motion, useMotionValue, useMotionValueEvent, useTransform, type MotionValue } from "framer-motion";
-import { Scene, Spotlight, ChapterMark, Reveal, headlineClass, sceneSize } from "../primitives";
-import { shot, SPOTS, originOf, type Shot } from "../media";
+import { Scene, Crop, ChapterMark, Reveal, headlineClass, sceneSize, lift } from "../primitives";
+import { shot, SPOTS, type Shot } from "../media";
 import { COPY, ALT } from "../story";
-import { useBand, useFade } from "../motion";
+import { useBand } from "../motion";
 
 const T = COPY.contrate;
+// a travessia ocupa [0, 0.62] do progresso, com aceleração no início e desaceleração no fim
+const PAN_END = 0.62;
+const travel = (v: number) => {
+  const t = Math.min(1, Math.max(0, v / PAN_END));
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+};
 const CONTRACT = shot("contract-signed");
 const STEPS: { shot: Shot; alt: string }[] = [
   { shot: shot("search-results"), alt: ALT.results },
   { shot: shot("profile-hero"), alt: ALT.hero },
-  { shot: shot("portfolio-lightbox"), alt: ALT.lightbox },
+  { shot: shot("portfolio-lightbox-embrace"), alt: ALT.lightboxEmbrace },
   { shot: shot("chat-room"), alt: ALT.thread },
   { shot: shot("negotiation-panel"), alt: ALT.negotiation },
   { shot: CONTRACT, alt: ALT.contract },
@@ -23,7 +29,7 @@ const STEPS: { shot: Shot; alt: string }[] = [
 
 export default function S07Contrate({ cinematic }: { cinematic: boolean }) {
   return (
-    <Scene id="contrate" length={4.4} cinematic={cinematic} labelledBy="contrate-title" still={<Still07 />}>
+    <Scene id="contrate" cinematic={cinematic} labelledBy="contrate-title" still={<Still07 />}>
       {(p) => <Film p={p} />}
     </Scene>
   );
@@ -49,20 +55,23 @@ function Film({ p }: { p: MotionValue<number> }) {
       window.removeEventListener("resize", measure);
     };
   }, [dist]);
-  const x = useTransform([p, dist], ([v, d]: number[]) => -d * Math.min(1, Math.max(0, (v - 0.12) / 0.62)));
+  // a travessia começa com a cena no lugar e acelera/desacelera (nada de movimento retilíneo)
+  const x = useTransform([p, dist], ([v, d]: number[]) => -d * travel(v));
   const [active, setActive] = useState(0);
   useMotionValueEvent(p, "change", (v) => {
-    const i = Math.max(0, Math.min(5, Math.round(((v - 0.12) / 0.62) * 5)));
+    const i = Math.round(travel(v) * 5);
     setActive((prev) => (prev === i ? prev : i));
   });
-  const title = useFade(p, 0, 0.07, 0.8, 0.86);
-  const zoom = useBand(p, [0.78, 0.9], 1, 1.5);
-  // sobe junto do zoom para as assinaturas ficarem no centro e a frase final caber embaixo
-  const trackY = useTransform(p, [0.78, 0.9], ["0vh", "-16vh"], { clamp: true });
-  const others = useBand(p, [0.76, 0.84], 1, 0);
-  const sigSpot = useFade(p, 0.88, 0.92);
-  const payoff = useBand(p, [0.9, 0.96], 0, 1);
-  const payoffY = useBand(p, [0.9, 0.97], 20, 0);
+  // o título já está na tela quando a cena sobe
+  // começa a sair só depois da pausa do fim da travessia (nada congela no meio)
+  const title = useBand(p, [0.62, 0.68], 1, 0);
+  const others = useBand(p, [0.62, 0.7], 1, 0);
+  // o contrato dá lugar ao que importa nele: as duas assinaturas
+  const contract = useBand(p, [0.66, 0.72], 1, 0);
+  const sealed = useBand(p, [0.68, 0.78], 0, 1);
+  const sealedScale = useBand(p, [0.66, 0.8], 0.86, 1);
+  const payoff = useBand(p, [0.78, 0.84], 0, 1);
+  const payoffY = useBand(p, [0.78, 0.86], 20, 0);
 
   return (
     <div className="absolute inset-0">
@@ -73,18 +82,17 @@ function Film({ p }: { p: MotionValue<number> }) {
         </h2>
       </motion.div>
 
-      <motion.div ref={track} className="absolute left-[8vw] top-[40vh] flex items-start gap-[5vh] will-change-transform" style={{ x, y: trackY }}>
+      <motion.div ref={track} className="absolute left-[8vw] top-[40vh] flex items-start gap-[5vh] will-change-transform" style={{ x }}>
         {STEPS.map((s, i) => {
           const isLast = i === STEPS.length - 1;
           return (
-            <motion.div key={s.shot.name} ref={isLast ? last : undefined} className="shrink-0" style={{ opacity: isLast ? 1 : others }}>
-              <motion.div
-                className="relative h-[46vh] overflow-hidden rounded-[16px] ring-1 ring-white/10 bg-[var(--bg)] shadow-[0_40px_90px_-30px_rgba(0,0,0,0.95)]"
-                style={{ aspectRatio: `${s.shot.width} / ${s.shot.height}`, ...(isLast ? { scale: zoom, transformOrigin: originOf(CONTRACT, SPOTS.contract.signatures) } : {}) }}
+            <motion.div key={s.shot.name} ref={isLast ? last : undefined} className="shrink-0" style={{ opacity: isLast ? contract : others }}>
+              <div
+                className={`relative h-[46vh] overflow-hidden rounded-[16px] ring-1 ring-white/10 bg-[var(--bg)] ${lift}`}
+                style={{ aspectRatio: `${s.shot.width} / ${s.shot.height}` }}
               >
                 <img src={s.shot.src} alt={s.alt} loading="lazy" decoding="async" className="w-full h-full object-cover" />
-                {isLast && <Spotlight shot={CONTRACT} box={SPOTS.contract.signatures} opacity={sigSpot} dim={0.55} radius={12} />}
-              </motion.div>
+              </div>
               <motion.p className={`mt-4 text-sm tabular-nums transition-colors duration-500 ${i === active ? "text-[var(--text)]" : "text-[var(--text-muted)]/60"}`} style={{ opacity: others }}>
                 <span className="text-[var(--primary)]">{String(i + 1).padStart(2, "0")}</span> &nbsp;{T.steps[i]}
               </motion.p>
@@ -93,9 +101,15 @@ function Film({ p }: { p: MotionValue<number> }) {
         })}
       </motion.div>
 
-      <motion.p className="absolute inset-x-0 bottom-[8vh] text-center px-6 text-lg md:text-xl text-[var(--text)]" style={{ opacity: payoff, y: payoffY }}>
-        {T.payoff}
-      </motion.p>
+      {/* o payoff: as assinaturas da Júlia e do Tomás, de perto */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-10 px-6">
+        <motion.div className="w-[min(1000px,64vw)]" style={{ opacity: sealed, scale: sealedScale }}>
+          <Crop shot={CONTRACT} box={SPOTS.contract.sealed} alt={ALT.contract} rounded="rounded-[18px]" className={`ring-1 ring-white/10 ${lift}`} />
+        </motion.div>
+        <motion.p className="text-center text-lg md:text-xl text-[var(--text)]" style={{ opacity: payoff, y: payoffY }}>
+          {T.payoff}
+        </motion.p>
+      </div>
     </div>
   );
 }

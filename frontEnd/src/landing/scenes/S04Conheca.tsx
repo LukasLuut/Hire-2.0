@@ -1,20 +1,22 @@
 /**
  * 04 — CONHEÇA. O perfil público real do Tomás, lido como uma página: push-in lento na identidade,
- * a câmera desce para o "Conheça Tomás" (tempo de leitura), depois o portfólio; uma foto abre no
- * visualizador do app e cresce até virar o cenário da próxima cena.
+ * a câmera desce para o "Conheça Tomás" (tempo de leitura), depois o portfólio; o visualizador do app
+ * abre a foto da Camila e do Rafael, avança para a saída dos noivos, e essa cresce até virar o cenário
+ * da próxima cena (a foto da estrada já abriu a história na cena 01).
  */
 import { useState } from "react";
-import { motion, useMotionValueEvent, useTransform, type MotionValue } from "framer-motion";
-import { Scene, Still, Frame, Spotlight, ChapterMark, Reveal, Phone, headlineClass, sceneSize } from "../primitives";
-import { shot, photoSrcSet, SPOTS, originOf } from "../media";
+import { motion, useMotionValueEvent, type MotionValue } from "framer-motion";
+import { Scene, ActiveBox, Still, Frame, Spotlight, ChapterMark, Reveal, Phone, headlineClass, sceneSize } from "../primitives";
+import { shot, SPOTS, originOf } from "../media";
 import { COPY, ALT } from "../story";
-import { useBand, useFade } from "../motion";
+import { useBand, useFade, useKeys } from "../motion";
+import { photoLayer } from "../photoLayer";
 
 const HERO = shot("profile-hero");
 const ABOUT = shot("profile-about");
 const PORTFOLIO = shot("profile-portfolio");
-const LIGHTBOX = shot("portfolio-lightbox");
-const PHOTO = shot("photo-field-walk");
+const LIGHTBOX_A = shot("portfolio-lightbox-embrace");
+const LIGHTBOX_B = shot("portfolio-lightbox-sparklers");
 const M_PROFILE = shot("m-profile");
 const M_PORTFOLIO = shot("m-portfolio");
 const T = COPY.conheca;
@@ -25,7 +27,7 @@ const INNER = { width: `${(1320 / 1440) * 100}%`, marginLeft: `${(60 / 1440) * 1
 
 export default function S04Conheca({ cinematic }: { cinematic: boolean }) {
   return (
-    <Scene id="conheca" length={4} cinematic={cinematic} labelledBy="conheca-title" still={<Still04 />}>
+    <Scene id="conheca" cinematic={cinematic} labelledBy="conheca-title" still={<Still04 />}>
       {(p) => <Film p={p} />}
     </Scene>
   );
@@ -37,22 +39,31 @@ function Film({ p }: { p: MotionValue<number> }) {
     const b = v < 0.32 ? 0 : v < 0.64 ? 1 : 2;
     setBeat((prev) => (prev === b ? prev : b));
   });
-  const titleOpacity = useFade(p, 0, 0.06, 0.86, 0.9);
-  const frameOpacity = useFade(p, 0.02, 0.09, 0.9, 0.95);
-  const frameY = useBand(p, [0.02, 0.1], 80, 0);
-  // push-in na identidade e volta
-  const pushIn = useTransform(p, [0.08, 0.28, 0.36], [1, 1.28, 1], { clamp: true });
-  // a câmera desce a página: topo → Conheça → portfólio (em % da própria coluna)
-  const tilt = useTransform(p, [0.3, 0.42, 0.62, 0.72, 0.8], ["0%", "-34.5%", "-36.5%", "-58.5%", "-59.5%"], { clamp: true });
-  const firstSpot = useFade(p, 0.73, 0.76, 0.8, 0.82);
+  // título e tela já estão no lugar quando a cena sobe (nada de palco vazio na entrada)
+  // sai depois da última pausa (a saída dos noivos aberta), junto com a foto crescendo
+  const titleOpacity = useBand(p, [0.92, 0.96], 1, 0);
+  const frameOpacity = useBand(p, [0.95, 0.99], 1, 0);
+  // push-in na identidade (termina exatamente na pausa) e volta junto com a descida
+  const pushIn = useKeys(p, [0.1, 0.3, 0.4], [1, 1.22, 1]);
+  // a câmera desce a página: topo → Conheça → portfólio (em % da própria coluna); parada em cada pausa
+  const tilt = useKeys(p, [0.3, 0.42, 0.62, 0.72], ["0%", "-35.5%", "-35.5%", "-59%"]);
+  const photoSpot = useFade(p, 0.73, 0.76, 0.8, 0.82);
+  // o visualizador abre a foto destacada e avança para a próxima (como a seta do app)
   const lightbox = useFade(p, 0.8, 0.85);
   const lightboxScale = useBand(p, [0.8, 0.86], 0.94, 1);
-  const photo = useBand(p, [0.88, 0.96], 0, 1);
-  const photoScale = useBand(p, [0.88, 1], 0.72, 1);
+  const nextPhoto = useBand(p, [0.87, 0.91], 0, 1);
+  const nextX = useBand(p, [0.87, 0.91], 40, 0);
+  // a foto aberta cresce até a tela cheia — é a camada compartilhada com a cena 05 (sharedPhoto.tsx)
+  const photo = useBand(p, [0.92, 0.99], 0, 1);
+  const photoScale = useBand(p, [0.92, 0.99], 0.72, 1);
+  const photoDim = useBand(p, [0.95, 0.99], 0, 0.55);
+  useMotionValueEvent(photo, "change", (v) => photoLayer.opacity.set(v));
+  useMotionValueEvent(photoScale, "change", (v) => photoLayer.scale.set(v));
+  useMotionValueEvent(photoDim, "change", (v) => photoLayer.dim.set(v));
 
   return (
     <div className="absolute inset-0">
-      <motion.div className="absolute left-[6vw] top-[14vh] max-w-[34vw] z-10" style={{ opacity: titleOpacity }}>
+      <motion.div className="absolute left-[max(6vw,104px)] top-[14vh] max-w-[29vw] z-10" style={{ opacity: titleOpacity }}>
         <ChapterMark id="conheca" />
         <h2 id="conheca-title" className={`mt-5 ${headlineClass} ${sceneSize}`}>
           {T.headline[0]} <span className="block text-[var(--text-muted)]">{T.headline[1]}</span>
@@ -60,16 +71,17 @@ function Film({ p }: { p: MotionValue<number> }) {
       </motion.div>
 
       {/* legenda do momento: quem é / como trabalha / o que já fez */}
-      <motion.div className="absolute left-[6vw] bottom-[9vh] z-10 flex gap-6 text-sm" style={{ opacity: titleOpacity }} aria-hidden>
+      <motion.div className="absolute left-[max(6vw,104px)] bottom-[9vh] z-10 flex gap-6 text-sm" style={{ opacity: titleOpacity }} aria-hidden>
         {T.beats.map((b, i) => (
-          <span key={b} className={`transition-colors duration-500 ${i === beat ? "text-[var(--text)]" : "text-[var(--text-muted)]/50"}`}>
+          <span key={b} className={`relative isolate transition-colors duration-500 ${i === beat ? "text-[var(--text)]" : "text-[var(--text-muted)]/50"}`}>
+            {i === beat && <ActiveBox group="conheca-beat" className="-inset-x-2.5 -inset-y-1.5 rounded-lg" />}
             <span className={`inline-block w-6 h-px align-middle mr-2 transition-colors duration-500 ${i === beat ? "bg-[var(--primary)]" : "bg-white/20"}`} />
             {b}
           </span>
         ))}
       </motion.div>
 
-      <motion.div className="absolute right-[9vw] top-1/2 -translate-y-[42%] w-[min(1040px,54vw)]" style={{ opacity: frameOpacity, y: frameY }}>
+      <motion.div className="absolute right-[8vw] top-1/2 -translate-y-[42%] w-[min(980px,50vw)]" style={{ opacity: frameOpacity }}>
         <Frame className="aspect-[1440/900]">
           <motion.div style={{ y: tilt }}>
             <motion.div style={{ scale: pushIn, transformOrigin: originOf(HERO, SPOTS.hero.identity) }}>
@@ -79,22 +91,20 @@ function Film({ p }: { p: MotionValue<number> }) {
               <Still shot={ABOUT} alt={ALT.about} />
               <div className="relative">
                 <Still shot={PORTFOLIO} alt={ALT.portfolio} />
-                <Spotlight shot={PORTFOLIO} box={SPOTS.portfolio.first} opacity={firstSpot} radius={14} />
+                <Spotlight shot={PORTFOLIO} box={SPOTS.portfolio.second} opacity={photoSpot} radius={14} />
               </div>
             </div>
           </motion.div>
           {/* o visualizador de fotos do próprio app */}
           <motion.div className="absolute inset-0" style={{ opacity: lightbox, scale: lightboxScale }}>
-            <Still shot={LIGHTBOX} alt={ALT.lightbox} />
+            <Still shot={LIGHTBOX_A} alt={ALT.lightboxEmbrace} />
+            <motion.div className="absolute inset-0" style={{ opacity: nextPhoto, x: nextX }}>
+              <Still shot={LIGHTBOX_B} alt={ALT.lightboxSparklers} />
+            </motion.div>
           </motion.div>
         </Frame>
       </motion.div>
 
-      {/* a foto cresce até virar o cenário da cena seguinte */}
-      <motion.div className="absolute inset-0" style={{ opacity: photo }} aria-hidden>
-        <motion.img src={PHOTO.src} srcSet={photoSrcSet(PHOTO)} sizes="100vw" alt="" loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover" style={{ scale: photoScale }} />
-        <div className="absolute inset-0 bg-black/55" />
-      </motion.div>
     </div>
   );
 }

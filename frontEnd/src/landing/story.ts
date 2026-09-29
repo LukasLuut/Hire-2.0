@@ -4,6 +4,10 @@
 
 export const BRAND = "Hire.";
 export const TAGLINE = "Encontre quem faz.";
+/** Aparece quando uma cena termina e espera o próximo scroll */
+export const CONTINUE_HINT = "Role para continuar";
+/** A setinha que mostra o menu recolhido durante a apresentação */
+export const NAV_PEEK = "Mostrar o menu";
 
 /** Destinos reais do app */
 export const ROUTES = {
@@ -30,7 +34,7 @@ export type ChapterId = (typeof CHAPTERS)[number]["id"];
 export const COPY = {
   encontre: {
     opening: "Encontre.",
-    query: "Fotógrafo",
+    query: "Fotógrafo para eventos",
     scrollHint: "Role para começar",
     headline: "Encontre quem faz.",
     support: "Profissionais de verdade, com portfólio, avaliações e conversa direta — do primeiro clique ao serviço contratado.",
@@ -42,7 +46,7 @@ export const COPY = {
     answer: ["É aí que entra o", "Hire."],
   },
   descubra: {
-    headline: ["Encontre o serviço.", "Descubra quem pode realizá-lo."],
+    headline: ["Busque, filtre", "e compare quem faz."],
     steps: [
       { label: "Busca", text: "Uma palavra e o Hire procura em serviços, categorias e descrições." },
       { label: "Categoria e filtros", text: "Preço máximo, disponibilidade, atendimento online ou com agenda." },
@@ -56,7 +60,7 @@ export const COPY = {
     beats: ["Quem é", "Como trabalha", "O que já fez"],
   },
   confie: {
-    headline: "Mais informação para decidir com confiança.",
+    headline: "Veja o que diz quem já contratou.",
     facts: ["Conta verificada", "4,8 em 6 avaliações", "8 serviços concluídos pelo Hire", "Porto Alegre · atende até 150 km"],
   },
   converse: {
@@ -85,14 +89,12 @@ export const COPY = {
   compartilhe: {
     headline: ["Leve seu trabalho", "para onde seus clientes estão."],
     steps: ["Perfil público", "Compartilhar", "QR Code", "Acesso ao perfil"],
-    caption: "O Hire gera a imagem com QR Code — para o Instagram, o cartão de visita ou a porta do estúdio.",
   },
   ecossistema: {
     headline: ["Quem precisa", "encontra quem faz."],
-    nodes: ["Cliente", "Serviço", "Profissional", "Conversa", "Contratação"],
+    nodes: ["Cliente", "Serviço", "Profissional", "Orçamento", "Contratação"],
   },
   final: {
-    support: "Descubra profissionais, encontre serviços e transforme necessidades em conexões.",
     cta: "Explorar o Hire.",
     secondary: "Sou profissional",
     login: "Já tenho conta",
@@ -101,13 +103,16 @@ export const COPY = {
 
 /** Textos alternativos das tomadas (o que a imagem mostra, em uma frase) */
 export const ALT = {
-  search: "Busca do Hire com a palavra Fotógrafo digitada",
-  results: "Resultados da busca por Fotógrafo: Tomás Albuquerque Fotografia, Estúdio Lume e Bia Nogueira Retratos, com notas e preços",
+  search: "Busca do Hire com Fotógrafo para eventos digitado",
+  results: "Resultados da busca por Fotógrafo para eventos: Tomás Albuquerque, Rafael Duarte e Marina Costa, com nota e preço, e os três entre os prestadores recomendados",
   filters: "Painel de filtros da busca: categoria, subcategoria, preço máximo, ordenação e disponibilidade",
+  location: "Menu de localização da busca aberto: usar minha localização ou digitar o CEP",
   hero: "Perfil público de Tomás Albuquerque Fotografia: conta verificada, nota 4,8 em 6 avaliações, Porto Alegre",
   about: "Seção Conheça Tomás, com a história e a forma de trabalhar do fotógrafo",
   portfolio: "Portfólio do Tomás com 12 trabalhos de casamentos, ensaios e eventos",
   lightbox: "Foto do portfólio ampliada: casal caminhando numa estrada de terra ao pôr do sol",
+  lightboxEmbrace: "Foto do portfólio ampliada: Camila e Rafael abraçados, rindo, no ensaio de casal",
+  lightboxSparklers: "Foto do portfólio ampliada: a saída dos noivos entre amigos com velas faísca",
   thread: "Conversa entre Júlia e Tomás sobre o casamento em março, da primeira mensagem ao acordo fechado",
   negotiation: "Negociação com os tópicos serviço, valor, data e duração marcados como acordados",
   contract: "Contrato assinado eletronicamente por Júlia Martins e Tomás Albuquerque",

@@ -3,7 +3,8 @@
  *
  * Uma história só, com personagens que se repetem: o fotógrafo Tomás Albuquerque é o protagonista
  * (busca → perfil → portfólio → avaliações → conversa → negociação → contrato → compartilhamento);
- * o Estúdio Lume e a Bia Nogueira mostram que "fotógrafo" é mais de um tipo de profissional;
+ * o Estúdio Lume e a Bia Nogueira mostram que "fotógrafo" é mais de um tipo de profissional; a Marina Costa e o
+ * Rafael Duarte também fotografam eventos (aparecem ao lado do Tomás na busca "Fotógrafo para eventos");
  * Júlia, Rodrigo e Camila são os clientes que aparecem na conversa, nas avaliações e nos pedidos.
  *
  * Tudo aqui é fictício. As fotos vêm de uploads/story (npm run story:images; créditos em images.json).
@@ -62,7 +63,7 @@ export type ServiceSeed = {
 };
 
 export type ProviderSeed = {
-  key: "tomas" | "lume" | "bia";
+  key: "tomas" | "lume" | "bia" | "marina" | "rafael";
   user: { name: string; email: string; avatar: string; accountType: "profissional" | "empresa"; legalName?: string; tradeName?: string; companySize?: string };
   professionalName: string;
   companyName: string;
@@ -297,7 +298,89 @@ export const BIA: ProviderSeed = {
   ],
 };
 
-export const PROVIDERS = [TOMAS, LUME, BIA];
+export const MARINA: ProviderSeed = {
+  key: "marina",
+  user: { name: "Marina Costa", email: `marina.costa@${DOMAIN}`, avatar: avatar("marina"), accountType: "profissional" },
+  professionalName: "Marina Costa",
+  companyName: "Marina Costa Fotografia",
+  slug: "marina-costa-fotografia",
+  businessType: "autonomo",
+  profileImageUrl: avatar("marina"),
+  description: "Fotógrafa de eventos corporativos em Porto Alegre: congressos, palestras, lançamentos e confraternizações de empresa.",
+  about: [
+    "Fotografo eventos de empresa há seis anos — congressos, palestras, lançamentos de produto e festas de fim de ano. Sei onde ficar para não atrapalhar o palco e como pegar a plateia reagindo.",
+    "Entrego uma seleção no mesmo dia para as redes da empresa e a galeria completa em até 5 dias úteis.",
+  ].join("\n\n"),
+  phone: "(51) 99731-4406",
+  city: "Porto Alegre", state: "RS", hood: "Menino Deus", street: "Avenida Getúlio Vargas", num: 1150, postalCode: "90150-004",
+  lat: -30.0551, lng: -51.2231, radiusKm: 60, since: 420, attendsOnline: false,
+  specialties: ["Fotografia de eventos"],
+  availability: { days: ["monday", "tuesday", "wednesday", "thursday", "friday"], start: "08:00", end: "20:00" },
+  services: [
+    {
+      key: "corporativo",
+      title: "Fotografia de Eventos Corporativos",
+      description: "Fotógrafo para eventos de empresa: congressos, palestras, lançamentos e convenções. Seleção no mesmo dia para as redes e galeria completa em 5 dias úteis.",
+      subcategory: "Fotografia de eventos", price: 420, priceUnit: "hora", duration: "mínimo 3 horas", negotiable: true,
+      images: [img("marina-summit"), img("marina-speaker")],
+    },
+    {
+      key: "confraternizacao",
+      title: "Confraternização de Empresa",
+      description: "Cobertura de festas de fim de ano e eventos internos, com retratos da equipe e fotos espontâneas.",
+      subcategory: "Fotografia de eventos", price: 1600, priceUnit: "fixo", duration: "4 horas", negotiable: true,
+      images: [img("marina-networking"), img("marina-summit")],
+    },
+  ],
+  portfolio: [
+    { image: img("marina-summit"), service: "corporativo", title: "Summit de inovação — palco principal", description: "Três dias de evento e uma luz de palco que mudava a cada painel." },
+    { image: img("marina-speaker"), service: "corporativo", title: "Congresso de finanças", description: "O palestrante esqueceu o microfone ligado; a plateia riu e eu estava no lugar certo." },
+    { image: img("marina-networking"), service: "confraternizacao", title: "Encontro de criadores", description: "O intervalo rende as melhores fotos de um evento." },
+  ],
+};
+
+export const RAFAEL: ProviderSeed = {
+  key: "rafael",
+  user: { name: "Rafael Duarte", email: `rafael.duarte@${DOMAIN}`, avatar: avatar("rafael"), accountType: "profissional" },
+  professionalName: "Rafael Duarte",
+  companyName: "Rafael Duarte Fotografia",
+  slug: "rafael-duarte-fotografia",
+  businessType: "autonomo",
+  profileImageUrl: avatar("rafael"),
+  description: "Fotógrafo de festas, aniversários e formaturas em Porto Alegre e Canoas.",
+  about: [
+    "Comecei fotografando a festa de 15 anos da minha irmã e nunca mais parei. Hoje cubro aniversários, formaturas e festas de família, sempre no meio da pista.",
+    "Gosto de fotos com movimento e luz de festa. Entrego a galeria em até 10 dias.",
+  ].join("\n\n"),
+  phone: "(51) 99218-7730",
+  city: "Canoas", state: "RS", hood: "Centro", street: "Rua Tiradentes", num: 410, postalCode: "92010-260",
+  lat: -29.9178, lng: -51.1839, radiusKm: 50, since: 300, attendsOnline: false,
+  specialties: ["Fotografia de eventos"],
+  availability: { days: ["tuesday", "wednesday", "thursday", "friday"], start: "10:00", end: "22:00", saturday: { start: "10:00", end: "23:30" } },
+  services: [
+    {
+      key: "festas",
+      title: "Aniversários e Festas",
+      description: "Fotógrafo para eventos de família: aniversários, festas de 15 anos, bodas e chás. Galeria online com todas as fotos tratadas.",
+      subcategory: "Fotografia de eventos", price: 300, priceUnit: "hora", duration: "mínimo 3 horas", negotiable: true,
+      images: [img("rafael-candles"), img("rafael-dance")],
+    },
+    {
+      key: "formatura",
+      title: "Cobertura de Formaturas",
+      description: "Colação de grau e baile de formatura, com fotos da família e da turma.",
+      subcategory: "Fotografia de eventos", price: 1400, priceUnit: "fixo", duration: "5 horas", negotiable: true,
+      images: [img("rafael-graduation"), img("rafael-dance")],
+    },
+  ],
+  portfolio: [
+    { image: img("rafael-candles"), service: "festas", title: "Aniversário de 30 anos — velas na mesa", description: "A luz das velas fez o trabalho todo; eu só abaixei a câmera." },
+    { image: img("rafael-dance"), service: "festas", title: "Festa à fantasia", description: "Uma pista inteira fantasiada — ninguém queria sair da foto." },
+    { image: img("rafael-graduation"), service: "formatura", title: "Colação de grau", description: "O abraço da família logo depois do diploma." },
+  ],
+};
+
+export const PROVIDERS = [TOMAS, LUME, BIA, MARINA, RAFAEL];
 
 // ---------------------------------------------------------------- serviços já concluídos (com avaliação)
 
@@ -339,6 +422,14 @@ export const PAST_HIRES: PastHire[] = [
     review: "Campanha de lançamento da nossa safra nova. A foto do vinho sendo servido virou capa do catálogo e do site. Equipe organizada, orçamento claro desde o início." },
   { provider: "lume", service: "still", client: "patricia", price: 1800, daysAgo: 70, rating: 4,
     review: "Tratamento impecável das pedras, com cores fiéis. A primeira rodada de edição ficou um pouco escura para o meu gosto, mas ajustaram sem custo no mesmo dia." },
+
+  // Marina Costa e Rafael Duarte (notas boas, menos avaliações que o Tomás — ele continua primeiro na busca)
+  { provider: "marina", service: "corporativo", client: "henrique", price: 1680, daysAgo: 75, rating: 5,
+    review: "Cobriu o congresso do escritório sem atrapalhar ninguém e mandou a seleção para as redes no fim do dia. Profissional do começo ao fim." },
+  { provider: "marina", service: "corporativo", client: "marcos", price: 1260, daysAgo: 140, rating: 4,
+    review: "Fotos muito boas do lançamento da safra. Só faltaram algumas da equipe da vinícola, que ela refez em outro dia sem cobrar." },
+  { provider: "rafael", service: "festas", client: "patricia", price: 1200, daysAgo: 48, rating: 5,
+    review: "O Rafael fez o aniversário de 60 anos do meu pai e pegou todo mundo dançando. As fotos têm a energia da festa." },
 
   // Bia Nogueira
   { provider: "bia", service: "retrato", client: "julia", price: 450, daysAgo: 160, rating: 5,

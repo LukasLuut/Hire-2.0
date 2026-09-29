@@ -4,11 +4,11 @@
  * "Combine" (o card de acordo fechado com o contrato gerado).
  */
 import { useState } from "react";
-import { motion, useMotionValueEvent, useTransform, type MotionValue } from "framer-motion";
-import { Scene, Still, Crop, Spotlight, ChapterMark, Reveal, Phone, headlineClass } from "../primitives";
+import { motion, useMotionValueEvent, type MotionValue } from "framer-motion";
+import { Scene, Still, Crop, Spotlight, ChapterMark, Reveal, Phone, headlineClass, elevation, lift } from "../primitives";
 import { shot, SPOTS } from "../media";
 import { COPY, ALT } from "../story";
-import { useBand, useFade } from "../motion";
+import { useBand, useFade, useKeys } from "../motion";
 
 const ROOM = shot("chat-room");
 const THREAD = shot("chat-thread");
@@ -20,48 +20,52 @@ const VIEW_H = 1500;
 const END = `-${((THREAD.height - VIEW_H) / THREAD.height) * 100}%`;
 // o card "Acordo fechado" no fim da conversa (px da tomada alta)
 const DEAL = { x: 112, y: THREAD.height - 612, w: 880, h: 168 };
+// a janela do chat cabe na altura da tela (cabeçalho + trecho da conversa = 1,48 × a largura)
+const CHAT_RATIO = 130 / 1120 + VIEW_H / THREAD.width;
+const CHAT_W = `min(560px, 31vw, calc((100svh - 120px) / ${CHAT_RATIO.toFixed(3)}))`;
+// o painel de negociação tem exatamente a altura da janela do chat: topo e base alinhados
+const PANEL_W = `calc(${CHAT_W} * ${(CHAT_RATIO / (PANEL.height / PANEL.width)).toFixed(3)})`;
 
 export default function S06Converse({ cinematic }: { cinematic: boolean }) {
   return (
-    <Scene id="converse" length={4} cinematic={cinematic} labelledBy="converse-title" still={<Still06 />}>
+    <Scene id="converse" cinematic={cinematic} labelledBy="converse-title" still={<Still06 />}>
       {(p) => <Film p={p} />}
     </Scene>
   );
 }
 
 function Film({ p }: { p: MotionValue<number> }) {
-  const [beat, setBeat] = useState(-1);
+  const [beat, setBeat] = useState(0);
   useMotionValueEvent(p, "change", (v) => {
-    const b = v < 0.06 ? -1 : v < 0.45 ? 0 : v < 0.7 ? 1 : 2;
+    const b = v < 0.45 ? 0 : v < 0.7 ? 1 : 2;
     setBeat((prev) => (prev === b ? prev : b));
   });
-  const enter = useBand(p, [0.02, 0.1], 0, 1);
-  const enterY = useBand(p, [0.02, 0.1], 60, 0);
-  const tilt = useTransform(p, [0.1, 0.45, 0.68, 0.8], ["0%", "-44%", "-52%", END], { clamp: true });
+  // a conversa rola até a pausa, espera o painel entrar e segue até o acordo (parada exata nas pausas)
+  const tilt = useKeys(p, [0.1, 0.47, 0.57, 0.8], ["0%", "-44%", "-44%", END]);
   const panel = useBand(p, [0.47, 0.56], 0, 1);
   const panelX = useBand(p, [0.47, 0.57], 60, 0);
   const paySpot = useFade(p, 0.56, 0.6, 0.68, 0.72);
   const dealSpot = useFade(p, 0.8, 0.85, 0.98, 1.01);
-  const exit = useBand(p, [0.95, 1], 1, 0.4);
 
   return (
-    <motion.div className="absolute inset-0 grid grid-cols-[minmax(300px,0.75fr)_1.5fr] items-center gap-[4vw] pl-[6vw] pr-[9vw] pt-14" style={{ opacity: exit }}>
-      <motion.div style={{ opacity: enter }}>
+    <div className="absolute inset-0 grid grid-cols-[minmax(240px,1fr)_auto] items-center gap-[4vw] pl-[max(6vw,104px)] pr-[8vw]">
+      <div>
         <ChapterMark id="converse" />
-        <h2 id="converse-title" className={`mt-6 ${headlineClass} text-[clamp(2.6rem,5.6vw,6rem)]`}>
+        <h2 id="converse-title" className={`mt-6 ${headlineClass} text-[clamp(2.4rem,min(5.2vw,9vh),5.75rem)]`}>
           {T.words.map((w, i) => (
-            <span key={w} className={`block transition-colors duration-500 ${i === beat ? "text-[var(--text)]" : i < beat ? "text-[var(--text-muted)]" : "text-white/20"}`}>
+            // o tópico do momento em branco pleno; os que já passaram, médios; os que vêm, bem apagados
+            <span key={w} className={`block transition-colors duration-700 ${i === beat ? "text-white" : i < beat ? "text-white/40" : "text-white/15"}`}>
               {w}
             </span>
           ))}
         </h2>
-        <p className="mt-8 max-w-sm text-[var(--text-muted)] min-h-[3.5rem]" aria-live="polite">{beat >= 0 ? T.beats[beat] : ""}</p>
+        <p className="mt-8 max-w-sm text-[var(--text)]/85 min-h-[3.5rem]" aria-live="polite">{T.beats[beat]}</p>
         <p className="mt-6 text-xs tracking-[0.18em] uppercase text-[var(--text-muted)]/70">{T.between}</p>
-      </motion.div>
+      </div>
 
-      <motion.div className="flex items-start gap-4 justify-center" style={{ opacity: enter, y: enterY }}>
+      <div className="flex items-center gap-4">
         {/* a janela da conversa: o cabeçalho real e a conversa rolando por baixo */}
-        <div className="w-[min(520px,30vw)] rounded-[22px] overflow-hidden ring-1 ring-white/10 bg-[var(--bg-light)] shadow-[0_50px_120px_-40px_rgba(0,0,0,0.95)]">
+        <div style={{ width: CHAT_W }} className={`rounded-[22px] overflow-hidden ring-1 ring-white/10 bg-[var(--bg-light)] ${elevation}`}>
           <Crop shot={ROOM} box={SPOTS.chatRoom.header} alt="Cabeçalho da conversa com Tomás Albuquerque Fotografia" rounded="rounded-none" />
           <div className="relative overflow-hidden" style={{ aspectRatio: `${THREAD.width} / ${VIEW_H}` }}>
             <motion.div className="relative" style={{ y: tilt }}>
@@ -71,12 +75,12 @@ function Film({ p }: { p: MotionValue<number> }) {
           </div>
         </div>
         {/* o painel de negociação entra ao lado, como no app */}
-        <motion.div className="w-[min(300px,17vw)] mt-16 rounded-[20px] overflow-hidden ring-1 ring-white/10 shadow-[0_40px_90px_-30px_rgba(0,0,0,0.95)] relative" style={{ opacity: panel, x: panelX }}>
+        <motion.div className={`rounded-[20px] overflow-hidden ring-1 ring-white/10 ${lift} relative`} style={{ width: PANEL_W, opacity: panel, x: panelX }}>
           <Still shot={PANEL} alt={ALT.negotiation} />
           <Spotlight shot={PANEL} box={SPOTS.negotiation.payment} opacity={paySpot} dim={0.45} radius={16} />
         </motion.div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 }
 

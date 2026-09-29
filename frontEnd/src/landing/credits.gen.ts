@@ -33,4 +33,10 @@ export const PHOTO_CREDITS: { author: string; license: string; source: string }[
   { author: "rawpixel.com rawpixel", license: "CC0", source: "https://commons.wikimedia.org/wiki/File:Smiling_woman_with_a_phone_(Unsplash).jpg" },
   { author: "Joshua McKnight", license: "CC0", source: "https://commons.wikimedia.org/wiki/File:Smiling_woman_pink_shirt.jpg" },
   { author: "Leroy Skalstad", license: "CC0", source: "https://commons.wikimedia.org/wiki/File:Black_bearded_man_smiling,_2442565.jpg" },
+  { author: "Web Summit", license: "CC BY 2.0", source: "https://commons.wikimedia.org/wiki/File:2022_-_Corporate_Innovation_Summit_event_HMZ_6697_(52469557641).jpg" },
+  { author: "Fact-writer-a", license: "CC BY-SA 4.0", source: "https://commons.wikimedia.org/wiki/File:Jack_McCullough_at_the_2022_CFO_Leadership_Conference.jpg" },
+  { author: "Cre8con", license: "CC BY-SA 2.0", source: "https://commons.wikimedia.org/wiki/File:Speaker_D%27Wayne_Edwards_with_Doug_Little_from_Wacom_and_audience_member_(22310926792).jpg" },
+  { author: "PattayaPatrol", license: "CC BY-SA 4.0", source: "https://commons.wikimedia.org/wiki/File:DFC_2023_Friends_gather_around_a_glowing_tray_of_candles_smiling_and_taking_photos_as_they_celebrate_together_in_the_evening.jpg" },
+  { author: "LBJ Library from Austin", license: "Domínio público", source: "https://commons.wikimedia.org/wiki/File:A_Hard_Day%27s_Night_-_Beatles-inspired_Halloween_Costume_Party_(2015-10-29_21.17.33_by_LBJ_Library).jpg" },
+  { author: "University of the Fraser Valley", license: "CC BY 2.0", source: "https://commons.wikimedia.org/wiki/File:Indigenous_graduate_celebration-46_(27129457060).jpg" },
 ];

@@ -27,7 +27,7 @@ const ONLY = new Set((process.env.ONLY ?? "").split(",").filter(Boolean));
 const PASSWORD = "Teste@123";
 const JULIA = "julia.martins@apresentacao.hire.dev";
 const TOMAS = "tomas.albuquerque@apresentacao.hire.dev";
-const QUERY = "Fotógrafo";
+const QUERY = "Fotógrafo para eventos";
 /** Próxima quarta-feira, 15h: dia e hora de expediente do elenco */
 const CLOCK = (() => { const d = new Date(); d.setDate(d.getDate() + ((3 - d.getDay() + 7) % 7 || 7)); d.setHours(15, 0, 0, 0); return d; })();
 
@@ -90,12 +90,25 @@ async function settle(page, ms = 900) {
   await page.waitForTimeout(ms);
 }
 
+/**
+ * Nada mais escuro que o fundo do app (3,3,3): as sombras do app e os artefatos de compressão ficavam 1–3 níveis
+ * abaixo do fundo da landing e apareciam como manchas pretas em monitores de contraste alto.
+ */
+const BLACK = 3;
+async function floorBlack(img) {
+  const { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
+  const color = info.channels === 4 ? 3 : info.channels;
+  for (let i = 0; i < data.length; i++) if (i % info.channels < color && data[i] < BLACK) data[i] = BLACK;
+  return sharp(data, { raw: info });
+}
+
 /** Salva PNG bruto e WebP otimizado; `width` = largura final em px (a tomada é 2x) */
 async function save(name, buffer, { width, quality = 80 } = {}) {
   fs.writeFileSync(path.join(RAW, `${name}.png`), buffer);
   let img = sharp(buffer);
   if (width) img = img.resize({ width, withoutEnlargement: true });
-  const info = await img.webp({ quality, effort: 6 }).toFile(path.join(OUT, `${name}.webp`));
+  img = await floorBlack(img);
+  const info = await img.webp({ quality, effort: 6, smartSubsample: true }).toFile(path.join(OUT, `${name}.webp`));
   console.log(`  ${name}.webp  ${info.width}×${info.height}  ${Math.round(info.size / 1024)} KB`);
   return info;
 }
@@ -157,7 +170,7 @@ async function searchBar(page) {
   return { input, bar: handle.asElement() };
 }
 
-// CENA 01/03 — BUSCA: o campo vazio, a digitação de "Fotógrafo" letra por letra e os resultados
+// CENA 01/03 — BUSCA: o campo vazio, a digitação da busca letra por letra e os resultados
 shot("search", async (browser, t) => {
   const { ctx, page } = await open(browser, { token: t.julia });
   await page.goto(`${APP}/home`);
@@ -184,6 +197,14 @@ shot("search", async (browser, t) => {
   });
   const top = clip.y;
   await save("search-results", await page.screenshot({ fullPage: true, clip: { x: 40, y: top, width: 1360, height: firstRowBottom - top } }), { width: 2000 });
+  // localização aberta (o menu do botão ao lado da busca), no mesmo recorte: a cena "Descubra" troca uma pela outra
+  const locate = page.getByRole("button", { name: /perto de você|^Localização/ });
+  await locate.click();
+  await page.waitForTimeout(600);
+  await save("search-location", await page.screenshot({ fullPage: true, clip: { x: 40, y: top, width: 1360, height: firstRowBottom - top } }), { width: 2000 });
+  await page.keyboard.press("Escape");
+  await page.getByRole("heading", { name: /Explorar serviços/ }).click();
+  await page.waitForTimeout(400);
   // filtros abertos (categoria, preço, ordem) para a cena "Descubra"
   await page.getByRole("button", { name: /^Filtros/ }).click();
   await page.waitForTimeout(500);
@@ -225,6 +246,22 @@ shot("profile", async (browser, t) => {
   await page.locator("section[aria-labelledby='portfolio-title'] button").first().click();
   await page.waitForTimeout(900);
   await save("portfolio-lightbox", await page.screenshot(), { width: 2000 });
+  await ctx.close();
+});
+
+// CENA 04 — o visualizador abrindo outras fotos do portfólio (a da estrada já abre a história na cena 01)
+shot("lightboxes", async (browser, t) => {
+  const { ctx, page } = await open(browser, { token: t.julia });
+  await page.goto(`${APP}/prestador/tomas-albuquerque`);
+  await settle(page, 1500);
+  for (const [index, name] of [[1, "portfolio-lightbox-embrace"], [8, "portfolio-lightbox-sparklers"]]) {
+    await page.getByRole("heading", { name: /Portfólio/ }).scrollIntoViewIfNeeded();
+    await page.locator("section[aria-labelledby='portfolio-title'] button").nth(index).click();
+    await page.waitForTimeout(900);
+    await save(name, await page.screenshot(), { width: 2000 });
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(600);
+  }
   await ctx.close();
 });
 
@@ -347,6 +384,10 @@ shot("mobile", async (browser, t) => {
   let { ctx, page } = await open(browser, { token: t.julia, width: 390, height: 844, scale: 2, mobile: true });
   await page.goto(`${APP}/prestador/tomas-albuquerque`);
   await settle(page, 1500);
+  // a barra fixa do rodapé (Ver serviços / Conversar) com o respiro de um celular de verdade (área do gesto de
+  // início): os botões ficam um pouco acima da borda da tela
+  await page.addStyleTag({ content: ".fixed.bottom-0.inset-x-0 { padding-bottom: 26px !important; }" });
+  await page.waitForTimeout(300);
   await save("m-profile", await page.screenshot(), { width: 780 });
   await page.getByRole("heading", { name: /Portfólio/ }).scrollIntoViewIfNeeded();
   await settle(page, 600);
@@ -376,9 +417,10 @@ shot("mobile", async (browser, t) => {
   await ctx.close();
 });
 
-// FOTO — a primeira do portfólio do Tomás em tamanho de tela (cenário da abertura e da cena "Confie")
+// FOTOS em tamanho de tela: a da estrada (cenário da abertura) e a saída dos noivos (a foto que a cena 04
+// abre por último e que vira o cenário da cena "Confie")
 shot("photos", async () => {
-  for (const [file, name] of [["tomas-field-walk", "photo-field-walk"]]) {
+  for (const [file, name] of [["tomas-field-walk", "photo-field-walk"], ["tomas-sparklers", "photo-sparklers"]]) {
     const res = await fetch(`${API}/uploads/story/${file}.jpg`);
     if (!res.ok) throw new Error(`${file}: ${res.status} — rode npm run story:images no backEnd`);
     const buf = Buffer.from(await res.arrayBuffer());

@@ -96,7 +96,8 @@ export default function Navbar({ theme, setTheme }: { theme: string; setTheme: (
   ];
 
   return (
-    <nav className="fixed w-full z-50 bg-[var(--bg-dark)]/70 backdrop-blur-md border-b border-[var(--border)]">
+    // a apresentação (landing/navPeek.tsx) recolhe a barra durante o play com o atributo data-nav-hidden no <html>
+    <nav className="fixed w-full z-50 bg-[var(--bg-dark)]/70 backdrop-blur-md border-b border-[var(--border)] transition-transform duration-500 ease-[cubic-bezier(0.45,0,0.2,1)] [html[data-nav-hidden]_&]:-translate-y-full">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         {/* Logo: volta para a Home */}
         <Link to={token ? "/home" : "/"} className="text-xl font-bold text-[var(--text)] hover:text-[var(--primary)] transition" aria-label="Hire. — ir para a Home">
