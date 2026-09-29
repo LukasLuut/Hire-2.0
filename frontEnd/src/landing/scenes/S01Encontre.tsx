@@ -21,8 +21,6 @@ const COVER = SPOTS.results.tomasCover;
 
 // a barra digitada ocupa, dentro da tomada de resultados, a mesma faixa da barra real (tomadas do mesmo recorte)
 const TYPE_BOX = { left: `${(70 / 1360) * 100}%`, width: `${(1220 / 1360) * 100}%` };
-// só a pílula da barra (a tomada da digitação tem um retângulo de fundo em volta, que aparecia como uma barra escura)
-const PILL = "inset(22.6% 3.9% 21.7% 2.5% round 999px)";
 // bordas da página esfumadas: a tela do app se funde ao fundo, sem um retângulo mais escuro
 const FEATHER = "linear-gradient(to right, transparent, #000 3%, #000 97%, transparent)";
 // largura da página de resultados na tela (a mesma do className abaixo)
@@ -148,7 +146,7 @@ function Film({ p }: { p: MotionValue<number> }) {
             />
           </motion.div>
           </div>
-          <motion.div className="absolute top-0" style={{ ...TYPE_BOX, opacity: typeOpacity, clipPath: PILL }}>
+          <motion.div className="absolute top-0" style={{ ...TYPE_BOX, opacity: typeOpacity, clipPath: "inset(0% 0% 12% 0%)" }}>
             {TYPE_FRAMES.map((f, i) => (
               <img
                 key={f.name}
