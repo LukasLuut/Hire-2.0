@@ -84,7 +84,8 @@ export default function App() {
   }, [theme]);
 
   return (
-    <Router>
+    // basename: o site pode ser publicado num subcaminho (ex.: /Hire-2.0/ no GitHub Pages; ver vite.config.ts)
+    <Router basename={import.meta.env.BASE_URL.replace(/\/$/, "") || "/"}>
       {/* conversas minimizadas acompanham todas as páginas */}
       <ChatDockProvider>
       <Accessibility/>

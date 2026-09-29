@@ -7,7 +7,7 @@ export type Shot = { name: ShotName; src: string; width: number; height: number 
 
 export function shot(name: ShotName): Shot {
   const [width, height] = MEDIA_SIZE[name];
-  return { name, src: `/landing/story/${name}.webp`, width, height };
+  return { name, src: `${import.meta.env.BASE_URL}landing/story/${name}.webp`, width, height };
 }
 
 /** Foto de fundo com versão de 960 px para o celular */
