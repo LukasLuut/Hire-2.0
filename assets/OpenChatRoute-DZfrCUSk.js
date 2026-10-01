@@ -1,0 +1,1 @@
+import{aq as s,c as i,r,i as o}from"./index-CWXy2pEJ.js";function n(){const{id:a}=s(),e=i();return r.useEffect(()=>{const t=Number(a);(window.history.state?.idx??0)>0?e(-1):e("/home",{replace:!0}),Number.isFinite(t)&&t>0&&setTimeout(()=>o(t),0)},[a,e]),null}export{n as default};
